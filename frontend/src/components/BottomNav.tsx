@@ -10,8 +10,8 @@ import {
   Bell,
   User,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
-import ThemeToggle from "./ThemeToggle";
 
 interface BottomNavProps {
   isAdmin?: boolean;
@@ -90,9 +90,16 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
         <User className="h-6 w-6" />
       </Link>
 
-      <div className="flex items-center justify-center w-12 h-12">
-        <ThemeToggle className="w-12 h-12 p-0" />
-      </div>
+      <Link
+        href="/settings"
+        className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-colors ${
+          pathname === "/settings"
+            ? "text-[var(--app-foreground)]"
+            : "text-neutral-500 dark:text-neutral-400"
+        }`}
+      >
+        <Settings className="h-6 w-6" />
+      </Link>
     </nav>
   );
 }

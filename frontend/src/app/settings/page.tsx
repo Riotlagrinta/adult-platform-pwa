@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Settings, User, Eye, Bell, HelpCircle, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 space-y-6">
-      <div className="border-b border-[var(--app-border)] pb-4">
+      <div className="border-b border-[var(--app-border)] pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Settings className="h-6 w-6 text-[var(--app-foreground)]" />
           <div>
@@ -49,6 +50,7 @@ export default function SettingsPage() {
             <p className="text-xs text-neutral-500">Gérez votre compte et vos préférences.</p>
           </div>
         </div>
+        <ThemeToggle className="w-10 h-10 p-0" />
       </div>
 
       <div className="space-y-6 max-w-xl">
