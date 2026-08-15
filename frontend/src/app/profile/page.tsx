@@ -9,6 +9,7 @@ import {
   Heart,
   Eye,
   Settings,
+  Share2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
@@ -105,6 +106,13 @@ export default function ProfilePage() {
     await loadProfile();
   };
 
+  const copyInviteLink = () => {
+    if (!me) return;
+    const url = `${window.location.origin}/profile/${me.id}`;
+    navigator.clipboard.writeText(url);
+    alert("Votre lien d'invitation de contact direct a été copié !");
+  };
+
   if (!ready) return <div className="p-6 text-sm text-neutral-500">Chargement...</div>;
 
   if (!token) {
@@ -131,13 +139,22 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <button
-            onClick={saveProfile}
-            className="px-4 py-2 border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition"
-          >
-            <Edit3 className="w-3.5 h-3.5 inline-block mr-2" />
-            Enregistrer
-          </button>
+            <div className="flex gap-2">
+              <button
+                onClick={copyInviteLink}
+                className="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-full font-bold text-xs hover:opacity-85 transition shadow-sm flex items-center"
+              >
+                <Share2 className="w-3.5 h-3.5 mr-2" />
+                Inviter
+              </button>
+              <button
+                onClick={saveProfile}
+                className="px-4 py-2 border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition flex items-center"
+              >
+                <Edit3 className="w-3.5 h-3.5 mr-2" />
+                Enregistrer
+              </button>
+            </div>
         </div>
 
         <div className="space-y-1">
