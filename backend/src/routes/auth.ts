@@ -17,6 +17,29 @@ const registerSchema = z.object({
 authRouter.post('/register', async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
+
+    // Validation de l'e-mail unique
+    const existingEmail = await prisma.user.findUnique({
+      where: { email: data.email.toLowerCase() },
+    });
+    if (existingEmail) {
+      return res.status(400).json({ error: 'Cette adresse e-mail est déjà associée à un compte.' });
+    }
+
+    // Validation du pseudonyme unique (insensible à la casse)
+    const normalizedDisplayName = data.displayName.trim();
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        displayName: {
+          equals: normalizedDisplayName,
+          mode: 'insensitive',
+        },
+      },
+    });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Ce pseudonyme est déjà utilisé par un autre membre.' });
+    }
+
     const passwordHash = await bcrypt.hash(data.password, 12);
 
     const user = await prisma.user.create({

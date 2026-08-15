@@ -43,6 +43,26 @@ const updateSchema = z.object({
 profileRouter.patch('/me', requireAuth, async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
+
+    if (data.displayName) {
+      const normalizedDisplayName = data.displayName.trim();
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          displayName: {
+            equals: normalizedDisplayName,
+            mode: 'insensitive',
+          },
+          id: {
+            not: req.user!.id,
+          },
+        },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Ce pseudonyme est déjà utilisé par un autre membre.' });
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: req.user!.id },
       data: {
