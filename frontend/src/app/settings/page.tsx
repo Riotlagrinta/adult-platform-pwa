@@ -1,57 +1,30 @@
 "use client";
 
 import React, { useState } from "react";
-import { Settings, User, Shield, Eye, Bell, HelpCircle, Upload, CheckCircle2 } from "lucide-react";
+import { Settings, User, Eye, Bell, HelpCircle, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
-import { apiRequest } from "@/lib/api";
 
 export default function SettingsPage() {
-  const { token, ready, user, refreshUser } = useAuth();
-  const [documentType, setDocumentType] = useState("CNI");
-  const [documentLast4, setDocumentLast4] = useState("");
-  const [notes, setNotes] = useState("");
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const verificationStatus = user?.verificationStatus ?? "DRAFT";
+  const router = useRouter();
+  const { token, ready, logout } = useAuth();
 
-  const handleVerifyRequest = async () => {
-    if (!token) return;
-    if (!documentType.trim()) {
-      setStatus("Veuillez indiquer le type de document.");
-      return;
+  const handleItemClick = (label: string) => {
+    if (label === "Modifier les informations de profil") {
+      router.push("/profile");
+    } else if (label === "Visibilité & Confidentialité") {
+      alert("🔒 Confidentialité : Vos conversations et publications sont entièrement privées et cryptées. Les membres bloqués ne peuvent ni voir votre profil, ni vous contacter.");
+    } else if (label === "Notifications push et courriels") {
+      alert("🔔 Notifications : Les notifications de l'application (PWA) sont gérées automatiquement par les autorisations de votre navigateur.");
+    } else if (label === "Centre d'aide et assistance") {
+      alert("💬 Assistance : Pour toute demande de support, contactez l'administrateur de la plateforme à l'adresse support@onlyadults.com.");
     }
+  };
 
-    setStatus(null);
-
-    try {
-      let proofUrl: string | undefined;
-      if (documentFile) {
-        const formData = new FormData();
-        formData.append("file", documentFile);
-        const upload = await apiRequest<{ file: { url: string } }>("/files/verification", {
-          method: "POST",
-          token,
-          body: formData,
-        });
-        proofUrl = upload.file.url;
-      }
-
-      await apiRequest("/verification/request", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          documentType,
-          documentLast4,
-          notes: proofUrl ? `${notes}\nPièce: ${proofUrl}` : notes,
-        }),
-      });
-
-      await refreshUser();
-      setStatus("Demande envoyée aux administrateurs.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Erreur lors de la soumission");
-    }
+  const handleLogout = () => {
+    logout();
+    router.push("/");
   };
 
   if (!ready) {
@@ -73,14 +46,12 @@ export default function SettingsPage() {
           <Settings className="h-6 w-6 text-[var(--app-foreground)]" />
           <div>
             <h2 className="font-black text-xl tracking-tight uppercase">Paramètres</h2>
-            <p className="text-xs text-neutral-500">Gérez votre compte et votre vérification.</p>
+            <p className="text-xs text-neutral-500">Gérez votre compte et vos préférences.</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-6 max-w-xl">
-
-
         <section className="divide-y divide-[var(--app-border)] text-xs">
           {[
             { label: "Modifier les informations de profil", icon: User },
@@ -88,7 +59,11 @@ export default function SettingsPage() {
             { label: "Notifications push et courriels", icon: Bell },
             { label: "Centre d'aide et assistance", icon: HelpCircle },
           ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer rounded-xl transition">
+            <div
+              key={i}
+              onClick={() => handleItemClick(item.label)}
+              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer rounded-xl transition"
+            >
               <div className="flex items-center gap-3">
                 <item.icon className="w-4 h-4 text-neutral-400" />
                 <span className="font-bold">{item.label}</span>
@@ -97,6 +72,14 @@ export default function SettingsPage() {
             </div>
           ))}
         </section>
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400 py-3.5 rounded-2xl font-bold text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition shadow-sm"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Se déconnecter de OnlyAdults</span>
+        </button>
       </div>
     </div>
   );
