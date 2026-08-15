@@ -2,18 +2,21 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireAdmin, requireStaff } from '../middleware/auth.js';
+import { getOnlineCount } from '../lib/socket.js';
 
 export const adminRouter = Router();
 
 adminRouter.get('/summary', requireAuth, requireAdmin, async (_req, res, next) => {
   try {
-    const [users, approved, pending, posts, reports, conversations] = await Promise.all([
+    const [users, approved, pending, posts, reports, conversations, messages, mediaMessages] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { verificationStatus: 'APPROVED' } }),
       prisma.user.count({ where: { verificationStatus: 'PENDING_REVIEW' } }),
       prisma.post.count(),
       prisma.report.count(),
       prisma.conversation.count(),
+      prisma.message.count(),
+      prisma.media.count({ where: { messageId: { not: null } } }),
     ]);
 
     res.json({
@@ -24,6 +27,9 @@ adminRouter.get('/summary', requireAuth, requireAdmin, async (_req, res, next) =
         posts,
         reports,
         conversations,
+        messages,
+        mediaMessages,
+        onlineUsers: getOnlineCount(),
       },
     });
   } catch (error) {

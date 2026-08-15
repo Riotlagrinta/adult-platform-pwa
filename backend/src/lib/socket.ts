@@ -42,6 +42,11 @@ export function getIO(): Server | null {
   return io;
 }
 
+/** Get the number of unique online users */
+export function getOnlineCount(): number {
+  return onlineUsers.size;
+}
+
 // ── Initialisation ─────────────────────────────────────────────────────────
 
 export function initSocket(httpServer: HttpServer) {
