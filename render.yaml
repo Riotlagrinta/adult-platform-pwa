@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: onlyadults-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true # Render génère automatiquement une clé secrète aléatoire forte
+      - key: CORS_ORIGIN
+        value: https://onlyadults-frontend.vercel.app
+      - key: DATABASE_URL
+        sync: false # Vous saisirez l'URL Neon de production lors de l'activation
