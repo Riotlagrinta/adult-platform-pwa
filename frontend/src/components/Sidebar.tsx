@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   LogOut,
   Settings,
+  Film,
 } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -27,6 +28,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
 
   const menuItems = [
     { name: "Accueil", href: "/", icon: Home },
+    { name: "Reels", href: "/reels", icon: Film },
     { name: "Messages", href: "/messages", icon: MessageSquare },
     { name: "Notifications", href: "/notifications", icon: Bell },
     { name: "Créer un Post", href: "/create", icon: PlusSquare },

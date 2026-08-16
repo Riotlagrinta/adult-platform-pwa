@@ -82,6 +82,46 @@ postRouter.get('/', requireAuth, requireApproved, async (req, res, next) => {
   }
 });
 
+postRouter.get('/reels', requireAuth, requireApproved, async (req, res, next) => {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        media: {
+          some: {
+            kind: 'VIDEO',
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: { select: { id: true, displayName: true, avatarUrl: true, verificationStatus: true } },
+        likes: true,
+        comments: { include: { author: { select: { id: true, displayName: true, avatarUrl: true } } } },
+        media: true,
+      },
+    });
+
+    const signedPosts = await Promise.all(
+      posts.map(async (post) => {
+        const signedMedia = await Promise.all(
+          post.media.map(async (med) => ({
+            ...med,
+            url: (await signUrlIfNeeded(med.url)) || med.url,
+          }))
+        );
+        return {
+          ...post,
+          media: signedMedia,
+        };
+      })
+    );
+
+    res.json({ posts: signedPosts });
+  } catch (error) {
+    next(error);
+  }
+});
+
 postRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
   try {
     const schema = z.object({

@@ -11,6 +11,7 @@ import {
   User,
   ShieldCheck,
   Settings,
+  Film,
 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 
@@ -55,6 +56,17 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
         }`}
       >
         <PlusSquare className="h-6 w-6" />
+      </Link>
+
+      <Link
+        href="/reels"
+        className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-colors ${
+          pathname === "/reels"
+            ? "text-[var(--app-foreground)]"
+            : "text-neutral-500 dark:text-neutral-400"
+        }`}
+      >
+        <Film className="h-6 w-6" />
       </Link>
 
       {isAdmin && (
