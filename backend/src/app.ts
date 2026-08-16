@@ -15,7 +15,9 @@ import { reportRouter } from './routes/reports.js';
 import { adminRouter } from './routes/admin.js';
 import { filesRouter } from './routes/files.js';
 import { blocksRouter } from './routes/blocks.js';
+import { storiesRouter } from './routes/stories.js';
 import { errorHandler } from './middleware/error-handler.js';
+
 
 export async function createServer() {
   const app = express();
@@ -49,6 +51,7 @@ export async function createServer() {
   app.use('/files', filesRouter);
   app.use('/messages', messageRouter);
   app.use('/blocks', blocksRouter);
+  app.use('/stories', storiesRouter);
 
   app.use(errorHandler);
 

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import AuthPanel from "@/components/AuthPanel";
+import StoryTray from "@/components/StoryTray";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 
@@ -258,22 +259,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex gap-4 p-4 overflow-x-auto border-b border-[var(--app-border)] scrollbar-none select-none">
-            {recentProfiles.map((profile, i) => (
-              <div key={`${profile.id}-${i}`} className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                <div
-                  className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-sm ${
-                    i === 0
-                      ? "border-2 border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900 text-neutral-500"
-                      : "border-2 border-black dark:border-white bg-black text-white dark:bg-white dark:text-black"
-                  }`}
-                >
-                  {profile.displayName.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="text-xs font-medium max-w-[70px] truncate text-center">{profile.displayName}</span>
-              </div>
-            ))}
-          </div>
+          <StoryTray />
 
           <div className="p-4 flex items-center justify-between border-b border-[var(--app-border)]">
             <div>

@@ -73,6 +73,7 @@ model User {
   notifications        Notification[]
   blocksMade           Block[]              @relation("Blocker")
   blocksReceived       Block[]              @relation("Blocked")
+  stories              Story[]
 }
 
 model Profile {
@@ -244,4 +245,17 @@ model Block {
 
   @@id([blockerId, blockedId])
 }
+
+model Story {
+  id        String   @id @default(cuid())
+  authorId  String
+  mediaUrl  String
+  mimeType  String
+  caption   String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
 
