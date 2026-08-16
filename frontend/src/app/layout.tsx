@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import AppShell from "@/components/AppShell";
 import PWARegister from "@/components/PWARegister";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +58,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <PWARegister />
+          <PWAInstallPrompt />
           <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
