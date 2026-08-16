@@ -115,10 +115,6 @@ export async function signUrlIfNeeded(url: string | null | undefined): Promise<s
   const key = extractStorageKey(url);
   if (!key) return url;
 
-  // Avatars are public, no signing required
-  if (key.startsWith('avatars/')) {
-    return url;
-  }
 
   try {
     // Generate secure presigned URL valid for 5 minutes (300 seconds)

@@ -80,30 +80,39 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     if (!token) return;
-
-    await apiRequest("/profile/me", {
-      method: "PATCH",
-      token,
-      body: JSON.stringify({
-        displayName,
-        bio,
-        city,
-        headline,
-      }),
-    });
-
-    if (avatarFile) {
-      const formData = new FormData();
-      formData.append("file", avatarFile);
-      await apiRequest("/files/avatar", {
-        method: "POST",
+    setLoading(true);
+    try {
+      await apiRequest("/profile/me", {
+        method: "PATCH",
         token,
-        body: formData,
+        body: JSON.stringify({
+          displayName,
+          bio,
+          city,
+          headline,
+        }),
       });
-    }
 
-    await refreshUser();
-    await loadProfile();
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+        await apiRequest("/files/avatar", {
+          method: "POST",
+          token,
+          body: formData,
+        });
+      }
+
+      await refreshUser();
+      await loadProfile();
+      setAvatarFile(null);
+      alert("Votre profil a été mis à jour avec succès !");
+    } catch (err) {
+      console.error("Erreur d'enregistrement du profil:", err);
+      alert(err instanceof Error ? err.message : "Une erreur est survenue lors de la mise à jour.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const copyInviteLink = () => {

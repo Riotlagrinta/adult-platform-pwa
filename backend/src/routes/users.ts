@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireApproved } from '../middleware/approved.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
+
 
 export const usersRouter = Router();
 
@@ -34,7 +36,14 @@ usersRouter.get('/search', requireAuth, requireApproved, async (req, res, next) 
       take: 20,
     });
 
-    res.json({ users });
+    const signedUsers = await Promise.all(
+      users.map(async (u) => ({
+        ...u,
+        avatarUrl: await signUrlIfNeeded(u.avatarUrl),
+      }))
+    );
+
+    res.json({ users: signedUsers });
   } catch (error) {
     next(error);
   }
@@ -58,7 +67,12 @@ usersRouter.get('/:userId', requireAuth, requireApproved, async (req, res, next)
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user });
+    const signedUser = {
+      ...user,
+      avatarUrl: await signUrlIfNeeded(user.avatarUrl),
+    };
+
+    res.json({ user: signedUser });
   } catch (error) {
     next(error);
   }

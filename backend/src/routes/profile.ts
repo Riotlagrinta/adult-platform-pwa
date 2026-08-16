@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
+
 
 export const profileRouter = Router();
 
@@ -26,6 +28,11 @@ profileRouter.get('/me', requireAuth, async (req, res, next) => {
         },
       },
     });
+
+    if (profile && profile.user) {
+      profile.user.avatarUrl = await signUrlIfNeeded(profile.user.avatarUrl);
+    }
+
     res.json({ profile });
   } catch (error) {
     next(error);
@@ -84,6 +91,10 @@ profileRouter.patch('/me', requireAuth, async (req, res, next) => {
       },
       select: { id: true, displayName: true, bio: true, avatarUrl: true, profile: true },
     });
+
+    if (user) {
+      user.avatarUrl = await signUrlIfNeeded(user.avatarUrl);
+    }
 
     res.json({ user });
   } catch (error) {

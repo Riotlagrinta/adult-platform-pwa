@@ -10,6 +10,9 @@ export default function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const forcePwa = urlParams.get("force-pwa") === "true";
+
     // 1. Vérifier si l'app s'exécute déjà en mode autonome (PWA installée)
     const isStandaloneMode =
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -22,12 +25,16 @@ export default function PWAInstallPrompt() {
     const iosDetected = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(iosDetected);
 
-    // 3. Ne rien afficher si déjà installé ou si l'utilisateur a fermé la bannière récemment (mémorisation de 3 jours)
-    const dismissedTime = localStorage.getItem("pwa_prompt_dismissed");
-    const isRecentlyDismissed =
-      dismissedTime && Date.now() - Number(dismissedTime) < 3 * 24 * 60 * 60 * 1000;
+    // Si on force l'affichage en développement, on ignore le standalone et les rejets
+    if (forcePwa) {
+      setShowPrompt(true);
+      return;
+    }
 
-    if (isStandaloneMode || isRecentlyDismissed) {
+    // 3. Ne rien afficher si déjà installé ou si l'utilisateur a fermé la bannière pour la session en cours
+    const isDismissed = sessionStorage.getItem("pwa_prompt_dismissed") === "true";
+
+    if (isStandaloneMode || isDismissed) {
       return;
     }
 
@@ -63,11 +70,14 @@ export default function PWAInstallPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem("pwa_prompt_dismissed", String(Date.now()));
+    sessionStorage.setItem("pwa_prompt_dismissed", "true");
     setShowPrompt(false);
   };
 
-  if (!showPrompt || isStandalone) {
+  // En mode forcé, on ignore isStandalone pour pouvoir afficher la bannière sur PC
+  const shouldHide = !showPrompt || (isStandalone && typeof window !== "undefined" && !(new URLSearchParams(window.location.search).get("force-pwa") === "true"));
+
+  if (shouldHide) {
     return null;
   }
 

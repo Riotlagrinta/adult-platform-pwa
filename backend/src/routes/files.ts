@@ -12,6 +12,7 @@ import {
   deleteFromS3,
   extractStorageKey,
   getPresignedUrl,
+  signUrlIfNeeded,
 } from '../lib/storage-online.js';
 
 export const filesRouter = Router();
@@ -50,14 +51,20 @@ filesRouter.post('/avatar', requireAuth, avatarUpload.single('file'), async (req
       select: { id: true, avatarUrl: true },
     });
 
+    const signedUrl = await signUrlIfNeeded(url);
+    const signedUser = {
+      ...user,
+      avatarUrl: await signUrlIfNeeded(user.avatarUrl),
+    };
+
     res.status(201).json({
       file: {
-        url,
+        url: signedUrl || url,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
       },
-      user,
+      user: signedUser,
     });
   } catch (error) {
     next(error);

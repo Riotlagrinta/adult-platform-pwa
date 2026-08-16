@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { signToken } from '../lib/jwt.js';
 import { requireAuth } from '../middleware/auth.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
+
 
 export const authRouter = Router();
 
@@ -116,6 +118,11 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
         profile: true,
       },
     });
+
+    if (user) {
+      user.avatarUrl = await signUrlIfNeeded(user.avatarUrl);
+    }
+
     res.json({ user });
   } catch (error) {
     next(error);
