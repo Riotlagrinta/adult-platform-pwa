@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireApproved } from '../middleware/approved.js';
 import { createNotification } from '../lib/notifications.js';
 import type { MediaInput } from '../lib/media.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
 
 export const postRouter = Router();
 
@@ -59,7 +60,23 @@ postRouter.get('/', requireAuth, requireApproved, async (req, res, next) => {
       return currentUser?.verificationStatus === 'APPROVED';
     });
 
-    res.json({ posts: filteredPosts });
+    // Pré-signer à la volée les URLs de médias stockées dans Scaleway
+    const signedPosts = await Promise.all(
+      filteredPosts.map(async (post) => {
+        const signedMedia = await Promise.all(
+          post.media.map(async (med) => ({
+            ...med,
+            url: (await signUrlIfNeeded(med.url)) || med.url,
+          }))
+        );
+        return {
+          ...post,
+          media: signedMedia,
+        };
+      })
+    );
+
+    res.json({ posts: signedPosts });
   } catch (error) {
     next(error);
   }
@@ -94,7 +111,18 @@ postRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
       include: { media: true },
     });
 
-    res.status(201).json({ post });
+    // Pré-signer les URLs du post créé
+    const postWithSignedMedia = {
+      ...post,
+      media: await Promise.all(
+        post.media.map(async (med) => ({
+          ...med,
+          url: (await signUrlIfNeeded(med.url)) || med.url,
+        }))
+      ),
+    };
+
+    res.status(201).json({ post: postWithSignedMedia });
   } catch (error) {
     next(error);
   }

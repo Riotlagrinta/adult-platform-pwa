@@ -6,6 +6,13 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireApproved } from '../middleware/approved.js';
 import { createUploader } from '../middleware/upload.js';
 import { publicUploadUrl } from '../lib/storage.js';
+import {
+  isS3Enabled,
+  uploadToS3,
+  deleteFromS3,
+  extractStorageKey,
+  getPresignedUrl,
+} from '../lib/storage-online.js';
 
 export const filesRouter = Router();
 
@@ -20,7 +27,23 @@ filesRouter.post('/avatar', requireAuth, avatarUpload.single('file'), async (req
       return res.status(400).json({ error: 'File is required' });
     }
 
-    const url = publicUploadUrl(`avatars/${path.basename(file.path)}`);
+    let url = publicUploadUrl(`avatars/${path.basename(file.path)}`);
+
+    if (isS3Enabled()) {
+      try {
+        const key = `avatars/${path.basename(file.path)}`;
+        url = await uploadToS3(file.path, key, file.mimetype);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (s3Error) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        throw s3Error;
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: req.user!.id },
       data: { avatarUrl: url },
@@ -48,7 +71,23 @@ filesRouter.post('/media', requireAuth, requireApproved, mediaUpload.single('fil
       return res.status(400).json({ error: 'File is required' });
     }
 
-    const url = publicUploadUrl(`media/${path.basename(file.path)}`);
+    let url = publicUploadUrl(`media/${path.basename(file.path)}`);
+
+    if (isS3Enabled()) {
+      try {
+        const key = `media/${path.basename(file.path)}`;
+        url = await uploadToS3(file.path, key, file.mimetype);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (s3Error) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        throw s3Error;
+      }
+    }
+
     res.status(201).json({
       file: {
         url,
@@ -69,7 +108,23 @@ filesRouter.post('/verification', requireAuth, verificationUpload.single('file')
       return res.status(400).json({ error: 'File is required' });
     }
 
-    const url = publicUploadUrl(`verification/${path.basename(file.path)}`);
+    let url = publicUploadUrl(`verification/${path.basename(file.path)}`);
+
+    if (isS3Enabled()) {
+      try {
+        const key = `verification/${path.basename(file.path)}`;
+        url = await uploadToS3(file.path, key, file.mimetype);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (s3Error) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        throw s3Error;
+      }
+    }
+
     res.status(201).json({
       file: {
         url,
@@ -86,15 +141,9 @@ filesRouter.post('/verification', requireAuth, verificationUpload.single('file')
 filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
   try {
     const filePath = typeof req.query.path === 'string' ? req.query.path : '';
-    if (!filePath.startsWith('/uploads/')) {
-      return res.status(400).json({ error: 'Invalid file path' });
-    }
+    const key = extractStorageKey(filePath);
 
-    const relativePath = filePath.replace('/uploads/', '');
-    const absolutePath = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', relativePath);
-    const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads');
-
-    if (!absolutePath.startsWith(uploadRoot)) {
+    if (!key) {
       return res.status(400).json({ error: 'Invalid file path' });
     }
 
@@ -103,7 +152,7 @@ filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
     const userId = req.user!.id;
     const isUserAdmin = userRole === 'ADMIN';
 
-    if (filePath.startsWith('/uploads/avatars/')) {
+    if (key.startsWith('avatars/')) {
       // Pour les avatars : l'utilisateur doit être le propriétaire ou un ADMIN
       const dbUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -120,7 +169,7 @@ filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
         where: { avatarUrl: filePath },
         data: { avatarUrl: null },
       });
-    } else if (filePath.startsWith('/uploads/media/')) {
+    } else if (key.startsWith('media/')) {
       // Pour les médias : l'utilisateur doit être l'auteur du post ou l'expéditeur du message
       const mediaItem = await prisma.media.findFirst({
         where: { url: filePath },
@@ -148,7 +197,7 @@ filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
           return res.status(403).json({ error: 'Forbidden' });
         }
       }
-    } else if (filePath.startsWith('/uploads/verification/')) {
+    } else if (key.startsWith('verification/')) {
       // Pour les justificatifs de vérification : l'utilisateur doit être le propriétaire ou un ADMIN
       const verificationRequest = await prisma.verificationRequest.findFirst({
         where: {
@@ -187,8 +236,15 @@ filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
       }
     }
 
+    // Suppression physique locale
+    const absolutePath = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', key);
     if (fs.existsSync(absolutePath)) {
       fs.unlinkSync(absolutePath);
+    }
+
+    // Suppression physique en ligne S3/Scaleway
+    if (isS3Enabled()) {
+      await deleteFromS3(key);
     }
 
     res.json({ ok: true });
@@ -196,4 +252,5 @@ filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
     next(error);
   }
 });
+
 

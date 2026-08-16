@@ -23,7 +23,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, unreadNotificationsCount } = useAuth();
 
   const menuItems = [
     { name: "Accueil", href: "/", icon: Home },
@@ -55,18 +55,26 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
+          const isNotifications = item.href === "/notifications";
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-4 px-4 py-3 rounded-full text-base font-medium transition-colors duration-200 ${
+              className={`flex items-center justify-between px-4 py-3 rounded-full text-base font-medium transition-colors duration-200 ${
                 isActive
                   ? "bg-[var(--app-foreground)] text-[var(--app-background)] font-semibold"
                   : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <div className="flex items-center gap-4">
+                <Icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+              {isNotifications && unreadNotificationsCount > 0 && (
+                <span className="bg-red-500 text-white font-black text-[10px] min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center shadow-sm animate-pulse">
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </Link>
           );
         })}

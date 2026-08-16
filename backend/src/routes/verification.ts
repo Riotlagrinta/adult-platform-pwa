@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireStaff } from '../middleware/auth.js';
 import { createNotification } from '../lib/notifications.js';
+import { signTextUrls } from '../lib/storage-online.js';
 
 export const verificationRouter = Router();
 
@@ -37,7 +38,12 @@ verificationRouter.post('/request', requireAuth, async (req, res, next) => {
       data: { verificationStatus: 'PENDING_REVIEW' },
     });
 
-    res.status(201).json({ request });
+    res.status(201).json({
+      request: {
+        ...request,
+        notes: await signTextUrls(request.notes),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -63,7 +69,16 @@ verificationRouter.get('/queue', requireAuth, requireStaff, async (_req, res, ne
         },
       },
     });
-    res.json({ queue });
+
+    // Pré-signer les URLs dans les notes (pièces justificatives) pour le staff
+    const signedQueue = await Promise.all(
+      queue.map(async (item) => ({
+        ...item,
+        notes: await signTextUrls(item.notes),
+      }))
+    );
+
+    res.json({ queue: signedQueue });
   } catch (error) {
     next(error);
   }
@@ -116,7 +131,12 @@ verificationRouter.post('/:id/review', requireAuth, requireStaff, async (req, re
       },
     });
 
-    res.json({ request });
+    res.json({
+      request: {
+        ...request,
+        notes: await signTextUrls(request.notes),
+      },
+    });
   } catch (error) {
     next(error);
   }

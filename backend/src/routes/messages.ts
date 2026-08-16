@@ -7,6 +7,7 @@ import { normalizePair } from '../utils/conversation.js';
 import { createNotification } from '../lib/notifications.js';
 import { emitToUser } from '../lib/socket.js';
 import type { MediaInput } from '../lib/media.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
 
 export const messageRouter = Router();
 
@@ -27,13 +28,36 @@ messageRouter.get('/conversations', requireAuth, requireApproved, async (req, re
       },
       include: {
         messages: {
+          include: { media: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
       },
       orderBy: { updatedAt: 'desc' },
     });
-    res.json({ conversations });
+
+    // Pré-signer à la volée les URLs de médias stockées dans Scaleway pour chaque message
+    const signedConversations = await Promise.all(
+      conversations.map(async (conv) => {
+        const signedMessages = await Promise.all(
+          conv.messages.map(async (msg) => {
+            if (msg.media && msg.media.length) {
+              const signedMedia = await Promise.all(
+                msg.media.map(async (med) => ({
+                  ...med,
+                  url: (await signUrlIfNeeded(med.url)) || med.url,
+                }))
+              );
+              return { ...msg, media: signedMedia };
+            }
+            return msg;
+          })
+        );
+        return { ...conv, messages: signedMessages };
+      })
+    );
+
+    res.json({ conversations: signedConversations });
   } catch (error) {
     next(error);
   }
@@ -131,11 +155,18 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
       include: { media: true },
     });
 
-    // The recipient is already determined above as recipientId
+    // Pré-signer les médias avant diffusion et réponse
+    const signedMedia = await Promise.all(
+      message.media.map(async (med) => ({
+        ...med,
+        url: (await signUrlIfNeeded(med.url)) || med.url,
+      }))
+    );
+    const signedMessage = { ...message, media: signedMedia };
 
     // Push message in real-time to both participants
-    emitToUser(req.user!.id, 'message:new', { message, conversationId: conversation.id });
-    emitToUser(recipientId, 'message:new', { message, conversationId: conversation.id });
+    emitToUser(req.user!.id, 'message:new', { message: signedMessage, conversationId: conversation.id });
+    emitToUser(recipientId, 'message:new', { message: signedMessage, conversationId: conversation.id });
 
     await createNotification({
       userId: recipientId,
@@ -148,7 +179,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
       },
     });
 
-    res.status(201).json({ message });
+    res.status(201).json({ message: signedMessage });
   } catch (error) {
     next(error);
   }
@@ -200,7 +231,13 @@ messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (
       data: updates,
     });
 
-    res.json({ success: true, media: updatedMedia });
+    // Pré-signer l'URL de ce média ouvert
+    const signedMedia = {
+      ...updatedMedia,
+      url: (await signUrlIfNeeded(updatedMedia.url)) || updatedMedia.url,
+    };
+
+    res.json({ success: true, media: signedMedia });
   } catch (error) {
     next(error);
   }

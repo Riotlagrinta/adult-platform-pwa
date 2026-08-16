@@ -18,6 +18,8 @@ type AuthContextValue = {
   token: string | null;
   socket: Socket | null;
   ready: boolean;
+  unreadNotificationsCount: number;
+  setUnreadNotificationsCount: React.Dispatch<React.SetStateAction<number>>;
   login: (email: string, password: string) => Promise<void>;
   register: (input: {
     email: string;
@@ -31,11 +33,61 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function showNotificationToast(title: string, body: string) {
+  if (typeof window === 'undefined') return;
+
+  const container = document.getElementById('toast-container') || (() => {
+    const el = document.createElement('div');
+    el.id = 'toast-container';
+    el.className = 'fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  const toast = document.createElement('div');
+  toast.className = 'bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-foreground)] px-4 py-3 rounded-2xl shadow-xl flex flex-col gap-0.5 pointer-events-auto transform translate-y-2 opacity-0 transition-all duration-300 max-w-sm cursor-pointer select-none';
+  toast.innerHTML = `
+    <div class="font-black text-xs uppercase tracking-tight flex items-center gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+      ${title}
+    </div>
+    <div class="text-[11px] text-neutral-500">${body}</div>
+  `;
+
+  toast.onclick = () => {
+    window.location.href = '/notifications';
+  };
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-2', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('translate-y-2', 'opacity-0');
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 4000);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [ready, setReady] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  const fetchUnreadCount = async (authToken: string) => {
+    try {
+      const payload = await apiRequest<{ notifications: { readAt?: string | null }[] }>("/notifications", { token: authToken });
+      const unread = payload.notifications.filter((n) => !n.readAt).length;
+      setUnreadNotificationsCount(unread);
+    } catch (err) {
+      console.error("Failed to load initial notifications count", err);
+    }
+  };
 
   useEffect(() => {
     const storedToken = getStoredToken();
@@ -50,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(payload.user);
         const sock = getSocket(storedToken);
         setSocket(sock);
+        fetchUnreadCount(storedToken);
       })
       .catch(() => {
         clearStoredToken();
@@ -61,12 +114,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
+  // Écoute de l'événement notification:new en temps réel
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNotification = (notif: { title: string; body: string }) => {
+      setUnreadNotificationsCount((prev) => prev + 1);
+      showNotificationToast(notif.title, notif.body);
+    };
+
+    socket.on("notification:new", handleNotification);
+
+    return () => {
+      socket.off("notification:new", handleNotification);
+    };
+  }, [socket]);
+
   const syncSession = (payload: { user: SessionUser; token: string }) => {
     setStoredToken(payload.token);
     setToken(payload.token);
     setUser(payload.user);
     const sock = getSocket(payload.token);
     setSocket(sock);
+    fetchUnreadCount(payload.token);
   };
 
   const login = async (email: string, password: string) => {
@@ -90,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     disconnectSocket();
     setSocket(null);
+    setUnreadNotificationsCount(0);
   };
 
   const refreshUser = async () => {
@@ -102,7 +173,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, socket, ready, login, register, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        socket,
+        ready,
+        unreadNotificationsCount,
+        setUnreadNotificationsCount,
+        login,
+        register,
+        logout,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -115,3 +199,4 @@ export function useAuth() {
   }
   return context;
 }
+

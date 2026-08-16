@@ -17,7 +17,7 @@ type NotificationItem = {
 };
 
 export default function NotificationsPage() {
-  const { token, ready } = useAuth();
+  const { token, ready, setUnreadNotificationsCount } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +27,8 @@ export default function NotificationsPage() {
     try {
       const payload = await apiRequest<{ notifications: NotificationItem[] }>("/notifications", { token });
       setNotifications(payload.notifications);
+      const unreadCount = payload.notifications.filter((n) => !n.readAt).length;
+      setUnreadNotificationsCount(unreadCount);
     } finally {
       setLoading(false);
     }
