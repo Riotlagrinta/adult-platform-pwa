@@ -109,12 +109,28 @@ export default function MessagesPage() {
       }
     };
 
+    const handleMessageDeleted = (data: { messageId: string; conversationId: string }) => {
+      setConversations((prevConvs) => {
+        return prevConvs.map((conv) => {
+          if (conv.id === data.conversationId) {
+            return {
+              ...conv,
+              messages: conv.messages.filter((msg) => msg.id !== data.messageId),
+            };
+          }
+          return conv;
+        });
+      });
+    };
+
     socket.on("message:new", handleNewMessage);
     socket.on("typing:update", handleTypingUpdate);
+    socket.on("message:deleted", handleMessageDeleted);
 
     return () => {
       socket.off("message:new", handleNewMessage);
       socket.off("typing:update", handleTypingUpdate);
+      socket.off("message:deleted", handleMessageDeleted);
     };
   }, [socket, selectedConvId]);
 
@@ -390,6 +406,32 @@ export default function MessagesPage() {
     await loadConversations();
   };
 
+  const deleteMessage = async (messageId: string) => {
+    if (!token || !selectedConvId || !confirm("Voulez-vous vraiment supprimer ce message ?")) return;
+
+    try {
+      await apiRequest(`/messages/conversations/${selectedConvId}/messages/${messageId}`, {
+        method: "DELETE",
+        token,
+      });
+
+      // Mettre à jour l'état local immédiatement
+      setConversations((prevConvs) => {
+        return prevConvs.map((conv) => {
+          if (conv.id === selectedConvId) {
+            return {
+              ...conv,
+              messages: conv.messages.filter((msg) => msg.id !== messageId),
+            };
+          }
+          return conv;
+        });
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de la suppression du message");
+    }
+  };
+
   if (!ready) {
     return <div className="p-6 text-sm text-neutral-500">Chargement...</div>;
   }
@@ -570,8 +612,17 @@ export default function MessagesPage() {
                           </div>
                         </div>
                       )}
-                      <div className="text-[10px] text-right mt-1.5 opacity-60">
-                        {new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      <div className="text-[10px] text-right mt-1.5 opacity-65 flex items-center justify-end gap-2 select-none">
+                        <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        {isMe && (
+                          <button
+                            onClick={() => deleteMessage(message.id)}
+                            className="text-red-400 hover:text-red-500 font-bold transition hover:underline"
+                            title="Supprimer le message"
+                          >
+                            Supprimer
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -7,7 +7,10 @@ import { normalizePair } from '../utils/conversation.js';
 import { createNotification } from '../lib/notifications.js';
 import { emitToUser } from '../lib/socket.js';
 import type { MediaInput } from '../lib/media.js';
-import { signUrlIfNeeded } from '../lib/storage-online.js';
+import { signUrlIfNeeded, isS3Enabled, deleteFromS3, extractStorageKey } from '../lib/storage-online.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
 
 export const messageRouter = Router();
 
@@ -242,3 +245,77 @@ messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (
     next(error);
   }
 });
+
+// Supprimer un message (expéditeur ou modérateur/admin uniquement) et purger ses fichiers physiques
+messageRouter.delete('/conversations/:conversationId/messages/:messageId', requireAuth, requireApproved, async (req, res, next) => {
+  try {
+    const conversationId = String(req.params.conversationId);
+    const messageId = String(req.params.messageId);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    const isUserAdmin = userRole === 'ADMIN' || userRole === 'MODERATOR';
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        media: true,
+        conversation: true,
+      },
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé.' });
+    }
+
+    const msgWithRelations = message as any;
+
+    if (msgWithRelations.conversationId !== conversationId) {
+      return res.status(400).json({ error: 'ID de conversation invalide.' });
+    }
+
+    // Seul l'expéditeur ou un admin/modérateur peut supprimer le message
+    const isSender = msgWithRelations.senderId === userId;
+    if (!isSender && !isUserAdmin) {
+      return res.status(403).json({ error: 'Vous n\'avez pas l\'autorisation de supprimer ce message.' });
+    }
+
+    // Suppression physique des fichiers médias associés sur disque ou S3/B2
+    if (msgWithRelations.media && msgWithRelations.media.length) {
+      for (const med of msgWithRelations.media) {
+        const key = extractStorageKey(med.url);
+        if (key) {
+          // Suppression locale si présente
+          const absolutePath = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', key);
+          if (fs.existsSync(absolutePath)) {
+            try {
+              fs.unlinkSync(absolutePath);
+            } catch (err) {
+              console.error(`Failed to delete local file ${absolutePath}:`, err);
+            }
+          }
+          // Suppression S3/Backblaze B2
+          if (isS3Enabled()) {
+            await deleteFromS3(key);
+          }
+        }
+      }
+    }
+
+    // Supprimer le message en base de données
+    await prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    // Diffuser l'événement de suppression en temps réel aux participants
+    const conv = msgWithRelations.conversation;
+    const recipientId = conv.userAId === userId ? conv.userBId : conv.userAId;
+
+    emitToUser(userId, 'message:deleted', { messageId, conversationId });
+    emitToUser(recipientId, 'message:deleted', { messageId, conversationId });
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
