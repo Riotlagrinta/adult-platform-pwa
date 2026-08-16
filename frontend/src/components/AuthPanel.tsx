@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
+import { Eye, EyeOff } from "lucide-react";
+
 
 type Mode = "login" | "register";
 
@@ -10,8 +12,10 @@ export default function AuthPanel() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +36,9 @@ export default function AuthPanel() {
       if (mode === "login") {
         await login(email, password);
       } else {
+        if (password !== confirmPassword) {
+          throw new Error("Les mots de passe ne correspondent pas.");
+        }
         if (!dateOfBirth) {
           throw new Error("La date de naissance est obligatoire.");
         }
@@ -70,11 +77,18 @@ export default function AuthPanel() {
 
       <form onSubmit={onSubmit} className="space-y-3">
         {mode === "register" && (
+          <div className="bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 rounded-2xl p-3 text-xs font-semibold leading-relaxed mb-4">
+            🔞 L'inscription est strictement réservée aux personnes âgées de 18 ans et plus. Tout compte ne respectant pas cette règle sera immédiatement supprimé.
+          </div>
+        )}
+
+        {mode === "register" && (
           <input
             className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
-            placeholder="Nom affiché"
+            placeholder="Nom d'utilisateur"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            required
           />
         )}
         <input
@@ -83,14 +97,37 @@ export default function AuthPanel() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
+          required
         />
-        <input
-          className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
-          placeholder="Mot de passe"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-        />
+        <div className="relative">
+          <input
+            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none"
+            placeholder="Mot de passe"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type={showPassword ? "text" : "password"}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[var(--app-foreground)] transition"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        {mode === "register" && (
+          <div className="relative">
+            <input
+              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none"
+              placeholder="Confirmer le mot de passe"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              type={showPassword ? "text" : "password"}
+              required
+            />
+          </div>
+        )}
         {mode === "register" && (
           <div className="space-y-1">
             <label className="text-[10px] text-neutral-500 font-bold px-1 uppercase tracking-wider">Date de naissance (Min. 18 ans)</label>
