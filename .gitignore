@@ -18,6 +18,7 @@ tsconfig.tsbuildinfo
 .env.production.local
 **/.env
 **/.env.local
+!frontend/.env.production
 
 # Local media uploads
 backend/uploads/
