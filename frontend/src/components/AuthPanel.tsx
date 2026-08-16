@@ -15,6 +15,14 @@ export default function AuthPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getMaxBirthDate = () => {
+    const today = new Date();
+    const maxYear = today.getFullYear() - 18;
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${maxYear}-${month}-${day}`;
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
@@ -24,11 +32,14 @@ export default function AuthPanel() {
       if (mode === "login") {
         await login(email, password);
       } else {
+        if (!dateOfBirth) {
+          throw new Error("La date de naissance est obligatoire.");
+        }
         await register({
           email,
           password,
           displayName,
-          dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined,
+          dateOfBirth: new Date(dateOfBirth).toISOString(),
         });
       }
     } catch (submitError) {
@@ -81,13 +92,18 @@ export default function AuthPanel() {
           type="password"
         />
         {mode === "register" && (
-          <input
-            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
-            placeholder="Date de naissance"
-            value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
-            type="date"
-          />
+          <div className="space-y-1">
+            <label className="text-[10px] text-neutral-500 font-bold px-1 uppercase tracking-wider">Date de naissance (Min. 18 ans)</label>
+            <input
+              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
+              placeholder="Date de naissance"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              type="date"
+              max={getMaxBirthDate()}
+              required
+            />
+          </div>
         )}
         {error && <div className="text-sm text-red-500">{error}</div>}
         <button

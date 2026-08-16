@@ -13,12 +13,24 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   displayName: z.string().min(2).max(80),
-  dateOfBirth: z.string().datetime().optional(),
+  dateOfBirth: z.string().datetime(),
 });
 
 authRouter.post('/register', async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
+
+    // Validation de l'âge minimum de 18 ans
+    const dob = new Date(data.dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    if (age < 18) {
+      return res.status(400).json({ error: 'Vous devez avoir au moins 18 ans pour vous inscrire.' });
+    }
 
     // Validation de l'e-mail unique
     const existingEmail = await prisma.user.findUnique({
@@ -49,7 +61,7 @@ authRouter.post('/register', async (req, res, next) => {
         email: data.email.toLowerCase(),
         passwordHash,
         displayName: data.displayName,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+        dateOfBirth: new Date(data.dateOfBirth),
         verificationStatus: 'APPROVED',
         profile: { create: {} },
       },
