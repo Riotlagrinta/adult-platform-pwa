@@ -42,7 +42,7 @@ profileRouter.get('/me', requireAuth, async (req, res, next) => {
 const updateSchema = z.object({
   displayName: z.string().min(2).max(80).optional(),
   bio: z.string().max(300).optional(),
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: z.string().regex(/^(https?:\/\/|\/uploads\/)/, "L'URL ou le chemin de l'avatar est invalide").optional(),
   city: z.string().max(120).optional(),
   headline: z.string().max(120).optional(),
 });
