@@ -445,8 +445,8 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-[var(--app-background)] overflow-hidden relative p-3 md:p-4 gap-3 md:gap-4">
-      <div className={`w-full md:w-80 flex-shrink-0 border border-[var(--app-border)] rounded-[28px] overflow-hidden bg-[var(--app-surface)] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${selectedConvId ? "hidden md:flex" : ""}`}>
+    <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] md:h-[100dvh] min-h-0 bg-[var(--app-background)] overflow-hidden relative p-3 md:p-4 gap-3 md:gap-4">
+      <div className={`w-full md:w-80 flex-shrink-0 min-h-0 border border-[var(--app-border)] rounded-[28px] overflow-hidden bg-[var(--app-surface)] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${selectedConvId ? "hidden md:flex" : ""}`}>
         <div className="p-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
           <div className="space-y-1">
             <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Messagerie</div>
@@ -537,11 +537,11 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className={`flex-1 flex flex-col h-full bg-[var(--app-background)] rounded-[28px] border border-[var(--app-border)] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : ""}`}>
+      <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] rounded-[28px] border border-[var(--app-border)] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : ""}`}>
         {selectedConversation && activePartner ? (
           <>
-            <div className="flex items-center justify-between p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
+              <div className="flex items-center gap-3 min-w-0">
                 <button onClick={() => setSelectedConvId(null)} className="md:hidden p-1 rounded-full hover:bg-[var(--app-surface-soft)]">
                   <ChevronLeft className="h-6 w-6" />
                 </button>
@@ -559,7 +559,7 @@ export default function MessagesPage() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button
                   onClick={() => triggerBlock(activePartner.id)}
                   className="px-3 py-1.5 border border-red-200 dark:border-red-900/40 text-[10px] font-bold rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
@@ -667,7 +667,7 @@ export default function MessagesPage() {
             )}
 
             <div className="p-4 border-t border-[var(--app-border)] bg-[var(--app-surface)]">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                 <button
                   onClick={() => setEphemeralMode(!ephemeralMode)}
                   className={`p-2 rounded-full transition ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-500 hover:bg-[var(--app-surface-soft)]"}`}
@@ -692,7 +692,7 @@ export default function MessagesPage() {
                   onChange={handleInputChange}
                   onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                   placeholder={ephemeralMode ? "Ajouter une description..." : "Écrire un message privé..."}
-                  className="flex-1 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
+                  className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
                 />
 
                 <button onClick={sendMessage} className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-80 transition flex-shrink-0">

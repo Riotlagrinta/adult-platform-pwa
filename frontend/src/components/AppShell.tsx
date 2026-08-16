@@ -11,9 +11,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {user && <Sidebar isAdmin={isStaff} />}
-      <div className={`flex-1 flex flex-col ${user ? "md:pl-64" : ""} min-h-screen`}>
-        <main className="flex-1 flex justify-center">
-          <div className={`w-full ${user ? "max-w-4xl flex divide-x divide-[var(--app-border)] pb-16 md:pb-0" : "min-h-screen"}`}>
+      <div className={`flex-1 flex flex-col ${user ? "md:pl-64" : ""} min-h-[100dvh]`}>
+        <main className="flex-1 flex justify-center overflow-x-hidden min-h-0">
+          <div className={`w-full min-h-0 ${user ? "max-w-4xl flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] pb-20 md:pb-0" : "min-h-[100dvh]"}`}>
             <div className="flex-1 min-w-0">{children}</div>
             {user && (
               <aside className="hidden lg:block w-80 p-6 space-y-6">

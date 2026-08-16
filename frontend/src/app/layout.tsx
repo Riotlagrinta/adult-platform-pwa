@@ -35,6 +35,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -52,7 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--app-background)] text-[var(--app-foreground)] min-h-screen flex`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--app-background)] text-[var(--app-foreground)] min-h-[100dvh] flex overflow-x-hidden`}
       >
         <AuthProvider>
           <PWARegister />

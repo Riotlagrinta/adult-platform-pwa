@@ -23,7 +23,7 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
   const { unreadNotificationsCount } = useAuth();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-md flex items-center justify-around px-2 select-none z-30">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] border-t border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-md flex items-center justify-around px-2 select-none z-30">
       <Link
         href="/"
         className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-colors ${

@@ -124,12 +124,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen pb-12">
+    <div className="bg-[var(--app-background)] min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <div className="w-full h-48 md:h-64 bg-gradient-to-r from-[var(--app-surface-soft)] via-[var(--app-surface-raised)] to-[var(--app-surface)] relative" />
 
       <div className="px-4 md:px-6 -mt-16 md:-mt-20 relative space-y-4">
         <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-4 md:p-6 space-y-5">
-          <div className="flex items-end justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-3xl md:text-5xl border-4 border-[var(--app-background)] shadow-lg overflow-hidden">
             {me?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -139,17 +139,17 @@ export default function ProfilePage() {
             )}
           </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <button
                 onClick={copyInviteLink}
-                className="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-full font-bold text-xs hover:opacity-85 transition shadow-sm flex items-center"
+                className="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-full font-bold text-xs hover:opacity-85 transition shadow-sm flex items-center justify-center"
               >
                 <Share2 className="w-3.5 h-3.5 mr-2" />
                 Inviter
               </button>
               <button
                 onClick={saveProfile}
-                className="px-4 py-2 border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition flex items-center"
+                className="px-4 py-2 border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition flex items-center justify-center"
               >
                 <Edit3 className="w-3.5 h-3.5 mr-2" />
                 Enregistrer
@@ -180,7 +180,7 @@ export default function ProfilePage() {
           <input type="file" className="hidden" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} />
         </label>
 
-        <div className="flex items-center gap-6 text-sm py-1 border-y border-[var(--app-border)]">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm py-1 border-y border-[var(--app-border)]">
           <button onClick={() => setActiveTab("posts")} className={`flex items-center gap-1.5 transition ${activeTab === "posts" ? "font-black text-[var(--app-foreground)]" : "text-neutral-500"}`}>
             <span className="font-black">{posts.length}</span>
             <span>Publications</span>

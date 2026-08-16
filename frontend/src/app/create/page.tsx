@@ -93,7 +93,7 @@ export default function CreatePostPage() {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 space-y-6">
+    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-6">
       <div className="border-b border-[var(--app-border)] pb-4">
         <h2 className="font-black text-xl tracking-tight uppercase">Créer une publication</h2>
         <p className="text-xs text-neutral-500">Publiez du contenu avec une visibilité contrôlée.</p>

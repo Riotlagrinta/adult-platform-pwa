@@ -205,7 +205,7 @@ export default function OtherProfilePage({ params }: PageProps) {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen pb-12 w-full">
+    <div className="bg-[var(--app-background)] min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))] w-full">
       {/* En-tête de retour */}
       <div className="flex items-center gap-3 p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] sticky top-0 z-10 backdrop-blur-md">
         <button onClick={() => router.back()} className="p-1 rounded-full hover:bg-[var(--app-surface-soft)]">

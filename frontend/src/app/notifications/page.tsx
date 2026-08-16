@@ -73,7 +73,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 space-y-6">
+    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-6">
       <div className="flex items-center justify-between border-b border-[var(--app-border)] pb-4">
         <div className="flex items-center gap-3">
           <Bell className="h-6 w-6 text-black dark:text-white" />

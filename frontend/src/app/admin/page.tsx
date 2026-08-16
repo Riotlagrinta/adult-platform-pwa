@@ -103,7 +103,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 space-y-6">
+    <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-6">
       <div className="flex items-center justify-between border-b border-[var(--app-border)] pb-4">
         <div className="flex items-center gap-3">
           <ShieldAlert className="h-6 w-6 text-[var(--app-foreground)]" />
@@ -123,7 +123,7 @@ export default function AdminPage() {
       </div>
 
       {/* Statistiques KPI en temps réel */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="border border-[var(--app-border)] rounded-2xl p-4 bg-[var(--app-surface)] shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-500/10 rounded-xl">
             <Activity className="h-6 w-6 text-green-500 animate-pulse" />
@@ -168,9 +168,9 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Utilisateurs */}
         <div className="border border-[var(--app-border)] rounded-2xl p-5 bg-[var(--app-surface)] space-y-4 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="font-black text-base">Membres de la plateforme</div>
-            <div className="relative max-w-xs flex-1">
+            <div className="relative w-full sm:max-w-xs sm:flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
               <input
                 type="text"
