@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Heart,
   MessageCircle,
@@ -45,7 +45,7 @@ export default function Home() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  const loadFeed = async () => {
+  const loadFeed = useCallback(async () => {
     if (!token) {
       return;
     }
@@ -61,13 +61,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (token) {
-      loadFeed();
+      void loadFeed();
     }
-  }, [token]);
+  }, [loadFeed, token]);
 
   const toggleLike = async (postId: string, liked: boolean) => {
     if (!token) {
@@ -122,7 +122,7 @@ export default function Home() {
         }),
       });
       alert("La publication a été signalée avec succès.");
-    } catch (err) {
+    } catch {
       alert("Erreur lors de l'envoi du signalement.");
     }
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert,
   Search,
@@ -40,7 +40,7 @@ export default function AdminPage() {
 
   const isStaff = user?.role === "MODERATOR" || user?.role === "ADMIN";
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!token || !isStaff) return;
     setRefreshing(true);
     try {
@@ -58,14 +58,16 @@ export default function AdminPage() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [isStaff, token]);
 
   useEffect(() => {
     if (!token || !isStaff) return;
-    loadData();
-    const interval = setInterval(loadData, 10000); // Polling de 10 secondes
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 10000); // Polling de 10 secondes
     return () => clearInterval(interval);
-  }, [token, isStaff]);
+  }, [isStaff, loadData, token]);
 
   const changeRole = async (id: string, role: AdminUser["role"]) => {
     if (!token) return;

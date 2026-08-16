@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Send, Lock, Unlock, Image as ImageIcon } from "lucide-react";
+import { Plus, Send, Lock, Unlock } from "lucide-react";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest } from "@/lib/api";

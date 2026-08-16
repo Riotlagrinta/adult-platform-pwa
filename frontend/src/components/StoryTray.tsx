@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "./AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -31,7 +31,7 @@ export default function StoryTray() {
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [progress, setProgress] = useState(0);
 
-  const fetchStories = async () => {
+  const fetchStories = useCallback(async () => {
     if (!token) return;
     try {
       const data = await apiRequest<{ stories: StoryGroup[] }>("/stories", { token });
@@ -39,11 +39,13 @@ export default function StoryTray() {
     } catch (err) {
       console.error("Erreur de chargement des stories :", err);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    if (token) fetchStories();
-  }, [token]);
+    if (token) {
+      void fetchStories();
+    }
+  }, [fetchStories, token]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +63,7 @@ export default function StoryTray() {
       });
 
       alert("Story publiée avec succès ! Elle disparaîtra dans 24 heures.");
-      fetchStories();
+      void fetchStories();
     } catch (err) {
       alert("Erreur lors de l'envoi de la story : " + (err instanceof Error ? err.message : "Erreur"));
     } finally {
@@ -83,12 +85,12 @@ export default function StoryTray() {
     setProgress(0);
   };
 
-  const closeStories = () => {
+  const closeStories = useCallback(() => {
     setActiveGroupIndex(null);
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-  };
+  }, []);
 
-  const nextStory = () => {
+  const nextStory = useCallback(() => {
     if (activeGroupIndex === null) return;
     const currentGroup = groups[activeGroupIndex];
 
@@ -112,9 +114,9 @@ export default function StoryTray() {
     } else {
       closeStories();
     }
-  };
+  }, [activeGroupIndex, activeStoryIndex, closeStories, groups]);
 
-  const prevStory = () => {
+  const prevStory = useCallback(() => {
     if (activeGroupIndex === null) return;
 
     if (activeStoryIndex > 0) {
@@ -138,7 +140,7 @@ export default function StoryTray() {
     } else {
       closeStories();
     }
-  };
+  }, [activeGroupIndex, activeStoryIndex, closeStories, groups]);
 
   // Timer automatique pour les stories (5 secondes par story)
   useEffect(() => {
@@ -163,7 +165,7 @@ export default function StoryTray() {
     return () => {
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
-  }, [activeGroupIndex, activeStoryIndex]);
+  }, [activeGroupIndex, activeStoryIndex, nextStory]);
 
   if (!user) return null;
 
@@ -203,6 +205,7 @@ export default function StoryTray() {
                 >
                   <div className="w-full h-full rounded-full bg-[var(--app-surface)] border-[2px] border-[var(--app-surface)] overflow-hidden flex items-center justify-center">
                     {group.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={toPublicUrl(group.avatarUrl) ?? undefined}
                         alt="avatar"
@@ -266,6 +269,7 @@ export default function StoryTray() {
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full border border-neutral-700 bg-neutral-800 text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0">
                 {activeGroup.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={toPublicUrl(activeGroup.avatarUrl) ?? undefined}
                     alt="avatar"
@@ -300,6 +304,7 @@ export default function StoryTray() {
                 muted={false}
               />
             ) : (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={toPublicUrl(activeStory.mediaUrl) ?? undefined}
                 alt="story content"

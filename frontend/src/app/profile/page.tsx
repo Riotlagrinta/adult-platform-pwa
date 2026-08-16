@@ -1,14 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Image as ImageIcon,
   Edit3,
-  Users,
-  Heart,
-  Eye,
-  Settings,
   Share2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -52,7 +48,7 @@ export default function ProfilePage() {
   const [following, setFollowing] = useState<{ id: string; displayName: string; avatarUrl?: string | null }[]>([]);
   const [activeTab, setActiveTab] = useState<"posts" | "social">("posts");
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -72,11 +68,13 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    if (token) loadProfile();
-  }, [token]);
+    if (token) {
+      void loadProfile();
+    }
+  }, [loadProfile, token]);
 
   const saveProfile = async () => {
     if (!token) return;

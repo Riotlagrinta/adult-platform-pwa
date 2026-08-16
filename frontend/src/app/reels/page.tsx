@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest } from "@/lib/api";
@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Volume2,
   VolumeX,
-  User,
   ArrowLeft,
   Send,
   CheckCircle2,
@@ -66,7 +65,7 @@ export default function ReelsPage() {
   const [sendingComment, setSendingComment] = useState(false);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
-  const fetchReels = async () => {
+  const fetchReels = useCallback(async () => {
     if (!token) return;
     try {
       setLoading(true);
@@ -77,11 +76,13 @@ export default function ReelsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    if (token) fetchReels();
-  }, [token]);
+    if (token) {
+      void fetchReels();
+    }
+  }, [fetchReels, token]);
 
   // Observer pour lire/mettre en pause les vidéos lorsqu'elles glissent à l'écran
   useEffect(() => {
@@ -282,11 +283,12 @@ export default function ReelsPage() {
                   onClick={() => router.push(`/profile/${reel.author.id}`)}
                   className="flex items-center gap-2.5 cursor-pointer group"
                 >
-                  <div className="w-10 h-10 rounded-full border border-neutral-700 bg-neutral-800 text-white flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0">
-                    {reel.author.avatarUrl ? (
-                      <img src={toPublicUrl(reel.author.avatarUrl) ?? undefined} alt="avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{reel.author.displayName.slice(0, 2).toUpperCase()}</span>
+                <div className="w-10 h-10 rounded-full border border-neutral-700 bg-neutral-800 text-white flex items-center justify-center font-bold text-sm overflow-hidden flex-shrink-0">
+                  {reel.author.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={toPublicUrl(reel.author.avatarUrl) ?? undefined} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{reel.author.displayName.slice(0, 2).toUpperCase()}</span>
                     )}
                   </div>
                   <div>
@@ -360,6 +362,7 @@ export default function ReelsPage() {
                   <div key={comment.id} className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-[10px] overflow-hidden flex-shrink-0">
                       {comment.author.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={toPublicUrl(comment.author.avatarUrl) ?? undefined} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         <span>{comment.author.displayName.slice(0, 2).toUpperCase()}</span>

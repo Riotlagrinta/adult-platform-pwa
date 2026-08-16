@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Send,
   Image as ImageIcon,
@@ -66,6 +66,7 @@ export default function MessagesPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const selectedConvIdRef = useRef<string | null>(null);
 
   // Nouveaux états pour le temps réel et les médias temporaires
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
@@ -80,6 +81,55 @@ export default function MessagesPage() {
     allowDownload: boolean;
   } | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  const loadConversations = useCallback(async (preferredPartnerId?: string) => {
+    if (!token) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const payload = await apiRequest<{ conversations: Conversation[] }>("/messages/conversations", { token });
+      setConversations(payload.conversations);
+
+      const partnerIds = Array.from(
+        new Set(
+          payload.conversations.map((conversation) =>
+            conversation.userAId === user?.id ? conversation.userBId : conversation.userAId,
+          ),
+        ),
+      );
+
+      const entries = await Promise.all(
+        partnerIds.map(async (partnerId) => {
+          const response = await apiRequest<{ user: UserLookup }>(`/users/${partnerId}`, { token });
+          return [partnerId, response.user] as const;
+        }),
+      );
+
+      setUsersById(Object.fromEntries(entries));
+      if (preferredPartnerId) {
+        const matchedConversation = payload.conversations.find(
+          (conversation) =>
+            (conversation.userAId === user?.id && conversation.userBId === preferredPartnerId) ||
+            (conversation.userBId === user?.id && conversation.userAId === preferredPartnerId),
+        );
+        setSelectedConvId(matchedConversation?.id ?? payload.conversations[0]?.id ?? null);
+      } else if (!selectedConvIdRef.current && payload.conversations.length > 0) {
+        setSelectedConvId(payload.conversations[0].id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de charger les conversations");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, user?.id]);
+
+  useEffect(() => {
+    selectedConvIdRef.current = selectedConvId;
+  }, [selectedConvId]);
 
   // Gestion de la réception temps réel des messages et écriture
   useEffect(() => {
@@ -140,7 +190,7 @@ export default function MessagesPage() {
     if (countdown <= 0) {
       setViewingMedia(null);
       setCountdown(null);
-      loadConversations();
+      void loadConversations();
       return;
     }
 
@@ -149,7 +199,7 @@ export default function MessagesPage() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown]);
+  }, [countdown, loadConversations]);
 
   const openSecureMedia = async (media: any) => {
     if (!token) return;
@@ -234,58 +284,12 @@ export default function MessagesPage() {
   };
 
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedConvId) ?? null;
-  const activeMessages = selectedConversation?.messages ?? [];
-
-  const loadConversations = async (preferredPartnerId?: string) => {
-    if (!token) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payload = await apiRequest<{ conversations: Conversation[] }>("/messages/conversations", { token });
-      setConversations(payload.conversations);
-
-      const partnerIds = Array.from(
-        new Set(
-          payload.conversations.map((conversation) =>
-            conversation.userAId === user?.id ? conversation.userBId : conversation.userAId,
-          ),
-        ),
-      );
-
-      const entries = await Promise.all(
-        partnerIds.map(async (partnerId) => {
-          const response = await apiRequest<{ user: UserLookup }>(`/users/${partnerId}`, { token });
-          return [partnerId, response.user] as const;
-        }),
-      );
-
-      setUsersById(Object.fromEntries(entries));
-      if (preferredPartnerId) {
-        const matchedConversation = payload.conversations.find(
-          (conversation) =>
-            (conversation.userAId === user?.id && conversation.userBId === preferredPartnerId) ||
-            (conversation.userBId === user?.id && conversation.userAId === preferredPartnerId),
-        );
-        setSelectedConvId(matchedConversation?.id ?? payload.conversations[0]?.id ?? null);
-      } else if (!selectedConvId && payload.conversations.length > 0) {
-        setSelectedConvId(payload.conversations[0].id);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de charger les conversations");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (token) {
-      loadConversations();
+      void loadConversations();
     }
-  }, [token]);
+  }, [loadConversations, token]);
 
   useEffect(() => {
     if (!token || !showNewConversation) {

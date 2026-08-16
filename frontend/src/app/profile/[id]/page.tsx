@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useCallback, useEffect, useState, use } from "react";
 import {
   CheckCircle2,
-  ChevronLeft,
   MessageSquare,
   UserPlus,
   UserMinus,
@@ -42,7 +41,7 @@ interface PageProps {
 export default function OtherProfilePage({ params }: PageProps) {
   const router = useRouter();
   const { id: profileUserId } = use(params);
-  const { token, user: me, ready } = useAuth();
+  const { token, ready } = useAuth();
 
   const [profileUser, setProfileUser] = useState<OtherUser | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -51,7 +50,7 @@ export default function OtherProfilePage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
@@ -69,25 +68,19 @@ export default function OtherProfilePage({ params }: PageProps) {
       const blocked = blocksPayload.blockedUsers.some((u) => u.id === profileUserId);
       setIsBlocked(blocked);
 
-      // Pour vérifier si on le suit, on charge le fil ou on infère. Pour faire simple, 
-      // on peut faire une vérification en essayant de charger s'il y a un follow en BDD
-      // Mais comme le backend renvoie le statut via d'autres endpoints, ici on peut
-      // estimer ou utiliser le backend. Faisons simple : si ses posts "followers" s'affichent 
-      // ou si on a l'information. Ajoutons une vérification de follow si nécessaire.
-      // Pour l'instant, on va simuler ou faire un appel (le follow est stocké dans Prisma).
-      setIsFollowing(false); // Valeur par défaut
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Profil introuvable ou accès restreint.");
+      setIsFollowing(false);
+    } catch {
+      setError("Profil introuvable ou accès restreint.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [profileUserId, token]);
 
   useEffect(() => {
     if (token) {
-      loadProfile();
+      void loadProfile();
     }
-  }, [token, profileUserId]);
+  }, [loadProfile, token]);
 
   const toggleFollow = async () => {
     if (!token || !profileUser) return;
@@ -106,7 +99,7 @@ export default function OtherProfilePage({ params }: PageProps) {
         });
         setIsFollowing(true);
       }
-    } catch (err) {
+    } catch {
       alert("Erreur lors de l'abonnement/désabonnement.");
     }
   };
@@ -122,7 +115,7 @@ export default function OtherProfilePage({ params }: PageProps) {
       });
       // Rediriger vers la messagerie
       router.push("/messages");
-    } catch (err) {
+    } catch {
       alert("Impossible d'ouvrir une conversation. Vérifiez si vous n'êtes pas bloqué.");
     }
   };
@@ -151,7 +144,7 @@ export default function OtherProfilePage({ params }: PageProps) {
         alert("Utilisateur bloqué.");
         router.push("/");
       }
-    } catch (err) {
+    } catch {
       alert("Erreur lors de l'action de blocage.");
     }
   };
@@ -169,7 +162,7 @@ export default function OtherProfilePage({ params }: PageProps) {
         body: JSON.stringify({ reason, targetUserId: profileUser.id }),
       });
       alert("Signalement envoyé avec succès.");
-    } catch (err) {
+    } catch {
       alert("Erreur lors de l'envoi du signalement.");
     }
   };

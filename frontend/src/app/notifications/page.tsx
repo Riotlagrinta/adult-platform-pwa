@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Bell, Heart, MessageCircle, DollarSign, UserPlus, Trash2 } from "lucide-react";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
@@ -21,7 +21,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -32,11 +32,13 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setUnreadNotificationsCount, token]);
 
   useEffect(() => {
-    if (token) loadNotifications();
-  }, [token]);
+    if (token) {
+      void loadNotifications();
+    }
+  }, [loadNotifications, token]);
 
   const markAllRead = async () => {
     if (!token) return;
