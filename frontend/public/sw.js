@@ -1,56 +1,60 @@
-const CACHE_NAME = "onlyadults-cache-v1";
-const ASSETS_TO_CACHE = [
-  "/",
-  "/manifest.json",
-  "/favicon.ico"
-];
+const CACHE_VERSION = "onlyadults-v2-live";
+const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
+// Installation : Mise en cache des ressources de base
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-  self.skipWaiting();
+  self.skipWaiting(); // Force le nouveau SW à devenir actif immédiatement
 });
 
+// Activation : Nettoyage STRICT de TOUS les anciens caches sur tous les appareils
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then((keys) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
+        keys.map((key) => {
+          // Supprime systématiquement tout ancien cache
+          if (key !== STATIC_CACHE) {
+            console.log("[SW] Suppression de l'ancien cache :", key);
+            return caches.delete(key);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // Prend le contrôle immédiat de tous les onglets ouverts
   );
-  self.clients.claim();
 });
 
+// Interception des requêtes : Stratégie Network-First pour TOUJOURS avoir la dernière version
 self.addEventListener("fetch", (event) => {
-  // Ne mettre en cache que les requêtes GET pour les documents/fichiers statiques
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+
+  // Ne jamais mettre en cache les requêtes API, WebSocket ou tiers
+  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/auth") || url.pathname.startsWith("/posts") || url.pathname.startsWith("/stories")) {
+    return;
+  }
+
+  // Pour toutes les requêtes de navigation et pages : NETWORK-FIRST
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
-        // Optionnel : mettre en cache les nouvelles requêtes réussies de type statique
-        if (response && response.status === 200 && response.type === "basic") {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
+    fetch(event.request)
+      .then((networkResponse) => {
+        // Si le réseau répond avec succès, on met à jour le cache en arrière-plan
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+          const responseToCache = networkResponse.clone();
+          caches.open(STATIC_CACHE).then((cache) => {
             cache.put(event.request, responseToCache);
           });
         }
-        return response;
-      }).catch(() => {
-        // Gestion de la panne réseau
-        return caches.match("/");
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        // En cas de coupure internet uniquement (hors-ligne), on se rabat sur le cache
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return caches.match("/");
+        });
+      })
   );
 });
