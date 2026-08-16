@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   apiRequest,
   clearStoredToken,
@@ -33,7 +34,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function showNotificationToast(title: string, body: string) {
+function showNotificationToast(title: string, body: string, onClick?: () => void) {
   if (typeof window === 'undefined') return;
 
   const container = document.getElementById('toast-container') || (() => {
@@ -54,9 +55,7 @@ function showNotificationToast(title: string, body: string) {
     <div class="text-[11px] text-neutral-500">${body}</div>
   `;
 
-  toast.onclick = () => {
-    window.location.href = '/notifications';
-  };
+  toast.onclick = onClick ?? null;
 
   container.appendChild(toast);
 
@@ -73,6 +72,7 @@ function showNotificationToast(title: string, body: string) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -120,7 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const handleNotification = (notif: { title: string; body: string }) => {
       setUnreadNotificationsCount((prev) => prev + 1);
-      showNotificationToast(notif.title, notif.body);
+      showNotificationToast(notif.title, notif.body, () => {
+        router.push("/notifications");
+      });
     };
 
     socket.on("notification:new", handleNotification);
@@ -128,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       socket.off("notification:new", handleNotification);
     };
-  }, [socket]);
+  }, [router, socket]);
 
   const syncSession = (payload: { user: SessionUser; token: string }) => {
     setStoredToken(payload.token);
@@ -199,4 +201,3 @@ export function useAuth() {
   }
   return context;
 }
-

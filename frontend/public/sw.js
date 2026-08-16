@@ -2,7 +2,7 @@ const CACHE_VERSION = "onlyadults-v2-live";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 // Installation : Mise en cache des ressources de base
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting(); // Force le nouveau SW à devenir actif immédiatement
 });
 
@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
 
   // Pour toutes les requêtes de navigation et pages : NETWORK-FIRST
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-store" })
       .then((networkResponse) => {
         // Si le réseau répond avec succès, on met à jour le cache en arrière-plan
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {

@@ -8,25 +8,35 @@ export default function PWARegister() {
       return;
     }
 
-    // Purge préventive des anciens caches au démarrage
-    if ("caches" in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => {
-          if (name.includes("cache-v1") || name.includes("onlyadults-cache-v1")) {
-            console.log("[PWA] Purge de l'ancien cache:", name);
-            caches.delete(name);
-          }
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister();
         });
       });
+
+      if ("caches" in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            caches.delete(name);
+          });
+        });
+      }
+
+      return;
     }
 
     // Enregistrement et mise à jour forcée du Service Worker
     navigator.serviceWorker
-      .register("/sw.js")
+      .register("/sw.js", { updateViaCache: "none" })
       .then((reg) => {
         console.log("[PWA] Service Worker actif, scope:", reg.scope);
         // Force la vérification immédiate d'une nouvelle version sur le serveur
         reg.update();
+
+        setInterval(() => {
+          reg.update();
+        }, 60 * 60 * 1000);
       })
       .catch((err) => {
         console.error("[PWA] Erreur enregistrement SW:", err);
