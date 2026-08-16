@@ -1,6 +1,8 @@
 {
-  "dependencies": {
-    "lucide": "^1.28.0",
-    "react": "^19.2.8"
+  "name": "adult-platform-pwa",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm start"
   }
 }
