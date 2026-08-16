@@ -54,7 +54,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--app-background)] text-[var(--app-foreground)] min-h-[100dvh] flex overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--app-background)] text-[var(--app-foreground)] h-[100dvh] flex overflow-hidden`}
       >
         <AuthProvider>
           <PWARegister />

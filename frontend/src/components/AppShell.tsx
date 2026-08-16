@@ -9,14 +9,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isStaff = user?.role === "MODERATOR" || user?.role === "ADMIN";
 
   return (
-    <>
+    <div className="h-[100dvh] w-screen flex overflow-hidden select-none bg-[var(--app-background)] text-[var(--app-foreground)] relative">
       {user && <Sidebar isAdmin={isStaff} />}
-      <div className={`flex-1 flex flex-col ${user ? "md:pl-64" : ""} min-h-[100dvh]`}>
-        <main className="flex-1 flex justify-center overflow-x-hidden min-h-0">
-          <div className={`w-full min-h-0 ${user ? "max-w-4xl flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] pb-20 md:pb-0" : "min-h-[100dvh]"}`}>
-            <div className="flex-1 min-w-0">{children}</div>
+      <div className={`flex-1 flex flex-col ${user ? "md:pl-64" : ""} h-full overflow-hidden relative`}>
+        <main className="flex-1 flex justify-center h-full overflow-hidden min-h-0 relative">
+          <div className={`w-full h-full flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] ${user ? "max-w-4xl pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
+            <div className="flex-1 h-full overflow-y-auto scroll-smooth min-w-0 focus:outline-none">
+              {children}
+            </div>
             {user && (
-              <aside className="hidden lg:block w-80 p-6 space-y-6">
+              <aside className="hidden lg:block w-80 p-6 space-y-6 overflow-y-auto h-full flex-shrink-0">
                 <div className="bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl p-4 shadow-sm">
                   <h3 className="font-bold text-lg mb-4">Compte</h3>
                   {ready ? (
@@ -39,6 +41,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       {user && <BottomNav isAdmin={isStaff} />}
-    </>
+    </div>
   );
 }
