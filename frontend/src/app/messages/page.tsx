@@ -9,7 +9,9 @@ import {
   Lock,
   ChevronLeft,
   Info,
+  ShieldAlert,
 } from "lucide-react";
+import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import AuthPanel from "@/components/AuthPanel";
 import { apiRequest, toPublicUrl } from "@/lib/api";
@@ -437,7 +439,7 @@ export default function MessagesPage() {
   };
 
   if (!ready) {
-    return <div className="p-6 text-sm text-neutral-500">Chargement...</div>;
+    return <GlobalPulseLoader message="Connexion à la messagerie privée..." />;
   }
 
   if (!token) {
@@ -509,7 +511,7 @@ export default function MessagesPage() {
         )}
 
         <div className="flex-1 overflow-y-auto divide-y divide-[var(--app-border)]">
-          {loading && <div className="p-4 text-sm text-neutral-500">Chargement...</div>}
+          {loading && <ConversationListSkeleton />}
           {error && <div className="p-4 text-sm text-red-500">{error}</div>}
           {conversations.map((conversation) => {
             const partnerId = conversation.userAId === user?.id ? conversation.userBId : conversation.userAId;

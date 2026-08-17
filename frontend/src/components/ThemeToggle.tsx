@@ -2,25 +2,25 @@
 
 import React, { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
-import { initTheme, resolveTheme, setTheme, type AppTheme } from "@/lib/theme";
+import { initTheme, resolveThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
 type ThemeToggleProps = {
   className?: string;
 };
 
 export default function ThemeToggle({ className }: ThemeToggleProps) {
-  const [theme, setThemeState] = useState<AppTheme>(() => {
+  const [mode, setMode] = useState<ThemeMode>(() => {
     if (typeof document === "undefined") {
-      return "midnight";
+      return "dark";
     }
-    return resolveTheme();
+    return resolveThemeMode();
   });
 
   useEffect(() => {
     initTheme();
 
     const syncTheme = () => {
-      setThemeState(resolveTheme());
+      setMode(resolveThemeMode());
     };
 
     syncTheme();
@@ -33,23 +33,22 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
     };
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme: AppTheme = theme === "light" ? "midnight" : "light";
-    setThemeState(nextTheme);
-    setTheme(nextTheme);
+  const handleToggle = () => {
+    const next = toggleThemeMode();
+    setMode(next);
   };
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={handleToggle}
       className={`flex items-center justify-center p-2.5 rounded-full hover:bg-[var(--app-surface-soft)] text-[var(--app-foreground)] transition-colors ${className ?? ""}`}
-      aria-label="Basculer le thème"
-      title={theme === "light" ? "Passer en mode sombre" : "Passer en mode clair"}
+      aria-label="Basculer le mode sombre / clair"
+      title={mode === "dark" ? "Basculer vers le mode clair" : "Basculer vers le mode sombre"}
     >
-      {theme === "light" ? (
-        <Moon className="w-5 h-5 text-neutral-700" />
+      {mode === "dark" ? (
+        <Sun className="w-5 h-5 text-amber-400 hover:rotate-45 transition-transform" />
       ) : (
-        <Sun className="w-5 h-5 text-amber-400" />
+        <Moon className="w-5 h-5 text-neutral-700 hover:-rotate-12 transition-transform" />
       )}
     </button>
   );

@@ -2,12 +2,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── THÈMES MULTIPLES ONLYADULTS ── */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🎨 SYSTÈME DE THÈMES DUAL (DARK & LIGHT) POUR CHAQUE UNIVERS VISUEL
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-/* 1. Midnight Velvet (Défaut Sombre Étoilé & Améthyste) */
+/* ── 1. MIDNIGHT VELVET (Améthyste Sombre & Lilas Perlé) ── */
 :root,
-html.dark,
-html[data-theme="midnight"] {
+html.dark[data-theme="midnight"],
+html.dark:not([data-theme]) {
   --app-background: #09070f;
   --app-surface: #120e1d;
   --app-surface-raised: #1a1429;
@@ -20,8 +22,22 @@ html[data-theme="midnight"] {
   color-scheme: dark;
 }
 
-/* 2. Sunset Passion (Rouge Rubis & Sunset Orange) */
-html[data-theme="sunset"] {
+html:not(.dark)[data-theme="midnight"],
+html:not(.dark):not([data-theme]) {
+  --app-background: #f8f6fc;
+  --app-surface: #ffffff;
+  --app-surface-raised: #f1ecf7;
+  --app-surface-soft: #e7ddf2;
+  --app-border: #dcd0ea;
+  --app-foreground: #181226;
+  --app-accent: #9333ea;
+  --app-accent-gradient: linear-gradient(135deg, #9333ea 0%, #db2777 100%);
+  --app-muted: #726882;
+  color-scheme: light;
+}
+
+/* ── 2. SUNSET PASSION (Rouge Rubis & Rose Quartz Chaud) ── */
+html.dark[data-theme="sunset"] {
   --app-background: #0d0608;
   --app-surface: #170b10;
   --app-surface-raised: #220f18;
@@ -34,8 +50,21 @@ html[data-theme="sunset"] {
   color-scheme: dark;
 }
 
-/* 3. Gold Obsidian (Noir Onyx & Or Champagne VIP) */
-html[data-theme="gold"] {
+html:not(.dark)[data-theme="sunset"] {
+  --app-background: #fff5f5;
+  --app-surface: #ffffff;
+  --app-surface-raised: #fee2e2;
+  --app-surface-soft: #fecdd3;
+  --app-border: #fda4af;
+  --app-foreground: #270d14;
+  --app-accent: #e11d48;
+  --app-accent-gradient: linear-gradient(135deg, #e11d48 0%, #ea580c 100%);
+  --app-muted: #884d59;
+  color-scheme: light;
+}
+
+/* ── 3. GOLD OBSIDIAN (Noir Onyx VIP & Or Champagne) ── */
+html.dark[data-theme="gold"] {
   --app-background: #090806;
   --app-surface: #14120e;
   --app-surface-raised: #1d1912;
@@ -48,8 +77,21 @@ html[data-theme="gold"] {
   color-scheme: dark;
 }
 
-/* 4. Cyber Neon (Nuit Clubbing & Cyan Électrique) */
-html[data-theme="cyber"] {
+html:not(.dark)[data-theme="gold"] {
+  --app-background: #fbf9f2;
+  --app-surface: #ffffff;
+  --app-surface-raised: #f5f0df;
+  --app-surface-soft: #eae1c9;
+  --app-border: #ded2b2;
+  --app-foreground: #241e12;
+  --app-accent: #d97706;
+  --app-accent-gradient: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  --app-muted: #7c7057;
+  color-scheme: light;
+}
+
+/* ── 4. CYBER NEON (Nuit Clubbing & Cyan Givré) ── */
+html.dark[data-theme="cyber"] {
   --app-background: #04060c;
   --app-surface: #0a0e1a;
   --app-surface-raised: #101729;
@@ -62,17 +104,16 @@ html[data-theme="cyber"] {
   color-scheme: dark;
 }
 
-/* 5. Pure Pearl (Clair Épuré Haut de Gamme) */
-html[data-theme="light"] {
-  --app-background: #f7f5f0;
+html:not(.dark)[data-theme="cyber"] {
+  --app-background: #f0fdfb;
   --app-surface: #ffffff;
-  --app-surface-raised: #f2eee7;
-  --app-surface-soft: #e8e2d8;
-  --app-border: #ded6c9;
-  --app-foreground: #121015;
-  --app-accent: #9333ea;
-  --app-accent-gradient: linear-gradient(135deg, #9333ea 0%, #db2777 100%);
-  --app-muted: #706b7a;
+  --app-surface-raised: #e0f7f5;
+  --app-surface-soft: #ccefe9;
+  --app-border: #b0e3da;
+  --app-foreground: #0a2228;
+  --app-accent: #0891b2;
+  --app-accent-gradient: linear-gradient(135deg, #0891b2 0%, #4f46e5 100%);
+  --app-muted: #4f737a;
   color-scheme: light;
 }
 
@@ -88,8 +129,8 @@ body {
   color: var(--app-foreground);
   font-family: var(--font-sans), sans-serif;
   background-image:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--app-accent) 12%, transparent), transparent 35%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 8%, transparent), transparent 30%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--app-accent) 14%, transparent), transparent 40%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 9%, transparent), transparent 35%);
   background-attachment: fixed;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
@@ -107,6 +148,44 @@ html, body {
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* ── ANIMATIONS DE CHARGEMENT & SKELETON SHIMMER ── */
+
+@keyframes shimmerWave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--app-surface-soft) 0%,
+    color-mix(in srgb, var(--app-surface-soft) 70%, var(--app-foreground)) 50%,
+    var(--app-surface-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWave 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+    filter: drop-shadow(0 0 12px var(--app-accent));
+  }
+}
+
+.pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
 }
 
 @keyframes slideUp {

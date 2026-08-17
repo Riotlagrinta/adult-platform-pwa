@@ -1,115 +1,165 @@
-export type AppTheme = "midnight" | "sunset" | "gold" | "cyber" | "light";
+export type ThemeFamily = "midnight" | "sunset" | "gold" | "cyber";
+export type ThemeMode = "dark" | "light";
 
-export const THEME_STORAGE_KEY = "onlyadults_theme";
+export const THEME_FAMILY_STORAGE_KEY = "onlyadults_theme_family";
+export const THEME_MODE_STORAGE_KEY = "onlyadults_theme_mode";
 
-export interface ThemeDefinition {
-  id: AppTheme;
+export interface ThemeFamilyDefinition {
+  id: ThemeFamily;
   name: string;
-  subtitle: string;
   emoji: string;
-  primaryColor: string;
-  accentColor: string;
-  bgPreview: string;
-  cardPreview: string;
+  darkDescription: string;
+  lightDescription: string;
+  darkColors: {
+    bg: string;
+    card: string;
+    primary: string;
+    accent: string;
+  };
+  lightColors: {
+    bg: string;
+    card: string;
+    primary: string;
+    accent: string;
+  };
 }
 
-export const AVAILABLE_THEMES: ThemeDefinition[] = [
+export const THEME_FAMILIES: ThemeFamilyDefinition[] = [
   {
     id: "midnight",
     name: "Midnight Velvet",
-    subtitle: "Améthyste sombre & Noir velours",
     emoji: "🔮",
-    primaryColor: "#A855F7",
-    accentColor: "#EC4899",
-    bgPreview: "#09070F",
-    cardPreview: "#1A1429",
+    darkDescription: "Améthyste profonde & Noir velours",
+    lightDescription: "Lilas nacré & Perle satinée",
+    darkColors: {
+      bg: "#09070F",
+      card: "#1A1429",
+      primary: "#A855F7",
+      accent: "#EC4899",
+    },
+    lightColors: {
+      bg: "#F8F6FC",
+      card: "#FFFFFF",
+      primary: "#9333EA",
+      accent: "#DB2777",
+    },
   },
   {
     id: "sunset",
     name: "Sunset Passion",
-    subtitle: "Rouge Rubis & Orange brûlant",
     emoji: "🔥",
-    primaryColor: "#F43F5E",
-    accentColor: "#FB923C",
-    bgPreview: "#0D0608",
-    cardPreview: "#220F18",
+    darkDescription: "Rouge Rubis & Noir Charbon",
+    lightDescription: "Rose Quartz & Blush chaleureux",
+    darkColors: {
+      bg: "#0D0608",
+      card: "#220F18",
+      primary: "#F43F5E",
+      accent: "#FB923C",
+    },
+    lightColors: {
+      bg: "#FFF5F5",
+      card: "#FFFFFF",
+      primary: "#E11D48",
+      accent: "#EA580C",
+    },
   },
   {
     id: "gold",
     name: "Gold Obsidian",
-    subtitle: "Noir Onyx & Or Champagne VIP",
     emoji: "👑",
-    primaryColor: "#F59E0B",
-    accentColor: "#D97706",
-    bgPreview: "#090806",
-    cardPreview: "#1D1912",
+    darkDescription: "Noir Onyx & Or Champagne VIP",
+    lightDescription: "Ivoire doré & Crème champagne",
+    darkColors: {
+      bg: "#090806",
+      card: "#1D1912",
+      primary: "#F59E0B",
+      accent: "#D97706",
+    },
+    lightColors: {
+      bg: "#FBF9F2",
+      card: "#FFFFFF",
+      primary: "#D97706",
+      accent: "#B45309",
+    },
   },
   {
     id: "cyber",
     name: "Cyber Neon",
-    subtitle: "Cyan électrique & Nuit clubbing",
     emoji: "⚡",
-    primaryColor: "#06B6D4",
-    accentColor: "#6366F1",
-    bgPreview: "#04060C",
-    cardPreview: "#101729",
-  },
-  {
-    id: "light",
-    name: "Pure Pearl",
-    subtitle: "Épure lumineuse & Nacre satinée",
-    emoji: "✨",
-    primaryColor: "#9333EA",
-    accentColor: "#DB2777",
-    bgPreview: "#F7F5F0",
-    cardPreview: "#FFFFFF",
+    darkDescription: "Cyan électrique & Nuit clubbing",
+    lightDescription: "Cyan givré & Menthe d'eau",
+    darkColors: {
+      bg: "#04060C",
+      card: "#101729",
+      primary: "#06B6D4",
+      accent: "#6366F1",
+    },
+    lightColors: {
+      bg: "#F0FDFB",
+      card: "#FFFFFF",
+      primary: "#0891B2",
+      accent: "#4F46E5",
+    },
   },
 ];
 
-export function resolveTheme(): AppTheme {
-  if (typeof window === "undefined") {
-    return "midnight";
+export function resolveThemeFamily(): ThemeFamily {
+  if (typeof window === "undefined") return "midnight";
+  const saved = window.localStorage.getItem(THEME_FAMILY_STORAGE_KEY) as ThemeFamily | null;
+  if (saved && THEME_FAMILIES.some((t) => t.id === saved)) {
+    return saved;
   }
-
-  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) as AppTheme | null;
-  if (savedTheme && AVAILABLE_THEMES.some((t) => t.id === savedTheme)) {
-    return savedTheme;
-  }
-
   return "midnight";
 }
 
-export function applyTheme(theme: AppTheme) {
+export function resolveThemeMode(): ThemeMode {
+  if (typeof window === "undefined") return "dark";
+  const saved = window.localStorage.getItem(THEME_MODE_STORAGE_KEY) as ThemeMode | null;
+  if (saved === "light" || saved === "dark") {
+    return saved;
+  }
+  // Par défaut en mode sombre pour une plateforme adulte
+  return "dark";
+}
+
+export function applyTheme(family: ThemeFamily, mode: ThemeMode) {
   if (typeof document === "undefined") return;
 
   const root = document.documentElement;
+  root.setAttribute("data-theme", family);
 
-  // Appliquer l'attribut de thème
-  root.setAttribute("data-theme", theme);
-
-  if (theme === "light") {
-    root.classList.remove("dark");
-    root.style.colorScheme = "light";
-  } else {
+  if (mode === "dark") {
     root.classList.add("dark");
     root.style.colorScheme = "dark";
+  } else {
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
   }
 }
 
 export function initTheme() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  applyTheme(resolveTheme());
+  if (typeof window === "undefined") return;
+  applyTheme(resolveThemeFamily(), resolveThemeMode());
 }
 
-export function setTheme(theme: AppTheme) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  applyTheme(theme);
+export function setThemeFamily(family: ThemeFamily) {
+  if (typeof window === "undefined") return;
+  const currentMode = resolveThemeMode();
+  window.localStorage.setItem(THEME_FAMILY_STORAGE_KEY, family);
+  applyTheme(family, currentMode);
   window.dispatchEvent(new Event("themechange"));
+}
+
+export function setThemeMode(mode: ThemeMode) {
+  if (typeof window === "undefined") return;
+  const currentFamily = resolveThemeFamily();
+  window.localStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
+  applyTheme(currentFamily, mode);
+  window.dispatchEvent(new Event("themechange"));
+}
+
+export function toggleThemeMode() {
+  const nextMode = resolveThemeMode() === "dark" ? "light" : "dark";
+  setThemeMode(nextMode);
+  return nextMode;
 }

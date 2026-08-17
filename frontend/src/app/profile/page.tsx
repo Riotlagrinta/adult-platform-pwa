@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
+import { ProfileSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 
@@ -120,7 +121,7 @@ export default function ProfilePage() {
     alert("Votre lien d'invitation de contact direct a été copié !");
   };
 
-  if (!ready) return <div className="p-6 text-sm text-neutral-500">Chargement...</div>;
+  if (!ready) return <GlobalPulseLoader message="Chargement de votre profil sécurisé..." />;
 
   if (!token) {
     return (
@@ -128,6 +129,10 @@ export default function ProfilePage() {
         <AuthPanel />
       </div>
     );
+  }
+
+  if (loading && !me) {
+    return <ProfileSkeleton />;
   }
 
   return (

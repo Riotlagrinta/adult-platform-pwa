@@ -11,6 +11,7 @@ import {
 import Logo from "@/components/Logo";
 import AuthPanel from "@/components/AuthPanel";
 import StoryTray from "@/components/StoryTray";
+import { FeedSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 
@@ -164,7 +165,7 @@ export default function Home() {
       </header>
 
       {!ready ? (
-        <div className="p-6 text-sm text-neutral-500">Chargement de la session...</div>
+        <GlobalPulseLoader message="Initialisation sécurisée d'OnlyAdults..." />
       ) : !token ? (
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12">
           {/* Panneau de Présentation Premium à gauche */}
@@ -274,15 +275,16 @@ export default function Home() {
             </button>
           </div>
 
-          {loading && <div className="p-6 text-sm text-neutral-500">Chargement du fil...</div>}
+          {loading && <FeedSkeleton />}
           {error && <div className="p-6 text-sm text-red-500">{error}</div>}
 
-          <div className="divide-y divide-[var(--app-border)]">
-            {feed.length === 0 && !loading ? (
-              <div className="py-20 text-center text-neutral-500">
-                Aucune publication disponible.
-              </div>
-            ) : (
+          {!loading && (
+            <div className="divide-y divide-[var(--app-border)]">
+              {feed.length === 0 ? (
+                <div className="py-20 text-center text-neutral-500">
+                  Aucune publication disponible pour le moment.
+                </div>
+              ) : (
               feed.map((post) => {
                 const firstMedia = post.media[0];
                 const mediaUrl = toPublicUrl(firstMedia?.url);
@@ -396,6 +398,7 @@ export default function Home() {
               })
             )}
           </div>
+          )}
         </>
       )}
     </div>

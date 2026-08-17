@@ -52,7 +52,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var saved=localStorage.getItem('onlyadults_theme')||localStorage.getItem('theme')||'midnight';var isDark=saved!=='light';document.documentElement.classList.toggle('dark',isDark);document.documentElement.style.colorScheme=isDark?'dark':'light';document.documentElement.setAttribute('data-theme',saved);}catch(e){}})();`,
+            __html: `(function(){try{var family=localStorage.getItem('onlyadults_theme_family')||'midnight';var mode=localStorage.getItem('onlyadults_theme_mode')||'dark';var isDark=mode==='dark';document.documentElement.classList.toggle('dark',isDark);document.documentElement.style.colorScheme=isDark?'dark':'light';document.documentElement.setAttribute('data-theme',family);}catch(e){}})();`,
           }}
         />
       </head>
