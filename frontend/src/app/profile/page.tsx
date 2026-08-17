@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Image as ImageIcon,
+  Camera,
   Edit3,
   Share2,
 } from "lucide-react";
@@ -142,29 +143,44 @@ export default function ProfilePage() {
       <div className="px-4 md:px-6 -mt-16 md:-mt-20 relative space-y-4">
         <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-4 md:p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-3xl md:text-5xl border-4 border-[var(--app-background)] shadow-lg overflow-hidden">
-            {me?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt="avatar" src={toPublicUrl(me.avatarUrl) ?? undefined} className="w-full h-full object-cover" />
-            ) : (
-              <span>{me?.displayName.slice(0, 2).toUpperCase()}</span>
-            )}
-          </div>
+            {/* Avatar interactif avec déclencheur de photo de profil */}
+            <label className="relative w-28 h-28 md:w-36 md:h-36 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-3xl md:text-5xl border-4 border-[var(--app-background)] shadow-lg overflow-hidden cursor-pointer group flex-shrink-0">
+              {avatarFile ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="aperçu" src={URL.createObjectURL(avatarFile)} className="w-full h-full object-cover" />
+              ) : me?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="photo de profil" src={toPublicUrl(me.avatarUrl) ?? undefined} className="w-full h-full object-cover" />
+              ) : (
+                <span>{me?.displayName.slice(0, 2).toUpperCase()}</span>
+              )}
+              {/* Badge caméra au survol */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                <Camera className="w-7 h-7" />
+              </div>
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <button
                 onClick={copyInviteLink}
-                className="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-full font-bold text-xs hover:opacity-85 transition shadow-sm flex items-center justify-center"
+                className="px-4 py-2 bg-[var(--app-surface-raised)] border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition shadow-sm flex items-center justify-center"
               >
                 <Share2 className="w-3.5 h-3.5 mr-2" />
                 Inviter
               </button>
               <button
                 onClick={saveProfile}
-                className="px-4 py-2 border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition flex items-center justify-center"
+                disabled={loading}
+                className="px-5 py-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full font-black text-xs hover:opacity-90 transition shadow-sm flex items-center justify-center disabled:opacity-50"
               >
                 <Edit3 className="w-3.5 h-3.5 mr-2" />
-                Enregistrer
+                {loading ? "Enregistrement..." : "Enregistrer les modifications"}
               </button>
             </div>
         </div>
@@ -186,11 +202,19 @@ export default function ProfilePage() {
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full max-w-3xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-4 py-3 text-sm outline-none min-h-28" placeholder="Bio" />
         <input value={headline} onChange={(e) => setHeadline(e.target.value)} className="w-full max-w-3xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-4 py-3 text-sm outline-none" placeholder="Titre du profil" />
 
-        <label className="inline-flex items-center gap-2 text-sm font-bold cursor-pointer">
-          <ImageIcon className="w-4 h-4" />
-          <span>Changer l'avatar</span>
-          <input type="file" className="hidden" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} />
-        </label>
+        {/* Bouton Changer la photo de profil */}
+        <div className="pt-1">
+          <label className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-xs font-bold cursor-pointer transition shadow-sm">
+            <Camera className="w-4 h-4 text-[var(--app-foreground)]" />
+            <span>{avatarFile ? `Photo choisie : ${avatarFile.name}` : "Changer la photo de profil"}</span>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+        </div>
 
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm py-1 border-y border-[var(--app-border)]">
           <button onClick={() => setActiveTab("posts")} className={`flex items-center gap-1.5 transition ${activeTab === "posts" ? "font-black text-[var(--app-foreground)]" : "text-neutral-500"}`}>
