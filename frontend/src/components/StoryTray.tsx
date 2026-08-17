@@ -3,14 +3,27 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "./AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
-import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Globe,
+  Users,
+  ShieldCheck,
+  Send,
+  Sparkles,
+} from "lucide-react";
 
 interface StoryItem {
   id: string;
   mediaUrl: string;
   mimeType: string;
   caption: string | null;
+  visibility: "PUBLIC" | "FOLLOWERS" | "VERIFIED_ONLY";
   createdAt: string;
+  expiresAt: string;
 }
 
 interface StoryGroup {
@@ -31,6 +44,13 @@ export default function StoryTray() {
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [progress, setProgress] = useState(0);
 
+  // États pour le Studio de Création de Story
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [durationHours, setDurationHours] = useState<number>(24);
+  const [visibility, setVisibility] = useState<"PUBLIC" | "FOLLOWERS" | "VERIFIED_ONLY">("FOLLOWERS");
+
   const fetchStories = useCallback(async () => {
     if (!token) return;
     try {
@@ -47,14 +67,44 @@ export default function StoryTray() {
     }
   }, [fetchStories, token]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !token) return;
+    if (!file) return;
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setCaption("");
+    setDurationHours(24);
+    setVisibility("FOLLOWERS");
+    // Reset file input so same file can be selected again
+    e.target.value = "";
+  };
+
+  const closeStudio = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setCaption("");
+  };
+
+  const publishStory = async () => {
+    if (!selectedFile || !token) return;
 
     try {
       setUploading(true);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", selectedFile);
+      formData.append("durationHours", String(durationHours));
+      formData.append("visibility", visibility);
+      if (caption.trim()) {
+        formData.append("caption", caption.trim());
+      }
 
       await apiRequest("/stories", {
         method: "POST",
@@ -62,10 +112,11 @@ export default function StoryTray() {
         body: formData,
       });
 
-      alert("Story publiée avec succès ! Elle disparaîtra dans 24 heures.");
+      closeStudio();
+      alert(`Story publiée avec succès ! Durée : ${durationHours}h • Visibilité : ${visibility === "PUBLIC" ? "Publique" : visibility === "FOLLOWERS" ? "Abonnés" : "Vérifiés"}`);
       void fetchStories();
     } catch (err) {
-      alert("Erreur lors de l'envoi de la story : " + (err instanceof Error ? err.message : "Erreur"));
+      alert("Erreur lors de la publication : " + (err instanceof Error ? err.message : "Erreur"));
     } finally {
       setUploading(false);
     }
@@ -74,7 +125,6 @@ export default function StoryTray() {
   const openStories = (groupIndex: number) => {
     const group = groups[groupIndex];
     if (group.items.length === 0) {
-      // Si c'est l'utilisateur actuel et qu'il n'a pas de story, on ouvre l'upload
       if (group.userId === user?.id) {
         fileInputRef.current?.click();
       }
@@ -95,11 +145,9 @@ export default function StoryTray() {
     const currentGroup = groups[activeGroupIndex];
 
     if (activeStoryIndex < currentGroup.items.length - 1) {
-      // Passer à la story suivante de l'utilisateur actuel
       setActiveStoryIndex((prev) => prev + 1);
       setProgress(0);
     } else if (activeGroupIndex < groups.length - 1) {
-      // Passer à l'utilisateur suivant s'il a des stories
       let nextIndex = activeGroupIndex + 1;
       while (nextIndex < groups.length && groups[nextIndex].items.length === 0) {
         nextIndex++;
@@ -120,18 +168,15 @@ export default function StoryTray() {
     if (activeGroupIndex === null) return;
 
     if (activeStoryIndex > 0) {
-      // Revenir à la story précédente de l'utilisateur actuel
       setActiveStoryIndex((prev) => prev - 1);
       setProgress(0);
     } else if (activeGroupIndex > 0) {
-      // Revenir à l'utilisateur précédent s'il a des stories
       let prevIndex = activeGroupIndex - 1;
       while (prevIndex >= 0 && groups[prevIndex].items.length === 0) {
         prevIndex--;
       }
       if (prevIndex >= 0) {
         setActiveGroupIndex(prevIndex);
-        // Se positionner sur sa dernière story
         setActiveStoryIndex(groups[prevIndex].items.length - 1);
         setProgress(0);
       } else {
@@ -148,8 +193,8 @@ export default function StoryTray() {
 
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
 
-    const intervalTime = 50; // Mettre à jour toutes les 50ms
-    const totalDuration = 5000; // 5 secondes
+    const intervalTime = 50;
+    const totalDuration = 5000;
     const increment = (intervalTime / totalDuration) * 100;
 
     progressTimerRef.current = setInterval(() => {
@@ -174,11 +219,11 @@ export default function StoryTray() {
 
   return (
     <div className="w-full bg-[var(--app-surface)] border-b border-[var(--app-border)] select-none">
-      {/* Sélecteur de fichier caché pour uploader une story */}
+      {/* Sélecteur de fichier caché pour lancer le Studio */}
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileChange}
+        onChange={handleFileSelect}
         className="hidden"
         accept="image/*,video/*"
       />
@@ -219,15 +264,15 @@ export default function StoryTray() {
                   </div>
                 </div>
 
-                {/* Bouton Plus sur l'avatar pour l'utilisateur actuel s'il n'a pas de story */}
+                {/* Bouton Plus sur l'avatar pour l'utilisateur connecté */}
                 {isCurrentUser && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
                     }}
-                    disabled={uploading}
                     className="absolute bottom-0 right-0 p-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black border-2 border-[var(--app-surface)] flex items-center justify-center hover:scale-105 transition"
+                    title="Ajouter une story"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -242,7 +287,142 @@ export default function StoryTray() {
         })}
       </div>
 
-      {/* Visionneuse de Stories plein écran */}
+      {/* ── STUDIO DE CRÉATION DE STORY (Prévisualisation + Durée + Visibilité) ── */}
+      {selectedFile && previewUrl && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[110] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header du Studio */}
+            <div className="px-5 py-4 border-b border-[var(--app-border)] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-pink-500" />
+                <h3 className="font-black text-sm uppercase tracking-tight">Studio Story</h3>
+              </div>
+              <button
+                onClick={closeStudio}
+                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenu : Aperçu et Réglages */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Cadre de prévisualisation média */}
+              <div className="w-full h-64 sm:h-72 rounded-2xl bg-black overflow-hidden flex items-center justify-center relative border border-[var(--app-border)]">
+                {selectedFile.type.startsWith("video/") ? (
+                  <video src={previewUrl} className="w-full h-full object-contain" autoPlay playsInline loop muted />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt="Aperçu story" className="w-full h-full object-contain" />
+                )}
+              </div>
+
+              {/* Champ Légende */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">Légende (optionnel)</label>
+                <input
+                  type="text"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Écrivez un message sur votre story..."
+                  maxLength={120}
+                  className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm outline-none focus:border-[var(--app-foreground)] transition"
+                />
+              </div>
+
+              {/* Réglage de la Durée d'expiration */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                  Durée de vie de la story
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { hours: 6, label: "6h (Flash)" },
+                    { hours: 12, label: "12h" },
+                    { hours: 24, label: "24h (Std)" },
+                    { hours: 48, label: "48h (VIP)" },
+                  ].map((item) => (
+                    <button
+                      key={item.hours}
+                      type="button"
+                      onClick={() => setDurationHours(item.hours)}
+                      className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition border text-center ${
+                        durationHours === item.hours
+                          ? "bg-[var(--app-foreground)] text-[var(--app-background)] border-[var(--app-foreground)] shadow-sm"
+                          : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-transparent hover:border-[var(--app-border)]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Réglage de la Visibilité */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-neutral-400" />
+                  Qui peut voir cette story ?
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "PUBLIC", label: "Public", icon: Globe, desc: "Tous les membres" },
+                    { value: "FOLLOWERS", label: "Abonnés", icon: Users, desc: "Mes followers" },
+                    { value: "VERIFIED_ONLY", label: "Vérifiés ⭐", icon: ShieldCheck, desc: "Profils 18+ validés" },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const isSelected = visibility === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setVisibility(item.value as any)}
+                        className={`p-3 rounded-2xl text-left transition border flex flex-col gap-1 ${
+                          isSelected
+                            ? "bg-[var(--app-foreground)] text-[var(--app-background)] border-[var(--app-foreground)] shadow-sm"
+                            : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-transparent hover:border-[var(--app-border)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <Icon className="w-3.5 h-3.5" />
+                          <span>{item.label}</span>
+                        </div>
+                        <span className={`text-[10px] leading-tight ${isSelected ? "opacity-80" : "text-neutral-400"}`}>
+                          {item.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Boutons d'action */}
+            <div className="p-5 border-t border-[var(--app-border)] flex items-center gap-3">
+              <button
+                type="button"
+                onClick={closeStudio}
+                disabled={uploading}
+                className="flex-1 py-3 rounded-full border border-[var(--app-border)] text-xs font-bold hover:bg-[var(--app-surface-soft)] transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={publishStory}
+                disabled={uploading}
+                className="flex-[2] py-3 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:opacity-90 text-white text-xs font-black transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{uploading ? "Publication en cours..." : "Publier ma Story 🚀"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VISIONNEUSE DE STORIES PLEIN ÉCRAN ── */}
       {activeGroupIndex !== null && activeGroup && activeStory && (
         <div className="fixed inset-0 bg-black z-[100] flex flex-col justify-between select-none">
           {/* Barres de progression en haut */}
@@ -264,7 +444,7 @@ export default function StoryTray() {
             ))}
           </div>
 
-          {/* En-tête (Avatar + Pseudo + Bouton Fermer) */}
+          {/* En-tête (Avatar + Pseudo + Badge Visibilité + Bouton Fermer) */}
           <div className="absolute top-8 inset-x-4 z-50 flex items-center justify-between text-white pointer-events-auto">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full border border-neutral-700 bg-neutral-800 text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0">
@@ -279,7 +459,16 @@ export default function StoryTray() {
                   <span>{activeGroup.displayName.slice(0, 2).toUpperCase()}</span>
                 )}
               </div>
-              <span className="font-bold text-xs">{activeGroup.displayName}</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-xs">{activeGroup.displayName}</span>
+                {activeStory.visibility && (
+                  <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+                    {activeStory.visibility === "PUBLIC" && "🌍 Public"}
+                    {activeStory.visibility === "FOLLOWERS" && "👥 Abonnés"}
+                    {activeStory.visibility === "VERIFIED_ONLY" && "⭐ Vérifiés"}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={closeStories}
@@ -314,7 +503,7 @@ export default function StoryTray() {
 
             {/* Légende éventuelle (Caption) */}
             {activeStory.caption && (
-              <div className="absolute bottom-10 inset-x-6 z-40 text-center text-white text-sm bg-black/50 backdrop-blur-md p-4 rounded-2xl border border-neutral-800/50 max-w-md mx-auto leading-relaxed">
+              <div className="absolute bottom-10 inset-x-6 z-40 text-center text-white text-sm bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-neutral-800/50 max-w-md mx-auto leading-relaxed shadow-lg">
                 {activeStory.caption}
               </div>
             )}

@@ -248,15 +248,16 @@ model Block {
 }
 
 model Story {
-  id        String   @id @default(cuid())
-  authorId  String
-  mediaUrl  String
-  mimeType  String
-  caption   String?
-  createdAt DateTime @default(now())
-  expiresAt DateTime
+  id         String         @id @default(cuid())
+  authorId   String
+  mediaUrl   String
+  mimeType   String
+  caption    String?
+  visibility PostVisibility @default(FOLLOWERS)
+  createdAt  DateTime       @default(now())
+  expiresAt  DateTime
 
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
 model PushSubscription {
