@@ -16,8 +16,6 @@ services:
       - key: DATABASE_URL
         sync: false # Saisir l'URL Neon de production dans le dashboard Render
       # ── Stockage Cloud Backblaze B2 (S3-Compatible) ──
-      # IMPORTANT: Ces variables DOIVENT être définies dans le dashboard Render
-      # car le disque de Render est éphémère (les fichiers uploadés en local sont perdus à chaque redéploiement)
       - key: S3_ACCESS_KEY
         sync: false
       - key: S3_SECRET_KEY
@@ -28,3 +26,10 @@ services:
         value: us-east-005
       - key: S3_BUCKET_NAME
         value: Only-Adult
+      # ── Web Push Notifications (VAPID) ──
+      - key: VAPID_PUBLIC_KEY
+        value: BHWr5CGnorng3gn5zwnN7wJ1inUUak_6u3lx7R06zT1twxM_VgGOzdcKEvmh3wan9NG_C-P9ZuBO9wBhFDCYRX8
+      - key: VAPID_PRIVATE_KEY
+        value: L08laroYvYGQ-Pf69Q96a1pEd4hdupTO_QtOBuSPSFc
+      - key: VAPID_SUBJECT
+        value: mailto:admin@onlyadults.com

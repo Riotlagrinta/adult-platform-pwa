@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma.js';
 import { emitToUser } from './socket.js';
+import { sendPushNotification } from './push.js';
 
 type CreateNotificationInput = {
   userId: string;
@@ -8,6 +9,7 @@ type CreateNotificationInput = {
   title: string;
   body: string;
   data?: Prisma.InputJsonValue;
+  url?: string;
 };
 
 export async function createNotification(input: CreateNotificationInput) {
@@ -21,8 +23,18 @@ export async function createNotification(input: CreateNotificationInput) {
     },
   });
 
-  // Push notification in real-time via Socket.io
+  // 1. Notification temps réel via Socket.io (si l'app est ouverte)
   emitToUser(input.userId, 'notification:new', notification);
+
+  // 2. Notification Web Push (si l'app est fermée ou en arrière-plan)
+  sendPushNotification(input.userId, {
+    title: input.title,
+    body: input.body,
+    url: input.url || '/notifications',
+    data: { notificationId: notification.id, type: input.type },
+  }).catch((err) => {
+    console.error('[WebPush] Échec envoi notification:', err);
+  });
 
   return notification;
 }

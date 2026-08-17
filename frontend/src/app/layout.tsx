@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import AppShell from "@/components/AppShell";
 import PWARegister from "@/components/PWARegister";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import PushNotificationBanner from "@/components/PushNotificationBanner";
 import { Analytics } from "@vercel/analytics/next";
 
 
@@ -61,6 +62,7 @@ export default function RootLayout({
         <AuthProvider>
           <PWARegister />
           <PWAInstallPrompt />
+          <PushNotificationBanner />
           <Analytics />
           <AppShell>{children}</AppShell>
         </AuthProvider>

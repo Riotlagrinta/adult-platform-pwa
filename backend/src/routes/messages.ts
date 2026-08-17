@@ -171,11 +171,17 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
     emitToUser(req.user!.id, 'message:new', { message: signedMessage, conversationId: conversation.id });
     emitToUser(recipientId, 'message:new', { message: signedMessage, conversationId: conversation.id });
 
+    const sender = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { displayName: true },
+    });
+
     await createNotification({
       userId: recipientId,
       type: 'message.received',
-      title: 'Nouveau message',
-      body: data.text ?? 'Vous avez reçu un média privé.',
+      title: sender?.displayName ? `${sender.displayName}` : 'Nouveau message privé',
+      body: data.text ?? '📷 Vous a envoyé un média privé.',
+      url: '/messages',
       data: {
         conversationId: conversation.id,
         messageId: message.id,

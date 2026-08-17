@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { getSocket, disconnectSocket } from "@/lib/socket";
 import type { Socket } from "socket.io-client";
+import { soundManager } from "@/lib/sound";
 
 type AuthContextValue = {
   user: SessionUser | null;
@@ -114,23 +115,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
-  // Écoute de l'événement notification:new en temps réel
+  // Écoute des notifications et messages temps réel
   useEffect(() => {
     if (!socket) return;
 
     const handleNotification = (notif: { title: string; body: string }) => {
       setUnreadNotificationsCount((prev) => prev + 1);
+      soundManager.playNotificationSound();
       showNotificationToast(notif.title, notif.body, () => {
         router.push("/notifications");
       });
     };
 
+    const handleMessage = (data: { message: { senderId: string; text?: string | null }; conversationId: string }) => {
+      if (user && data.message.senderId !== user.id) {
+        soundManager.playMessageSound();
+      }
+    };
+
     socket.on("notification:new", handleNotification);
+    socket.on("message:new", handleMessage);
 
     return () => {
       socket.off("notification:new", handleNotification);
+      socket.off("message:new", handleMessage);
     };
-  }, [router, socket]);
+  }, [router, socket, user]);
 
   const syncSession = (payload: { user: SessionUser; token: string }) => {
     setStoredToken(payload.token);

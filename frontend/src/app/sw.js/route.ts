@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 
 const swScript = `
-const CACHE_VERSION = "onlyadults-v2-live";
+const CACHE_VERSION = "onlyadults-v3-push";
 const STATIC_CACHE = \`\${CACHE_VERSION}-static\`;
 
-// Installation : Mise en cache des ressources de base
+// Installation : Prise en charge immédiate
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
-// Activation : Nettoyage STRICT de TOUS les anciens caches sur tous les appareils
+// Activation : Nettoyage STRICT des anciens caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -25,18 +25,67 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Réception des Notifications Web Push (Même quand l'application ou le téléphone est fermé)
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "OnlyAdults 🔔", body: event.data.text() };
+  }
+
+  const title = payload.title || "OnlyAdults";
+  const options = {
+    body: payload.body || "Vous avez reçu un nouveau message.",
+    icon: payload.icon || "/icon-192x192.jpg",
+    badge: payload.badge || "/icon-192x192.jpg",
+    vibrate: [200, 100, 200],
+    tag: payload.tag || "onlyadults-notification",
+    data: {
+      url: payload.url || "/",
+      ...payload.data,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Clic sur une notification push : Ouvre ou met au premier plan la conversation/page ciblée
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          if ("navigate" in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
 // Interception des requêtes : Stratégie Network-First
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
 
-  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/auth") || url.pathname.startsWith("/posts") || url.pathname.startsWith("/stories")) {
+  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/auth") || url.pathname.startsWith("/posts") || url.pathname.startsWith("/stories") || url.pathname.startsWith("/push")) {
     return;
   }
 
   event.respondWith(
-    fetch(event.request, { cache: "no-store" })
+    fetch(event.request)
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
           const responseToCache = networkResponse.clone();
