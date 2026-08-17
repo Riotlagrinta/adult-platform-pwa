@@ -10,8 +10,21 @@ services:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        generateValue: true # Render génère automatiquement une clé secrète aléatoire forte
+        generateValue: true
       - key: CORS_ORIGIN
         value: https://onlyadults-frontend.vercel.app
       - key: DATABASE_URL
-        sync: false # Vous saisirez l'URL Neon de production lors de l'activation
+        sync: false # Saisir l'URL Neon de production dans le dashboard Render
+      # ── Stockage Cloud Backblaze B2 (S3-Compatible) ──
+      # IMPORTANT: Ces variables DOIVENT être définies dans le dashboard Render
+      # car le disque de Render est éphémère (les fichiers uploadés en local sont perdus à chaque redéploiement)
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_ENDPOINT
+        value: https://s3.us-east-005.backblazeb2.com
+      - key: S3_REGION
+        value: us-east-005
+      - key: S3_BUCKET_NAME
+        value: Only-Adult
