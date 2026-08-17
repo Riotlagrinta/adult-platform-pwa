@@ -141,3 +141,39 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
   }
 });
 
+// Modification du mot de passe
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Le mot de passe actuel est requis'),
+  newPassword: z.string().min(8, 'Le nouveau mot de passe doit contenir au moins 8 caractères'),
+});
+
+authRouter.post('/change-password', requireAuth, async (req, res, next) => {
+  try {
+    const data = changePasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const isMatch = await bcrypt.compare(data.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Le mot de passe actuel est incorrect.' });
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    res.json({ ok: true, message: 'Mot de passe modifié avec succès.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+

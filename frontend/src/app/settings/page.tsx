@@ -5,7 +5,8 @@ import { Settings, User, Eye, Bell, HelpCircle, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
-import ThemeToggle from "@/components/ThemeToggle";
+import ThemeSelector from "@/components/ThemeSelector";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -15,9 +16,9 @@ export default function SettingsPage() {
     if (label === "Modifier les informations de profil") {
       router.push("/profile");
     } else if (label === "Visibilité & Confidentialité") {
-      alert("🔒 Confidentialité : Vos conversations et publications sont entièrement privées et cryptées. Les membres bloqués ne peuvent ni voir votre profil, ni vous contacter.");
+      alert("🔒 Confidentialité : Vos conversations et publications sont entièrement privées et protégées. Les membres bloqués ne peuvent ni voir votre profil, ni vous contacter.");
     } else if (label === "Notifications push et courriels") {
-      alert("🔔 Notifications : Les notifications de l'application (PWA) sont gérées automatiquement par les autorisations de votre navigateur.");
+      alert("🔔 Notifications : Les alertes en direct de l'application (PWA) sont gérées automatiquement par les autorisations de votre navigateur.");
     } else if (label === "Centre d'aide et assistance") {
       alert("💬 Assistance : Pour toute demande de support, contactez l'administrateur de la plateforme à l'adresse support@onlyadults.com.");
     }
@@ -44,17 +45,29 @@ export default function SettingsPage() {
     <div className="bg-[var(--app-background)] min-h-screen p-4 md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-6">
       <div className="border-b border-[var(--app-border)] pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Settings className="h-6 w-6 text-[var(--app-foreground)]" />
+          <div className="w-10 h-10 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center shadow-sm">
+            <Settings className="h-5 w-5" />
+          </div>
           <div>
             <h2 className="font-black text-xl tracking-tight uppercase">Paramètres</h2>
-            <p className="text-xs text-neutral-500">Gérez votre compte et vos préférences.</p>
+            <p className="text-xs text-neutral-400">Personnalisez votre expérience OnlyAdults.</p>
           </div>
         </div>
-        <ThemeToggle className="w-10 h-10 p-0" />
       </div>
 
       <div className="space-y-6 max-w-xl">
-        <section className="divide-y divide-[var(--app-border)] text-xs">
+        {/* ── SÉLECTEUR DE THÈMES (SNAPCHAT STYLE) ── */}
+        <section className="p-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
+          <ThemeSelector />
+        </section>
+
+        {/* ── CHANGEMENT DE MOT DE PASSE SÉCURISÉ ── */}
+        <section>
+          <ChangePasswordForm />
+        </section>
+
+        {/* ── AUTRES OPTIONS DE PARAMÈTRES ── */}
+        <section className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)] text-xs overflow-hidden shadow-sm">
           {[
             { label: "Modifier les informations de profil", icon: User },
             { label: "Visibilité & Confidentialité", icon: Eye },
@@ -64,7 +77,7 @@ export default function SettingsPage() {
             <div
               key={i}
               onClick={() => handleItemClick(item.label)}
-              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer rounded-xl transition"
+              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
             >
               <div className="flex items-center gap-3">
                 <item.icon className="w-4 h-4 text-neutral-400" />

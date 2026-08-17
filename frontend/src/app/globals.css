@@ -2,26 +2,78 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --app-background: #f5f3ef;
-  --app-surface: #ffffff;
-  --app-surface-raised: #fafafa;
-  --app-surface-soft: #f0ede7;
-  --app-border: #e6e1d8;
-  --app-foreground: #0a0a0a;
-  --app-muted: #6b6b6b;
-  color-scheme: light;
+/* ── THÈMES MULTIPLES ONLYADULTS ── */
+
+/* 1. Midnight Velvet (Défaut Sombre Étoilé & Améthyste) */
+:root,
+html.dark,
+html[data-theme="midnight"] {
+  --app-background: #09070f;
+  --app-surface: #120e1d;
+  --app-surface-raised: #1a1429;
+  --app-surface-soft: #251d3b;
+  --app-border: #352952;
+  --app-foreground: #f5f2fa;
+  --app-accent: #a855f7;
+  --app-accent-gradient: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  --app-muted: #948ba3;
+  color-scheme: dark;
 }
 
-html.dark {
-  --app-background: #090909;
-  --app-surface: #111111;
-  --app-surface-raised: #171717;
-  --app-surface-soft: #1f1f1f;
-  --app-border: #2b2b2b;
-  --app-foreground: #f5f5f5;
-  --app-muted: #9a9a9a;
+/* 2. Sunset Passion (Rouge Rubis & Sunset Orange) */
+html[data-theme="sunset"] {
+  --app-background: #0d0608;
+  --app-surface: #170b10;
+  --app-surface-raised: #220f18;
+  --app-surface-soft: #321422;
+  --app-border: #4a1b31;
+  --app-foreground: #fff1f2;
+  --app-accent: #f43f5e;
+  --app-accent-gradient: linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
+  --app-muted: #a8818b;
   color-scheme: dark;
+}
+
+/* 3. Gold Obsidian (Noir Onyx & Or Champagne VIP) */
+html[data-theme="gold"] {
+  --app-background: #090806;
+  --app-surface: #14120e;
+  --app-surface-raised: #1d1912;
+  --app-surface-soft: #2c2518;
+  --app-border: #423720;
+  --app-foreground: #fefce8;
+  --app-accent: #eab308;
+  --app-accent-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --app-muted: #9e9177;
+  color-scheme: dark;
+}
+
+/* 4. Cyber Neon (Nuit Clubbing & Cyan Électrique) */
+html[data-theme="cyber"] {
+  --app-background: #04060c;
+  --app-surface: #0a0e1a;
+  --app-surface-raised: #101729;
+  --app-surface-soft: #18233e;
+  --app-border: #24355e;
+  --app-foreground: #f0fdf4;
+  --app-accent: #06b6d4;
+  --app-accent-gradient: linear-gradient(135deg, #06b6d4 0%, #6366f1 100%);
+  --app-muted: #788db0;
+  color-scheme: dark;
+}
+
+/* 5. Pure Pearl (Clair Épuré Haut de Gamme) */
+html[data-theme="light"] {
+  --app-background: #f7f5f0;
+  --app-surface: #ffffff;
+  --app-surface-raised: #f2eee7;
+  --app-surface-soft: #e8e2d8;
+  --app-border: #ded6c9;
+  --app-foreground: #121015;
+  --app-accent: #9333ea;
+  --app-accent-gradient: linear-gradient(135deg, #9333ea 0%, #db2777 100%);
+  --app-muted: #706b7a;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -36,10 +88,10 @@ body {
   color: var(--app-foreground);
   font-family: var(--font-sans), sans-serif;
   background-image:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--app-foreground) 7%, transparent), transparent 30%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-foreground) 4%, transparent), transparent 24%),
-    radial-gradient(circle at bottom center, color-mix(in srgb, var(--app-foreground) 3%, transparent), transparent 28%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--app-accent) 12%, transparent), transparent 35%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 8%, transparent), transparent 30%);
   background-attachment: fixed;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @media (max-width: 767px) {
@@ -68,3 +120,13 @@ html, body {
   }
 }
 
+@keyframes slideDown {
+  from {
+    transform: translateY(-1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
