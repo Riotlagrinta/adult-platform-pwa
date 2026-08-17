@@ -88,7 +88,7 @@ export function extractStorageKey(url: string): string | null {
     return url.replace('/uploads/', '');
   }
 
-  const folders = ['avatars/', 'media/', 'verification/'];
+  const folders = ['avatars/', 'media/', 'verification/', 'stories/'];
   for (const folder of folders) {
     const index = url.indexOf(folder);
     if (index !== -1) {
