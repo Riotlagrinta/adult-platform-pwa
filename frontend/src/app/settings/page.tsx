@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
 import ThemeSelector from "@/components/ThemeSelector";
+import PwaIconSelector from "@/components/PwaIconSelector";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 
 export default function SettingsPage() {
@@ -56,17 +57,22 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6 max-w-xl">
-        {/* ── SÉLECTEUR DE THÈMES (SNAPCHAT STYLE) ── */}
+        {/* ── 1. SÉLECTEUR D'ICÔNE D'APPLICATION & CAMOUFLAGE (PWA) ── */}
+        <section className="p-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
+          <PwaIconSelector />
+        </section>
+
+        {/* ── 2. SÉLECTEUR DE THÈMES (SNAPCHAT STYLE DUAL MODE) ── */}
         <section className="p-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
           <ThemeSelector />
         </section>
 
-        {/* ── CHANGEMENT DE MOT DE PASSE SÉCURISÉ ── */}
+        {/* ── 3. CHANGEMENT DE MOT DE PASSE SÉCURISÉ ── */}
         <section>
           <ChangePasswordForm />
         </section>
 
-        {/* ── AUTRES OPTIONS DE PARAMÈTRES ── */}
+        {/* ── 4. AUTRES OPTIONS DE PARAMÈTRES ── */}
         <section className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] divide-y divide-[var(--app-border)] text-xs overflow-hidden shadow-sm">
           {[
             { label: "Modifier les informations de profil", icon: User },

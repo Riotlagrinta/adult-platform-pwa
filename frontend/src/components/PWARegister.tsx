@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { initPwaIcon } from "@/lib/pwa-icon-client";
 
 export default function PWARegister() {
   useEffect(() => {
+    initPwaIcon();
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }

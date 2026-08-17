@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { X, Download, Share } from "lucide-react";
+import { getPwaIconById } from "@/lib/pwa-icons";
+import { getSavedPwaIconId, initPwaIcon } from "@/lib/pwa-icon-client";
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -94,13 +96,20 @@ export default function PWAInstallPrompt() {
         </button>
 
         <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-[18px] bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-black text-xl flex-shrink-0 shadow-sm">
-            OA
+          <div className="w-12 h-12 rounded-[18px] overflow-hidden flex-shrink-0 shadow-md border border-black/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/pwa-icon?id=${getSavedPwaIconId()}`}
+              alt="Icône d'installation"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="pr-6 space-y-1">
-            <h4 className="font-black text-sm tracking-tight">Installer OnlyAdults</h4>
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-black text-sm tracking-tight">Installer {getPwaIconById(getSavedPwaIconId()).appName}</h4>
+            </div>
             <p className="text-xs text-neutral-500 leading-normal">
-              Profite d'une expérience fluide, rapide et sans limites directement depuis ton écran d'accueil.
+              Icône : <strong className="text-[var(--app-foreground)]">{getPwaIconById(getSavedPwaIconId()).name}</strong>. Personnalisable dans Paramètres.
             </p>
           </div>
         </div>
