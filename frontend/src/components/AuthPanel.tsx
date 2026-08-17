@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { Eye, EyeOff } from "lucide-react";
+import ModernDatePicker from "./ModernDatePicker";
 
 
 type Mode = "login" | "register";
@@ -129,18 +130,11 @@ export default function AuthPanel() {
           </div>
         )}
         {mode === "register" && (
-          <div className="space-y-1">
-            <label className="text-[10px] text-neutral-500 font-bold px-1 uppercase tracking-wider">Date de naissance (Min. 18 ans)</label>
-            <input
-              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
-              placeholder="Date de naissance"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              type="date"
-              max={getMaxBirthDate()}
-              required
-            />
-          </div>
+          <ModernDatePicker
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+            required
+          />
         )}
         {error && <div className="text-sm text-red-500">{error}</div>}
         <button
