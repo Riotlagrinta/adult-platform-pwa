@@ -449,8 +449,8 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] md:h-[100dvh] min-h-0 bg-[var(--app-background)] overflow-hidden relative p-3 md:p-4 gap-3 md:gap-4">
-      <div className={`w-full md:w-80 flex-shrink-0 min-h-0 border border-[var(--app-border)] rounded-[28px] overflow-hidden bg-[var(--app-surface)] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${selectedConvId ? "hidden md:flex" : ""}`}>
+    <div className="flex h-full w-full min-h-0 bg-[var(--app-background)] overflow-hidden relative divide-x divide-[var(--app-border)]">
+      <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 min-h-0 bg-[var(--app-surface)] flex flex-col ${selectedConvId ? "hidden md:flex" : "flex"}`}>
         <div className="p-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
           <div className="space-y-1">
             <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Messagerie</div>
@@ -541,7 +541,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] rounded-[28px] border border-[var(--app-border)] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.08)] ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : ""}`}>
+      <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] overflow-hidden ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : "flex"}`}>
         {selectedConversation && activePartner ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
@@ -670,7 +670,7 @@ export default function MessagesPage() {
               </div>
             )}
 
-            <div className="p-4 border-t border-[var(--app-border)] bg-[var(--app-surface)]">
+            <div className="p-3 md:p-4 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-4">
               <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                 <button
                   onClick={() => setEphemeralMode(!ephemeralMode)}
