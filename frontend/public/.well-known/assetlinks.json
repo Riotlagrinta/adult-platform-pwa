@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.onlyadults.app",
+      "sha256_cert_fingerprints": [
+        "C5:D9:59:2A:BD:9C:09:91:82:6C:B0:CE:CD:B9:24:7E:0B:6A:C9:9B:F0:C3:C8:95:97:8B:F7:A2:90:D8:C6:82"
+      ]
+    }
+  }
+]

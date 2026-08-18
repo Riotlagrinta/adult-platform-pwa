@@ -1,0 +1,79 @@
+name: 📱 Build & Release Android APK (OnlyAdults)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - 'frontend/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: 🔨 Compiler l'APK Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Cloner le dépôt
+        uses: actions/checkout@v4
+
+      - name: ☕ Configurer Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🛠️ Configurer Gradle & Android SDK
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: 🔐 Vérifier le Keystore de signature
+        run: |
+          if [ -f "android/keystore/release.jks" ]; then
+            echo "Keystore de signature présent."
+          else
+            echo "Génération du Keystore de signature..."
+            mkdir -p android/keystore
+            keytool -genkeypair -v -keystore android/keystore/release.jks -alias onlyadults -keyalg RSA -keysize 2048 -validity 10000 -storepass onlyadults2026 -keypass onlyadults2026 -dname "CN=OnlyAdults, OU=Mobile, O=OnlyAdults Inc, L=Paris, ST=IDF, C=FR"
+          fi
+
+      - name: 🚀 Compiler l'APK Signé (assembleRelease)
+        working-directory: android
+        run: |
+          chmod +x gradlew || true
+          gradle assembleRelease
+
+      - name: 📦 Renommer l'APK
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/release/app-release.apk output/OnlyAdults.apk || cp android/app/build/outputs/apk/debug/app-debug.apk output/OnlyAdults.apk
+
+      - name: 📤 Téléverser l'Artifact GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnlyAdults-Android-APK
+          path: output/OnlyAdults.apk
+          retention-days: 30
+
+      - name: 🏷️ Créer ou Mettre à Jour la Release GitHub
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: "v1.0.0"
+          name: "📱 OnlyAdults Android Official APK (Mises à jour automatiques)"
+          body: |
+            ### 🚀 OnlyAdults - Application Officielle Android (APK)
+
+            Cette application Android officielle se synchronise et se met à jour **automatiquement à chaque mise à jour** sans nécessiter de retéléchargement.
+
+            #### 📲 Installation :
+            1. Téléchargez le fichier **`OnlyAdults.apk`** ci-dessous.
+            2. Ouvrez le fichier et autorisez l'installation depuis vos téléchargements.
+            3. Profitez de l'expérience plein écran, des notifications directes et des fonctionnalités 18+ !
+          files: output/OnlyAdults.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

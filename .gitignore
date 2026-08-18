@@ -30,3 +30,12 @@ backend/uploads/
 Thumbs.db
 
 .vercel
+
+# Android build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+**/captures/
+.externalNativeBuild/
+.cxx/

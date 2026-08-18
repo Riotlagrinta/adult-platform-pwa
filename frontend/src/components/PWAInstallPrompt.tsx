@@ -147,14 +147,20 @@ export default function PWAInstallPrompt() {
           </div>
         ) : (
           /* Bouton d'installation pour Android / Chrome */
-          <div className="border-t border-[var(--app-border)] pt-3 flex flex-col">
+          <div className="border-t border-[var(--app-border)] pt-3 flex flex-col gap-2">
             <button
               onClick={handleInstallClick}
               className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[var(--app-foreground)] hover:opacity-90 text-[var(--app-background)] font-black py-3 text-sm tracking-tight transition shadow-sm"
             >
               <Download className="h-4 w-4" />
-              <span>Installer l'application</span>
+              <span>Installer sur l'écran d'accueil</span>
             </button>
+            <a
+              href="/download"
+              className="text-center text-[11px] font-bold text-neutral-400 hover:text-[var(--app-foreground)] py-1 transition underline"
+            >
+              Ou télécharger le fichier .APK direct (Android)
+            </a>
           </div>
         )}
       </div>

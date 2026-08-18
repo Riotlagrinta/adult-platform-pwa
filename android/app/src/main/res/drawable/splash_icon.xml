@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Fond circulaire sombre -->
+    <path
+        android:fillColor="#1A1429"
+        android:pathData="M64,64m-56,0a56,56 0 1,0 112,0a56,56 0 1,0 -112,0" />
+
+    <!-- Contour dégradé améthyste -->
+    <path
+        android:strokeColor="#A855F7"
+        android:strokeWidth="4"
+        android:pathData="M64,64m-54,0a54,54 0 1,0 108,0a54,54 0 1,0 -108,0" />
+
+    <!-- Anneau O -->
+    <path
+        android:strokeColor="#A855F7"
+        android:strokeWidth="6"
+        android:pathData="M64,64m-30,0a30,30 0 1,0 60,0a30,30 0 1,0 -60,0" />
+
+    <!-- Lettre A entrelacée -->
+    <path
+        android:fillColor="#EC4899"
+        android:pathData="M64,36 L48,88 L56,88 L64,62 L72,88 L80,88 Z" />
+
+    <!-- Barre A -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,72 L76,72 L76,76 L52,76 Z" />
+</vector>
