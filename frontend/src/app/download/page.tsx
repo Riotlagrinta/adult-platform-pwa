@@ -1,12 +1,52 @@
 "use client";
 
-import React from "react";
-import { Download, ShieldCheck, RefreshCw, Zap, Bell, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Download, ShieldCheck, RefreshCw, Zap, Bell, CheckCircle2, ArrowRight, ArrowLeft, Smartphone, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 
 export default function DownloadPage() {
-  const apkDownloadUrl = "https://github.com/Riotlagrinta/adult-platform-pwa/releases/download/v1.0.0/OnlyAdults.apk";
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [installing, setInstalling] = useState(false);
+
+  useEffect(() => {
+    // Vérifier si l'application est déjà installée
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+    }
+
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleNativeInstall = async () => {
+    if (deferredPrompt) {
+      setInstalling(true);
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setIsInstalled(true);
+      }
+      setDeferredPrompt(null);
+      setInstalling(false);
+    } else {
+      // Fallback pour Android / Chrome si l'invite automatique n'est pas capturée
+      alert(
+        "📱 Pour installer directement sur Android :\n\n" +
+        "1. Appuyez sur les 3 petits points (⋮) en haut à droite de Chrome.\n" +
+        "2. Cliquez sur 'Ajouter à l'écran d'accueil' ou 'Installer l'application'.\n\n" +
+        "L'application OnlyAdults sera installée sur votre smartphone en plein écran avec mises à jour automatiques !"
+      );
+    }
+  };
+
+  const apkReleaseUrl = "https://github.com/Riotlagrinta/adult-platform-pwa/releases";
 
   return (
     <div className="min-h-screen bg-[var(--app-background)] text-[var(--app-foreground)] p-4 md:p-8 flex flex-col justify-between select-none">
@@ -25,39 +65,54 @@ export default function DownloadPage() {
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-xs font-black text-[var(--app-accent)]">
             <Zap className="w-3.5 h-3.5" />
-            <span>APPLICATION OFFICIELLE ANDROID (APK)</span>
+            <span>INSTALLATION OFFICIELLE ANDROID</span>
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
-            Installez OnlyAdults directement sur votre smartphone
+            Installez OnlyAdults sur votre téléphone
           </h1>
 
           <p className="text-sm md:text-base text-neutral-400 max-w-xl mx-auto leading-relaxed">
             Profitez d'une expérience 100% plein écran, des notifications push directes et de <strong className="text-[var(--app-foreground)]">mises à jour automatiques en temps réel</strong> sans jamais devoir réinstaller l'application.
           </p>
 
-          {/* Bouton Télécharger l'APK */}
+          {/* Boutons d'Action Principaux */}
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href={apkDownloadUrl}
-              className="w-full sm:w-auto px-8 py-4 rounded-3xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm hover:opacity-90 transition shadow-lg flex items-center justify-center gap-3 group"
+            {/* Bouton 1 : Installation Native 1-Click (Recommandée) */}
+            <button
+              onClick={handleNativeInstall}
+              disabled={installing || isInstalled}
+              className="w-full sm:w-auto px-8 py-4 rounded-3xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm hover:opacity-90 transition shadow-lg flex items-center justify-center gap-3 group disabled:opacity-50"
             >
-              <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-              <span>Télécharger OnlyAdults.apk (Android)</span>
-            </a>
+              {isInstalled ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  <span>Application Déjà Installée</span>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span>Installer sur mon Smartphone (Recommandé)</span>
+                </>
+              )}
+            </button>
 
-            <Link
-              href="/"
+            {/* Bouton 2 : Dépôt Release APK */}
+            <a
+              href={apkReleaseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto px-6 py-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-soft)] font-bold text-xs transition flex items-center justify-center gap-2"
             >
-              <span>Continuer sur la version Web</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              <Download className="w-4 h-4" />
+              <span>Consulter les Releases APK (GitHub)</span>
+              <ExternalLink className="w-3 h-3 text-neutral-400" />
+            </a>
           </div>
 
           <div className="text-[11px] text-neutral-500 flex items-center justify-center gap-2 pt-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Version 1.0.0 · Certifiée sécurisée · 2.8 Mo</span>
+            <span>Mises à jour automatiques · Zéro restriction · 100% Gratuit</span>
           </div>
         </div>
 
@@ -104,10 +159,10 @@ export default function DownloadPage() {
           </div>
         </div>
 
-        {/* Guide d'installation étape par étape */}
+        {/* Guide d'installation rapide */}
         <div className="p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] space-y-4 shadow-sm">
           <h3 className="text-xs font-black uppercase tracking-wider text-[var(--app-foreground)]">
-            Comment installer le fichier APK sur Android ?
+            Comment installer l'application sur Android en 10 secondes ?
           </h3>
 
           <div className="space-y-3 text-xs text-neutral-300">
@@ -116,8 +171,8 @@ export default function DownloadPage() {
                 1
               </span>
               <div>
-                <strong className="text-[var(--app-foreground)]">Téléchargez le fichier</strong>
-                <p className="text-neutral-400">Cliquez sur le bouton ci-dessus pour enregistrer <code>OnlyAdults.apk</code> sur votre téléphone.</p>
+                <strong className="text-[var(--app-foreground)]">Cliquez sur « Installer sur mon Smartphone »</strong>
+                <p className="text-neutral-400">Appuyez sur le bouton principal noir ci-dessus pour lancer l'installation native sur votre téléphone.</p>
               </div>
             </div>
 
@@ -126,8 +181,8 @@ export default function DownloadPage() {
                 2
               </span>
               <div>
-                <strong className="text-[var(--app-foreground)]">Ouvrez le fichier téléchargé</strong>
-                <p className="text-neutral-400">Appuyez sur la notification de téléchargement ou retrouvez-le dans l'application « Fichiers / Téléchargements ».</p>
+                <strong className="text-[var(--app-foreground)]">Validez l'ajout à l'écran d'accueil</strong>
+                <p className="text-neutral-400">Confirmez l'installation dans la boîte de dialogue qui s'ouvre sur votre navigateur Chrome.</p>
               </div>
             </div>
 
@@ -136,8 +191,8 @@ export default function DownloadPage() {
                 3
               </span>
               <div>
-                <strong className="text-[var(--app-foreground)]">Autorisez l'installation</strong>
-                <p className="text-neutral-400">Si Android vous le demande, cochez « <em>Autoriser cette source</em> » puis appuyez sur « <em>Installer</em> ».</p>
+                <strong className="text-[var(--app-foreground)]">Ouvrez l'icône sur votre écran d'accueil</strong>
+                <p className="text-neutral-400">L'application s'ouvre désormais en plein écran avec toutes les fonctionnalités débloquées !</p>
               </div>
             </div>
           </div>
