@@ -9,7 +9,11 @@ import {
   Lock,
   ChevronLeft,
   Info,
-  ShieldAlert,
+  X,
+  Loader2,
+  Maximize2,
+  Download,
+  AlertCircle,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -59,7 +63,9 @@ export default function MessagesPage() {
   const [usersById, setUsersById] = useState<Record<string, UserLookup>>({});
   const [inputText, setInputText] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [allowDownload, setAllowDownload] = useState(false);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [allowDownload, setAllowDownload] = useState(true);
   const [durationSeconds, setDurationSeconds] = useState(10);
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [showNewConversation, setShowNewConversation] = useState(false);
@@ -68,11 +74,14 @@ export default function MessagesPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const selectedConvIdRef = useRef<string | null>(null);
 
-  // Nouveaux états pour le temps réel et les médias temporaires
+  // Nouveaux états pour le temps réel et les médias
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingTimeoutRef, setTypingTimeoutRef] = useState<NodeJS.Timeout | null>(null);
+  
+  // Visionneuse sécurisée pour médias temporaires éphémères
   const [viewingMedia, setViewingMedia] = useState<{
     id: string;
     url: string;
@@ -83,6 +92,23 @@ export default function MessagesPage() {
     allowDownload: boolean;
   } | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Lightbox HD pour photos et vidéos normales
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    url: string;
+    kind: "IMAGE" | "VIDEO";
+  } | null>(null);
+
+  // Génération de preview locale quand un fichier est choisi
+  useEffect(() => {
+    if (!mediaFile) {
+      setMediaPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(mediaFile);
+    setMediaPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [mediaFile]);
 
   const loadConversations = useCallback(async (preferredPartnerId?: string) => {
     if (!token) {
@@ -112,6 +138,7 @@ export default function MessagesPage() {
       );
 
       setUsersById(Object.fromEntries(entries));
+
       if (preferredPartnerId) {
         const matchedConversation = payload.conversations.find(
           (conversation) =>
@@ -119,7 +146,8 @@ export default function MessagesPage() {
             (conversation.userBId === user?.id && conversation.userAId === preferredPartnerId),
         );
         setSelectedConvId(matchedConversation?.id ?? payload.conversations[0]?.id ?? null);
-      } else if (!selectedConvIdRef.current && payload.conversations.length > 0) {
+      } else if (!selectedConvIdRef.current && payload.conversations.length > 0 && typeof window !== "undefined" && window.innerWidth >= 768) {
+        // Sélection automatique uniquement sur Desktop / Grands écrans
         setSelectedConvId(payload.conversations[0].id);
       }
     } catch (err) {
@@ -186,7 +214,7 @@ export default function MessagesPage() {
     };
   }, [socket, selectedConvId]);
 
-  // Gestion du compte à rebours de la modale sécurisée
+  // Gestion du compte à rebours de la modale sécurisée pour médias éphémères
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
@@ -351,7 +379,7 @@ export default function MessagesPage() {
   };
 
   const sendMessage = async () => {
-    if (!token || !selectedConversation) {
+    if (!token || !selectedConversation || isSending) {
       return;
     }
 
@@ -359,57 +387,66 @@ export default function MessagesPage() {
       return;
     }
 
-    let mediaPayload:
-      | {
-          kind: "IMAGE" | "VIDEO";
-          url: string;
-          mimeType: string;
-          durationSeconds?: number;
-          allowDownload: boolean;
-          expiresAt?: string;
-        }
-      | undefined;
+    setIsSending(true);
+    setSendError(null);
 
-    if (mediaFile) {
-      const formData = new FormData();
-      formData.append("file", mediaFile);
-      const upload = await apiRequest<{ file: { url: string; mimeType: string } }>("/files/media", {
+    try {
+      let mediaPayload:
+        | {
+            kind: "IMAGE" | "VIDEO";
+            url: string;
+            mimeType: string;
+            durationSeconds?: number;
+            allowDownload: boolean;
+            expiresAt?: string;
+          }
+        | undefined;
+
+      if (mediaFile) {
+        const formData = new FormData();
+        formData.append("file", mediaFile);
+        const upload = await apiRequest<{ file: { url: string; mimeType: string } }>("/files/media", {
+          method: "POST",
+          token,
+          body: formData,
+        });
+
+        mediaPayload = {
+          kind: mediaFile.type.startsWith("video/") ? "VIDEO" : "IMAGE",
+          url: upload.file.url,
+          mimeType: upload.file.mimeType,
+          durationSeconds: ephemeralMode ? durationSeconds : undefined,
+          allowDownload: ephemeralMode ? allowDownload : true,
+          expiresAt: ephemeralMode ? new Date(Date.now() + durationSeconds * 1000).toISOString() : undefined,
+        };
+      }
+
+      await apiRequest(`/messages/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
         token,
-        body: formData,
+        body: JSON.stringify({
+          text: inputText.trim() || undefined,
+          media: mediaPayload,
+        }),
       });
 
-      mediaPayload = {
-        kind: mediaFile.type.startsWith("video/") ? "VIDEO" : "IMAGE",
-        url: upload.file.url,
-        mimeType: upload.file.mimeType,
-        durationSeconds: ephemeralMode ? durationSeconds : undefined,
-        allowDownload,
-        expiresAt: ephemeralMode ? new Date(Date.now() + durationSeconds * 1000).toISOString() : undefined,
-      };
+      // Signaler typing:stop lors de l'envoi
+      if (socket && activePartner) {
+        socket.emit("typing:stop", {
+          conversationId: selectedConversation.id,
+          recipientId: activePartner.id,
+        });
+      }
+
+      setInputText("");
+      setMediaFile(null);
+      setEphemeralMode(false);
+      await loadConversations();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Erreur lors de l'envoi du message");
+    } finally {
+      setIsSending(false);
     }
-
-    await apiRequest(`/messages/conversations/${selectedConversation.id}/messages`, {
-      method: "POST",
-      token,
-      body: JSON.stringify({
-        text: inputText.trim() || undefined,
-        media: mediaPayload,
-      }),
-    });
-
-    // Signaler typing:stop lors de l'envoi
-    if (socket && activePartner) {
-      socket.emit("typing:stop", {
-        conversationId: selectedConversation.id,
-        recipientId: activePartner.id,
-      });
-    }
-
-    setInputText("");
-    setMediaFile(null);
-    setEphemeralMode(false);
-    await loadConversations();
   };
 
   const deleteMessage = async (messageId: string) => {
@@ -421,7 +458,6 @@ export default function MessagesPage() {
         token,
       });
 
-      // Mettre à jour l'état local immédiatement
       setConversations((prevConvs) => {
         return prevConvs.map((conv) => {
           if (conv.id === selectedConvId) {
@@ -452,6 +488,7 @@ export default function MessagesPage() {
 
   return (
     <div className="flex h-full w-full min-h-0 bg-[var(--app-background)] overflow-hidden relative divide-x divide-[var(--app-border)]">
+      {/* Colonne de Gauche : Liste des Conversations */}
       <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 min-h-0 bg-[var(--app-surface)] flex flex-col ${selectedConvId ? "hidden md:flex" : "flex"}`}>
         <div className="p-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
           <div className="space-y-1">
@@ -460,7 +497,7 @@ export default function MessagesPage() {
           </div>
           <button
             onClick={() => setShowNewConversation((value) => !value)}
-            className="text-xs font-bold px-3 py-2 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)]"
+            className="text-xs font-bold px-3 py-2 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] hover:opacity-85 transition"
           >
             Nouveau
           </button>
@@ -513,6 +550,13 @@ export default function MessagesPage() {
         <div className="flex-1 overflow-y-auto divide-y divide-[var(--app-border)]">
           {loading && <ConversationListSkeleton />}
           {error && <div className="p-4 text-sm text-red-500">{error}</div>}
+          {!loading && conversations.length === 0 && (
+            <div className="p-8 text-center text-neutral-500 space-y-2">
+              <Info className="w-8 h-8 mx-auto opacity-40" />
+              <p className="text-xs font-bold">Aucune discussion pour l'instant.</p>
+              <p className="text-[11px] text-neutral-400">Cliquez sur « Nouveau » pour commencer une conversation.</p>
+            </div>
+          )}
           {conversations.map((conversation) => {
             const partnerId = conversation.userAId === user?.id ? conversation.userBId : conversation.userAId;
             const partner = usersById[partnerId];
@@ -523,7 +567,7 @@ export default function MessagesPage() {
                 onClick={() => setSelectedConvId(conversation.id)}
                 className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition ${selectedConvId === conversation.id ? "bg-[var(--app-surface-raised)]" : ""}`}
               >
-                <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm">
+                <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
                   {(partner?.displayName ?? "??").slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -534,7 +578,7 @@ export default function MessagesPage() {
                     </span>
                   </div>
                   <p className="text-xs truncate text-neutral-500">
-                    {lastMessage?.text ?? (lastMessage?.media?.length ? "Média envoyé" : "Conversation ouverte")}
+                    {lastMessage?.text ?? (lastMessage?.media?.length ? "📷 Photo envoyée" : "Conversation ouverte")}
                   </p>
                 </div>
               </div>
@@ -543,15 +587,21 @@ export default function MessagesPage() {
         </div>
       </div>
 
+      {/* Colonne de Droite : Fil de Discussion Actif */}
       <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] overflow-hidden ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : "flex"}`}>
         {selectedConversation && activePartner ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
+            {/* Header de Discussion */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
               <div className="flex items-center gap-3 min-w-0">
-                <button onClick={() => setSelectedConvId(null)} className="md:hidden p-1 rounded-full hover:bg-[var(--app-surface-soft)]">
+                <button
+                  onClick={() => setSelectedConvId(null)}
+                  className="md:hidden p-1.5 -ml-1 rounded-full hover:bg-[var(--app-surface-soft)] transition"
+                  title="Retour aux conversations"
+                >
                   <ChevronLeft className="h-6 w-6" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
                   {activePartner.displayName.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
@@ -561,7 +611,7 @@ export default function MessagesPage() {
                       <span className="text-[10px] text-green-500 font-medium animate-pulse">(écrit...)</span>
                     )}
                   </h4>
-                  <span className="text-xs text-neutral-500">Discussion privée</span>
+                  <span className="text-[11px] text-neutral-500">Discussion chiffrée</span>
                 </div>
               </div>
               
@@ -581,49 +631,91 @@ export default function MessagesPage() {
               </div>
             </div>
 
+            {/* Corps des Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[linear-gradient(to_bottom,var(--app-surface),var(--app-background))]">
+              {selectedConversation.messages.length === 0 && (
+                <div className="text-center py-12 text-neutral-500 text-xs">
+                  Aucun message échangé. Dites bonjour ! 👋
+                </div>
+              )}
               {selectedConversation.messages.slice().reverse().map((message) => {
                 const isMe = message.senderId === user?.id;
                 const media = message.media?.[0];
+                const isEphemeral = Boolean(media?.durationSeconds || media?.expiresAt);
+
                 return (
                   <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[75%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${isMe ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface)] text-[var(--app-foreground)]"}`}>
-                      {message.text && <p>{message.text}</p>}
+                    <div className={`max-w-[82%] sm:max-w-[70%] rounded-3xl p-3.5 text-sm leading-relaxed shadow-sm space-y-2 ${isMe ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)]"}`}>
+                      
+                      {/* Affichage des Médias */}
                       {media && (
-                        <div className="space-y-2 select-none">
-                          <div className="flex items-center gap-2 border-b border-[color-mix(in_srgb,var(--app-foreground)_15%,transparent)] pb-2 mb-2">
-                            <Clock className="h-4 w-4" />
-                            <span className="font-bold text-xs">
-                              Média {media.kind === "VIDEO" ? "vidéo" : "image"} éphémère
-                            </span>
-                          </div>
-                          
-                          {/* Affichage conditionnel selon expiration */}
-                          {media.expiresAt && new Date(media.expiresAt) < new Date() ? (
-                            <span className="text-neutral-500 text-xs italic">Média expiré et autodétruit</span>
-                          ) : (
-                            <button
-                              onClick={() => openSecureMedia(media)}
-                              className="px-4 py-2 bg-[var(--app-surface-soft)] hover:opacity-85 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
-                            >
-                              <span>👁️ Révéler le média</span>
-                              {media.durationSeconds && (
-                                <span className="text-[10px] opacity-70">({media.durationSeconds}s)</span>
+                        <div>
+                          {isEphemeral ? (
+                            /* Média Éphémère / Temporaire sécurisé */
+                            <div className="space-y-2 select-none bg-[var(--app-surface-soft)] p-3 rounded-2xl">
+                              <div className="flex items-center gap-2 border-b border-[color-mix(in_srgb,var(--app-foreground)_15%,transparent)] pb-1.5 mb-1.5">
+                                <Clock className="h-4 w-4 text-[var(--app-accent)]" />
+                                <span className="font-bold text-xs">
+                                  Photo temporaire ({media.durationSeconds}s)
+                                </span>
+                              </div>
+                              
+                              {media.expiresAt && new Date(media.expiresAt) < new Date() ? (
+                                <span className="text-neutral-500 text-xs italic">Média expiré et autodétruit</span>
+                              ) : (
+                                <button
+                                  onClick={() => openSecureMedia(media)}
+                                  className="w-full px-4 py-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-xs rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2"
+                                >
+                                  <span>👁️ Révéler le média privé</span>
+                                  {media.durationSeconds && (
+                                    <span className="text-[10px] opacity-80">({media.durationSeconds}s)</span>
+                                  )}
+                                </button>
                               )}
-                            </button>
+                            </div>
+                          ) : (
+                            /* Média Standard Direct (Visible immédiatement) */
+                            <div className="relative group overflow-hidden rounded-2xl border border-[var(--app-border)] max-h-80 bg-black/20">
+                              {media.kind === "VIDEO" ? (
+                                <video
+                                  src={toPublicUrl(media.url) ?? undefined}
+                                  controls
+                                  playsInline
+                                  className="w-full max-h-72 object-cover rounded-2xl"
+                                />
+                              ) : (
+                                <div
+                                  onClick={() => setLightboxMedia({ url: media.url, kind: "IMAGE" })}
+                                  className="cursor-pointer relative group"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={toPublicUrl(media.url) ?? undefined}
+                                    alt="Photo envoyée"
+                                    className="w-full max-h-72 object-cover rounded-2xl transition group-hover:scale-[1.02]"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white rounded-2xl">
+                                    <Maximize2 className="w-6 h-6 drop-shadow" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           )}
-
-                          <div className="flex items-center justify-between text-[10px] text-neutral-400 pt-1">
-                            <span>{media.allowDownload ? "Enregistrement autorisé" : "Enregistrement interdit"}</span>
-                          </div>
                         </div>
                       )}
-                      <div className="text-[10px] text-right mt-1.5 opacity-65 flex items-center justify-end gap-2 select-none">
+
+                      {/* Texte du message */}
+                      {message.text && <p className="break-words">{message.text}</p>}
+
+                      {/* Horodatage et suppression */}
+                      <div className="text-[10px] text-right mt-1 opacity-65 flex items-center justify-end gap-2 select-none">
                         <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                         {isMe && (
                           <button
                             onClick={() => deleteMessage(message.id)}
-                            className="text-red-400 hover:text-red-500 font-bold transition hover:underline"
+                            className="text-red-400 hover:text-red-500 font-bold transition hover:underline ml-1"
                             title="Supprimer le message"
                           >
                             Supprimer
@@ -636,8 +728,48 @@ export default function MessagesPage() {
               })}
             </div>
 
-            {ephemeralMode && (
-              <div className="bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Aperçu du Fichier Sélectionné avant envoi */}
+            {mediaFile && (
+              <div className="p-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex items-center justify-between gap-3 animate-fadeIn">
+                <div className="flex items-center gap-3 min-w-0">
+                  {mediaPreviewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={mediaPreviewUrl}
+                      alt="Aperçu"
+                      className="w-12 h-12 object-cover rounded-xl border border-[var(--app-border)]"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate">{mediaFile.name}</p>
+                    <p className="text-[10px] text-neutral-400">
+                      {(mediaFile.size / (1024 * 1024)).toFixed(2)} Mo · {ephemeralMode ? `Mode éphémère (${durationSeconds}s)` : "Envoi standard direct"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEphemeralMode(!ephemeralMode)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface)] border border-[var(--app-border)] text-neutral-400"}`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{ephemeralMode ? `${durationSeconds}s` : "Éphémère ?"}</span>
+                  </button>
+                  <button
+                    onClick={() => setMediaFile(null)}
+                    className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-red-500 transition"
+                    title="Supprimer la photo"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Barre de Mode Éphémère Détaillé */}
+            {ephemeralMode && !mediaFile && (
+              <div className="bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] p-3 flex flex-wrap items-center justify-between gap-3 text-xs animate-fadeIn">
                 <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
                   <Clock className="h-4 w-4 text-[var(--app-foreground)]" />
                   <span className="font-bold">Mode média temporaire</span>
@@ -672,37 +804,56 @@ export default function MessagesPage() {
               </div>
             )}
 
+            {sendError && (
+              <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{sendError}</span>
+              </div>
+            )}
+
+            {/* Barre de Saisie et Boutons d'Action */}
             <div className="p-3 md:p-4 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-4">
               <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                 <button
                   onClick={() => setEphemeralMode(!ephemeralMode)}
-                  className={`p-2 rounded-full transition ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-500 hover:bg-[var(--app-surface-soft)]"}`}
-                  title="Média temporaire"
+                  className={`p-2.5 rounded-full transition ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-500 hover:bg-[var(--app-surface-soft)]"}`}
+                  title="Activer/Désactiver média temporaire éphémère"
                 >
                   <Clock className="h-5 w-5" />
                 </button>
 
-                <label className="p-2 text-neutral-500 hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer">
+                <label className="p-2.5 text-neutral-500 hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer flex-shrink-0">
                   <ImageIcon className="h-5 w-5" />
                   <input
                     type="file"
                     className="hidden"
                     accept="image/*,video/*"
-                    onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)}
+                    disabled={isSending}
+                    onChange={(event) => {
+                      if (event.target.files?.[0]) {
+                        setMediaFile(event.target.files[0]);
+                      }
+                    }}
                   />
                 </label>
 
                 <input
                   type="text"
                   value={inputText}
+                  disabled={isSending}
                   onChange={handleInputChange}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder={ephemeralMode ? "Ajouter une description..." : "Écrire un message privé..."}
-                  className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
+                  onKeyDown={(e) => e.key === "Enter" && !isSending && sendMessage()}
+                  placeholder={mediaFile ? "Ajouter une légende à la photo..." : "Écrire un message privé..."}
+                  className="flex-1 min-w-0 px-4 py-2.5 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
                 />
 
-                <button onClick={sendMessage} className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-80 transition flex-shrink-0">
-                  <Send className="h-4 w-4" />
+                <button
+                  onClick={sendMessage}
+                  disabled={isSending || (!inputText.trim() && !mediaFile)}
+                  className="p-3 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
+                  title="Envoyer"
+                >
+                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -712,13 +863,50 @@ export default function MessagesPage() {
             <Info className="h-8 w-8 mb-2" />
             <h4 className="font-bold text-base mb-1">Sélectionnez une discussion</h4>
             <p className="text-xs text-neutral-400">
-              Choisis un contact pour commencer à échanger ou envoyer un média temporaire.
+              Choisissez un contact pour commencer à échanger ou envoyer des photos.
             </p>
           </div>
         )}
       </div>
 
-      {/* Modale de visionnage sécurisé de média temporaire */}
+      {/* Lightbox HD pour Photos et Vidéos Directes */}
+      {lightboxMedia && (
+        <div
+          className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none"
+          onClick={() => setLightboxMedia(null)}
+        >
+          <button
+            onClick={() => setLightboxMedia(null)}
+            className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div
+            className="max-w-4xl max-h-[85vh] w-full flex items-center justify-center relative overflow-hidden rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightboxMedia.kind === "VIDEO" ? (
+              <video
+                autoPlay
+                controls
+                playsInline
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl"
+                src={toPublicUrl(lightboxMedia.url) ?? undefined}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt="Photo plein écran"
+                src={toPublicUrl(lightboxMedia.url) ?? undefined}
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modale de visionnage sécurisé pour média éphémère */}
       {viewingMedia && (
         <div
           className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none"
