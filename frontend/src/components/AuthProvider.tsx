@@ -93,6 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const storedToken = getStoredToken();
     if (!storedToken) {
+      // Préchauffage silencieux en arrière-plan pour réveiller le backend Render immédiatement
+      fetch(`${getApiBaseUrl()}/health`).catch(() => {});
       queueMicrotask(() => setReady(true));
       return;
     }

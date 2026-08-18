@@ -54,7 +54,7 @@ authRouter.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Ce pseudonyme est déjà utilisé par un autre membre.' });
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    const passwordHash = await bcrypt.hash(data.password, 10);
 
     const user = await prisma.user.create({
       data: {
@@ -164,7 +164,7 @@ authRouter.post('/change-password', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Le mot de passe actuel est incorrect.' });
     }
 
-    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
     await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash },
