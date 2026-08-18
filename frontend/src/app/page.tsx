@@ -7,7 +7,9 @@ import {
   MoreHorizontal,
   CheckCircle2,
   Image as ImageIcon,
+  Download,
 } from "lucide-react";
+import Link from "next/link";
 import Logo from "@/components/Logo";
 import AuthPanel from "@/components/AuthPanel";
 import StoryTray from "@/components/StoryTray";
@@ -155,13 +157,22 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-[var(--app-background)]">
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_90%,transparent)] backdrop-blur-md z-20">
         <Logo size="sm" showText={true} />
-        {user ? (
-          <div className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] flex items-center justify-center font-bold text-xs">
-            {user.displayName.slice(0, 2).toUpperCase()}
-          </div>
-        ) : (
-          <div className="text-xs text-neutral-500">Connexion</div>
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/download"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition shadow-sm"
+          >
+            <Download className="w-3 h-3 text-[var(--app-accent)]" />
+            <span>APK Android</span>
+          </Link>
+          {user ? (
+            <div className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] flex items-center justify-center font-bold text-xs">
+              {user.displayName.slice(0, 2).toUpperCase()}
+            </div>
+          ) : (
+            <div className="text-xs text-neutral-500">Connexion</div>
+          )}
+        </div>
       </header>
 
       {!ready ? (

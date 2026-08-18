@@ -7,7 +7,9 @@ import {
   Camera,
   Edit3,
   Share2,
+  Download,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { ProfileSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
@@ -174,6 +176,13 @@ export default function ProfilePage() {
                 <Share2 className="w-3.5 h-3.5 mr-2" />
                 Inviter
               </button>
+              <Link
+                href="/download"
+                className="px-4 py-2 bg-[var(--app-surface-raised)] border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                <span>APK</span>
+              </Link>
               <button
                 onClick={saveProfile}
                 disabled={loading}

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings, User, Eye, Bell, HelpCircle, LogOut } from "lucide-react";
+import { Settings, User, Eye, Bell, HelpCircle, LogOut, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
@@ -57,17 +57,47 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6 max-w-xl">
-        {/* ── 1. SÉLECTEUR D'ICÔNE D'APPLICATION & CAMOUFLAGE (PWA) ── */}
+        {/* ── 1. TÉLÉCHARGEMENT DIRECT DE L'APK ANDROID ── */}
+        <section className="p-5 rounded-3xl border border-[var(--app-border)] bg-[linear-gradient(135deg,var(--app-surface),var(--app-surface-raised))] shadow-md space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Download className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-sm uppercase tracking-tight text-[var(--app-foreground)]">
+                  Application Android (.APK)
+                </h3>
+                <p className="text-[11px] text-neutral-400">
+                  Version officielle avec mises à jour automatiques en direct.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+              v1.0.0
+            </span>
+          </div>
+
+          <a
+            href="/download"
+            className="w-full flex items-center justify-center gap-2 bg-[var(--app-foreground)] text-[var(--app-background)] py-3.5 rounded-2xl font-black text-xs hover:opacity-90 transition shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            <span>Accéder à la Page de Téléchargement de l'APK</span>
+          </a>
+        </section>
+
+        {/* ── 2. SÉLECTEUR D'ICÔNE D'APPLICATION & CAMOUFLAGE (PWA) ── */}
         <section className="p-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
           <PwaIconSelector />
         </section>
 
-        {/* ── 2. SÉLECTEUR DE THÈMES (SNAPCHAT STYLE DUAL MODE) ── */}
+        {/* ── 3. SÉLECTEUR DE THÈMES (SNAPCHAT STYLE DUAL MODE) ── */}
         <section className="p-4 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
           <ThemeSelector />
         </section>
 
-        {/* ── 3. CHANGEMENT DE MOT DE PASSE SÉCURISÉ ── */}
+        {/* ── 4. CHANGEMENT DE MOT DE PASSE SÉCURISÉ ── */}
         <section>
           <ChangePasswordForm />
         </section>

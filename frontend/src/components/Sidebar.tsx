@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   Film,
+  Download,
 } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -34,6 +35,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
     { name: "Créer un Post", href: "/create", icon: PlusSquare },
     { name: "Profil", href: "/profile", icon: User },
     { name: "Paramètres", href: "/settings", icon: Settings },
+    { name: "Télécharger l'APK", href: "/download", icon: Download },
   ];
 
   if (isAdmin) {
