@@ -1,17 +1,20 @@
 export type Sticker = {
   id: string;
-  emoji: string;
+  emoji?: string;
+  url?: string;
   name: string;
-  category: "hot" | "flirt" | "vip" | "fun" | "spicy";
+  isCustom?: boolean;
+  category?: "hot" | "flirt" | "vip" | "fun" | "spicy" | "custom";
 };
 
 export type StickerCategory = {
-  id: "hot" | "flirt" | "vip" | "fun" | "spicy";
+  id: "custom" | "hot" | "flirt" | "vip" | "fun" | "spicy";
   label: string;
   icon: string;
 };
 
 export const STICKER_CATEGORIES: StickerCategory[] = [
+  { id: "custom", label: "Mes Stickers", icon: "⭐" },
   { id: "hot", label: "Hot & Passion", icon: "🔥" },
   { id: "flirt", label: "Flirt & Charme", icon: "💋" },
   { id: "vip", label: "VIP & Luxe", icon: "👑" },
@@ -76,19 +79,77 @@ export const STICKERS: Sticker[] = [
   { id: "sparkle_lips", emoji: "👄", name: "Lèvres douces", category: "spicy" },
 ];
 
+const CUSTOM_STICKERS_KEY = "onlyadults_custom_stickers";
+
+export function getCustomStickers(): Sticker[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_STICKERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomSticker(sticker: Sticker) {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = getCustomStickers();
+    const updated = [sticker, ...existing.filter((s) => s.id !== sticker.id)];
+    localStorage.setItem(CUSTOM_STICKERS_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error("Failed to save custom sticker", err);
+  }
+}
+
+export function deleteCustomSticker(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = getCustomStickers();
+    const updated = existing.filter((s) => s.id !== id);
+    localStorage.setItem(CUSTOM_STICKERS_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error("Failed to delete custom sticker", err);
+  }
+}
+
 export function parseSticker(text?: string | null): Sticker | null {
   if (!text || !text.startsWith("[sticker:") || !text.endsWith("]")) {
     return null;
   }
+
+  // Format Custom Sticker: [sticker:custom:URL:NAME]
+  if (text.startsWith("[sticker:custom:")) {
+    const raw = text.slice(16, -1);
+    const firstColon = raw.indexOf("::");
+    if (firstColon !== -1) {
+      const url = raw.substring(0, firstColon);
+      const name = decodeURIComponent(raw.substring(firstColon + 2));
+      return {
+        id: url,
+        url,
+        name: name || "Sticker personnalisé",
+        isCustom: true,
+        category: "custom",
+      };
+    }
+  }
+
+  // Format Preset Sticker: [sticker:STICKER_ID]
   const stickerId = text.slice(9, -1);
-  return STICKERS.find((s) => s.id === stickerId) ?? {
-    id: stickerId,
-    emoji: stickerId,
-    name: "Sticker",
-    category: "hot",
-  };
+  return (
+    STICKERS.find((s) => s.id === stickerId) ?? {
+      id: stickerId,
+      emoji: stickerId,
+      name: "Sticker",
+      category: "hot",
+    }
+  );
 }
 
 export function encodeSticker(sticker: Sticker): string {
+  if (sticker.isCustom && sticker.url) {
+    return `[sticker:custom:${sticker.url}::${encodeURIComponent(sticker.name || "Sticker")}]`;
+  }
   return `[sticker:${sticker.id}]`;
 }

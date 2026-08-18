@@ -6,6 +6,7 @@ import {
   apiRequest,
   clearStoredToken,
   getStoredToken,
+  getApiBaseUrl,
   loginRequest,
   registerRequest,
   setStoredToken,

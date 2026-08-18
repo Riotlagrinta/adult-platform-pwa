@@ -707,9 +707,19 @@ export default function MessagesPage() {
                   return (
                     <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"} animate-fadeIn`}>
                       <div className="flex flex-col items-center select-none group">
-                        <span className="text-6xl sm:text-7xl filter drop-shadow-lg transform transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer">
-                          {sticker.emoji}
-                        </span>
+                        {sticker.isCustom && sticker.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={toPublicUrl(sticker.url) ?? undefined}
+                            alt={sticker.name}
+                            className="w-28 h-28 sm:w-36 sm:h-36 object-contain filter drop-shadow-xl transform transition-transform hover:scale-105 active:scale-95 duration-200 cursor-pointer rounded-2xl"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="text-6xl sm:text-7xl filter drop-shadow-lg transform transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer">
+                            {sticker.emoji}
+                          </span>
+                        )}
                         <div className="text-[10px] text-neutral-400 opacity-60 mt-1 flex items-center gap-1">
                           <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                           {isMe && (
@@ -818,6 +828,7 @@ export default function MessagesPage() {
             {showStickerPicker && (
               <div className="p-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex justify-center animate-slideUp">
                 <StickerPicker
+                  token={token}
                   onSelectSticker={handleSendSticker}
                   onClose={() => setShowStickerPicker(false)}
                 />
