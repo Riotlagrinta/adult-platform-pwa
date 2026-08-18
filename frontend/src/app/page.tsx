@@ -16,6 +16,7 @@ import StoryTray from "@/components/StoryTray";
 import { FeedSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
+import { useIsStandalone } from "@/lib/use-standalone";
 
 type FeedPost = {
   id: string;
@@ -47,6 +48,7 @@ export default function Home() {
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const isStandalone = useIsStandalone();
 
   const loadFeed = useCallback(async () => {
     if (!token) {
@@ -158,13 +160,15 @@ export default function Home() {
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_90%,transparent)] backdrop-blur-md z-20">
         <Logo size="sm" showText={true} />
         <div className="flex items-center gap-2">
-          <Link
-            href="/download"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition shadow-sm"
-          >
-            <Download className="w-3 h-3 text-[var(--app-accent)]" />
-            <span>APK Android</span>
-          </Link>
+          {!isStandalone && (
+            <Link
+              href="/download"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition shadow-sm"
+            >
+              <Download className="w-3 h-3 text-[var(--app-accent)]" />
+              <span>APK Android</span>
+            </Link>
+          )}
           {user ? (
             <div className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] flex items-center justify-center font-bold text-xs">
               {user.displayName.slice(0, 2).toUpperCase()}

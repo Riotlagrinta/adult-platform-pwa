@@ -18,6 +18,7 @@ import {
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "./AuthProvider";
+import { useIsStandalone } from "@/lib/use-standalone";
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -26,6 +27,7 @@ interface SidebarProps {
 export default function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, unreadNotificationsCount } = useAuth();
+  const isStandalone = useIsStandalone();
 
   const menuItems = [
     { name: "Accueil", href: "/", icon: Home },
@@ -35,7 +37,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
     { name: "Créer un Post", href: "/create", icon: PlusSquare },
     { name: "Profil", href: "/profile", icon: User },
     { name: "Paramètres", href: "/settings", icon: Settings },
-    { name: "Télécharger l'APK", href: "/download", icon: Download },
+    ...(!isStandalone ? [{ name: "Télécharger l'APK", href: "/download", icon: Download }] : []),
   ];
 
   if (isAdmin) {

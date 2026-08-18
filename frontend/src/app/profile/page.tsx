@@ -15,6 +15,7 @@ import AuthPanel from "@/components/AuthPanel";
 import { ProfileSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
+import { useIsStandalone } from "@/lib/use-standalone";
 
 type MyUser = {
   id: string;
@@ -42,6 +43,7 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const isStandalone = useIsStandalone();
   const [city, setCity] = useState("");
   const [headline, setHeadline] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -176,13 +178,15 @@ export default function ProfilePage() {
                 <Share2 className="w-3.5 h-3.5 mr-2" />
                 Inviter
               </button>
-              <Link
-                href="/download"
-                className="px-4 py-2 bg-[var(--app-surface-raised)] border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition shadow-sm flex items-center justify-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-                <span>APK</span>
-              </Link>
+              {!isStandalone && (
+                <Link
+                  href="/download"
+                  className="px-4 py-2 bg-[var(--app-surface-raised)] border border-[var(--app-border)] rounded-full font-bold text-xs hover:bg-[var(--app-surface-soft)] transition shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                  <span>APK</span>
+                </Link>
+              )}
               <button
                 onClick={saveProfile}
                 disabled={loading}
