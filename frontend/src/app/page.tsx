@@ -324,12 +324,24 @@ export default function Home() {
                     )}
 
                     {mediaUrl && (
-                      <div className="rounded-2xl overflow-hidden aspect-video border border-[var(--app-border)] bg-[var(--app-surface-soft)]">
+                      <div className="rounded-2xl overflow-hidden aspect-video border border-[var(--app-border)] bg-[var(--app-surface-soft)] relative">
                         {firstMedia?.kind === "VIDEO" ? (
-                          <video controls className="h-full w-full object-cover" src={mediaUrl} />
+                          <video
+                            controls
+                            preload="metadata"
+                            playsInline
+                            className="h-full w-full object-cover"
+                            src={mediaUrl}
+                          />
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img alt="Média" src={mediaUrl} className="h-full w-full object-cover" />
+                          <img
+                            alt="Média"
+                            src={mediaUrl}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover transition-opacity duration-300"
+                          />
                         )}
                       </div>
                     )}

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireApproved } from '../middleware/approved.js';
 import { normalizePair } from '../utils/conversation.js';
 import { createNotification } from '../lib/notifications.js';
+import { signUrlIfNeeded } from '../lib/storage-online.js';
 
 export const socialRouter = Router();
 
@@ -87,7 +88,11 @@ socialRouter.get('/feed', requireAuth, requireApproved, async (req, res, next) =
       include: {
         author: { select: { id: true, displayName: true, avatarUrl: true, verificationStatus: true } },
         likes: true,
-        comments: true,
+        comments: {
+          include: {
+            author: { select: { id: true, displayName: true, avatarUrl: true } },
+          },
+        },
         media: true,
       },
     });
@@ -113,7 +118,30 @@ socialRouter.get('/feed', requireAuth, requireApproved, async (req, res, next) =
       return true;
     });
 
-    res.json({ feed: visibleFeed });
+    // Pré-signer à la volée les URLs de médias et d'avatars
+    const signedFeed = await Promise.all(
+      visibleFeed.map(async (post) => {
+        const signedMedia = await Promise.all(
+          post.media.map(async (med) => ({
+            ...med,
+            url: (await signUrlIfNeeded(med.url)) || med.url,
+          }))
+        );
+
+        const signedAuthor = {
+          ...post.author,
+          avatarUrl: (await signUrlIfNeeded(post.author.avatarUrl)) || post.author.avatarUrl,
+        };
+
+        return {
+          ...post,
+          author: signedAuthor,
+          media: signedMedia,
+        };
+      })
+    );
+
+    res.json({ feed: signedFeed });
   } catch (error) {
     next(error);
   }
@@ -136,7 +164,15 @@ socialRouter.get('/followers', requireAuth, requireApproved, async (req, res, ne
       },
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ followers: followers.map((f) => f.follower) });
+
+    const signedFollowers = await Promise.all(
+      followers.map(async (f) => ({
+        ...f.follower,
+        avatarUrl: (await signUrlIfNeeded(f.follower.avatarUrl)) || f.follower.avatarUrl,
+      }))
+    );
+
+    res.json({ followers: signedFollowers });
   } catch (error) {
     next(error);
   }
@@ -159,7 +195,15 @@ socialRouter.get('/following', requireAuth, requireApproved, async (req, res, ne
       },
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ following: following.map((f) => f.following) });
+
+    const signedFollowing = await Promise.all(
+      following.map(async (f) => ({
+        ...f.following,
+        avatarUrl: (await signUrlIfNeeded(f.following.avatarUrl)) || f.following.avatarUrl,
+      }))
+    );
+
+    res.json({ following: signedFollowing });
   } catch (error) {
     next(error);
   }

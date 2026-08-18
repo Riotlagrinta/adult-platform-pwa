@@ -34,7 +34,16 @@ export function applyPwaIcon(iconId: string) {
   }
   appleIconLink.href = `/api/pwa-icon?id=${icon.id}&size=192`;
 
-  // 3. Mettre à jour les meta theme-color
+  // 3. Mettre à jour le favicon du navigateur
+  let faviconLink = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+  if (!faviconLink) {
+    faviconLink = document.createElement("link");
+    faviconLink.rel = "icon";
+    document.head.appendChild(faviconLink);
+  }
+  faviconLink.href = `/api/pwa-icon?id=${icon.id}&size=192`;
+
+  // 4. Mettre à jour les meta theme-color
   let metaTheme = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
   if (metaTheme) {
     metaTheme.content = icon.themeColor;

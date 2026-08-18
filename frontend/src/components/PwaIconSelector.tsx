@@ -181,6 +181,13 @@ export default function PwaIconSelector() {
           );
         })}
       </div>
+
+      <div className="p-3 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[11px] text-neutral-400 flex items-start gap-2">
+        <Smartphone className="w-4 h-4 text-[var(--app-accent)] flex-shrink-0 mt-0.5" />
+        <p>
+          <strong className="text-[var(--app-foreground)]">Comment l'appliquer sur votre smartphone :</strong> Les systèmes Android et iOS enregistrent l'icône lors de l'ajout à l'écran d'accueil. Après avoir choisi une nouvelle icône, supprimez simplement l'ancien raccourci puis cliquez sur <em>« Installer sur l'écran d'accueil »</em> pour que votre téléphone affiche le nouveau logo ou le mode camouflage choisi.
+        </p>
+      </div>
     </div>
   );
 }
