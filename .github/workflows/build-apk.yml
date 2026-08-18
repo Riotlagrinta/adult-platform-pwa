@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'android/**'
-      - 'frontend/**'
-      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,8 +24,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🛠️ Configurer Gradle & Android SDK
+      - name: 🛠️ Installer et Configurer Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
       - name: 🔐 Vérifier le Keystore de signature
         run: |
@@ -41,16 +39,20 @@ jobs:
             keytool -genkeypair -v -keystore android/keystore/release.jks -alias onlyadults -keyalg RSA -keysize 2048 -validity 10000 -storepass onlyadults2026 -keypass onlyadults2026 -dname "CN=OnlyAdults, OU=Mobile, O=OnlyAdults Inc, L=Paris, ST=IDF, C=FR"
           fi
 
-      - name: 🚀 Compiler l'APK Signé (assembleRelease)
+      - name: 🚀 Compiler l'APK Android (assembleRelease)
         working-directory: android
         run: |
-          chmod +x gradlew || true
-          gradle assembleRelease
+          gradle assembleRelease --stacktrace
 
-      - name: 📦 Renommer l'APK
+      - name: 📦 Préparer le fichier OnlyAdults.apk
         run: |
           mkdir -p output
-          cp android/app/build/outputs/apk/release/app-release.apk output/OnlyAdults.apk || cp android/app/build/outputs/apk/debug/app-debug.apk output/OnlyAdults.apk
+          if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk output/OnlyAdults.apk
+          elif [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp android/app/build/outputs/apk/debug/app-debug.apk output/OnlyAdults.apk
+          fi
+          ls -la output/
 
       - name: 📤 Téléverser l'Artifact GitHub
         uses: actions/upload-artifact@v4
@@ -59,21 +61,21 @@ jobs:
           path: output/OnlyAdults.apk
           retention-days: 30
 
-      - name: 🏷️ Créer ou Mettre à Jour la Release GitHub
+      - name: 🏷️ Publier dans les Releases GitHub
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: "v1.0.0"
-          name: "📱 OnlyAdults Android Official APK (Mises à jour automatiques)"
+          name: "📱 OnlyAdults Application Officielle Android (.APK)"
           body: |
             ### 🚀 OnlyAdults - Application Officielle Android (APK)
 
-            Cette application Android officielle se synchronise et se met à jour **automatiquement à chaque mise à jour** sans nécessiter de retéléchargement.
-
+            Fichier binaire officiel avec mises à jour automatiques en temps réel.
+            
             #### 📲 Installation :
             1. Téléchargez le fichier **`OnlyAdults.apk`** ci-dessous.
-            2. Ouvrez le fichier et autorisez l'installation depuis vos téléchargements.
-            3. Profitez de l'expérience plein écran, des notifications directes et des fonctionnalités 18+ !
+            2. Ouvrez le fichier et autorisez l'installation des applications inconnues si demandé.
+            3. Profitez de l'expérience plein écran et des notifications privées.
           files: output/OnlyAdults.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
