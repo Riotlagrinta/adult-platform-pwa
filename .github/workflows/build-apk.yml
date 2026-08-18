@@ -24,6 +24,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: 🤖 Configurer Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: 🛠️ Installer et Configurer Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
         with:
@@ -31,18 +34,18 @@ jobs:
 
       - name: 🔐 Vérifier le Keystore de signature
         run: |
+          mkdir -p android/keystore
           if [ -f "android/keystore/release.jks" ]; then
             echo "Keystore de signature présent."
           else
             echo "Génération du Keystore de signature..."
-            mkdir -p android/keystore
             keytool -genkeypair -v -keystore android/keystore/release.jks -alias onlyadults -keyalg RSA -keysize 2048 -validity 10000 -storepass onlyadults2026 -keypass onlyadults2026 -dname "CN=OnlyAdults, OU=Mobile, O=OnlyAdults Inc, L=Paris, ST=IDF, C=FR"
           fi
 
       - name: 🚀 Compiler l'APK Android (assembleRelease)
         working-directory: android
         run: |
-          gradle assembleRelease --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace
 
       - name: 📦 Préparer le fichier OnlyAdults.apk
         run: |
