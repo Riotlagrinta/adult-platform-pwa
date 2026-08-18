@@ -8,7 +8,6 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PushNotificationBanner from "@/components/PushNotificationBanner";
 import { Analytics } from "@vercel/analytics/next";
 
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -40,6 +39,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

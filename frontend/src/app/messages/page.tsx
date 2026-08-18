@@ -12,13 +12,15 @@ import {
   X,
   Loader2,
   Maximize2,
-  Download,
   AlertCircle,
+  Smile,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import AuthPanel from "@/components/AuthPanel";
 import { apiRequest, toPublicUrl } from "@/lib/api";
+import { parseSticker, encodeSticker, Sticker } from "@/lib/stickers";
+import StickerPicker from "@/components/StickerPicker";
 
 type Conversation = {
   id: string;
@@ -69,6 +71,7 @@ export default function MessagesPage() {
   const [durationSeconds, setDurationSeconds] = useState(10);
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [showNewConversation, setShowNewConversation] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserLookup[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -76,6 +79,8 @@ export default function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const selectedConvIdRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Nouveaux états pour le temps réel et les médias
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
@@ -98,6 +103,23 @@ export default function MessagesPage() {
     url: string;
     kind: "IMAGE" | "VIDEO";
   } | null>(null);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
+  }, []);
+
+  // Défilement automatique vers le bas à l'ouverture d'une conversation
+  useEffect(() => {
+    if (selectedConvId) {
+      setTimeout(() => scrollToBottom(false), 50);
+      setTimeout(() => scrollToBottom(true), 250);
+    }
+  }, [selectedConvId, scrollToBottom]);
 
   // Génération de preview locale quand un fichier est choisi
   useEffect(() => {
@@ -181,6 +203,10 @@ export default function MessagesPage() {
           return conv;
         });
       });
+      // Scroll en douceur dès qu'un nouveau message arrive
+      if (selectedConvIdRef.current === data.conversationId) {
+        setTimeout(() => scrollToBottom(true), 100);
+      }
     };
 
     const handleTypingUpdate = (data: { conversationId: string; userId: string; isTyping: boolean }) => {
@@ -212,7 +238,7 @@ export default function MessagesPage() {
       socket.off("typing:update", handleTypingUpdate);
       socket.off("message:deleted", handleMessageDeleted);
     };
-  }, [socket, selectedConvId]);
+  }, [socket, selectedConvId, scrollToBottom]);
 
   // Gestion du compte à rebours de la modale sécurisée pour médias éphémères
   useEffect(() => {
@@ -389,6 +415,7 @@ export default function MessagesPage() {
 
     setIsSending(true);
     setSendError(null);
+    setShowStickerPicker(false);
 
     try {
       let mediaPayload:
@@ -430,7 +457,6 @@ export default function MessagesPage() {
         }),
       });
 
-      // Signaler typing:stop lors de l'envoi
       if (socket && activePartner) {
         socket.emit("typing:stop", {
           conversationId: selectedConversation.id,
@@ -442,8 +468,34 @@ export default function MessagesPage() {
       setMediaFile(null);
       setEphemeralMode(false);
       await loadConversations();
+      setTimeout(() => scrollToBottom(true), 150);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Erreur lors de l'envoi du message");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Envoi direct et instantané d'un Sticker WhatsApp
+  const handleSendSticker = async (sticker: Sticker) => {
+    if (!token || !selectedConversation || isSending) return;
+
+    setIsSending(true);
+    setShowStickerPicker(false);
+
+    try {
+      await apiRequest(`/messages/conversations/${selectedConversation.id}/messages`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          text: encodeSticker(sticker),
+        }),
+      });
+
+      await loadConversations();
+      setTimeout(() => scrollToBottom(true), 100);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Erreur lors de l'envoi du sticker");
     } finally {
       setIsSending(false);
     }
@@ -561,6 +613,7 @@ export default function MessagesPage() {
             const partnerId = conversation.userAId === user?.id ? conversation.userBId : conversation.userAId;
             const partner = usersById[partnerId];
             const lastMessage = conversation.messages[0];
+            const sticker = parseSticker(lastMessage?.text);
             return (
               <div
                 key={conversation.id}
@@ -578,7 +631,9 @@ export default function MessagesPage() {
                     </span>
                   </div>
                   <p className="text-xs truncate text-neutral-500">
-                    {lastMessage?.text ?? (lastMessage?.media?.length ? "📷 Photo envoyée" : "Conversation ouverte")}
+                    {sticker
+                      ? `${sticker.emoji} Sticker ${sticker.name}`
+                      : (lastMessage?.text ?? (lastMessage?.media?.length ? "📷 Photo envoyée" : "Conversation ouverte"))}
                   </p>
                 </div>
               </div>
@@ -592,7 +647,7 @@ export default function MessagesPage() {
         {selectedConversation && activePartner ? (
           <>
             {/* Header de Discussion */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => setSelectedConvId(null)}
@@ -631,8 +686,11 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Corps des Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[linear-gradient(to_bottom,var(--app-surface),var(--app-background))]">
+            {/* Corps des Messages avec Défilement Fluide */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 bg-[linear-gradient(to_bottom,var(--app-surface),var(--app-background))]"
+            >
               {selectedConversation.messages.length === 0 && (
                 <div className="text-center py-12 text-neutral-500 text-xs">
                   Aucun message échangé. Dites bonjour ! 👋
@@ -642,6 +700,32 @@ export default function MessagesPage() {
                 const isMe = message.senderId === user?.id;
                 const media = message.media?.[0];
                 const isEphemeral = Boolean(media?.durationSeconds || media?.expiresAt);
+                const sticker = parseSticker(message.text);
+
+                // Rendu spécial WhatsApp Sticker (sans bulle de fond épaisse)
+                if (sticker) {
+                  return (
+                    <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"} animate-fadeIn`}>
+                      <div className="flex flex-col items-center select-none group">
+                        <span className="text-6xl sm:text-7xl filter drop-shadow-lg transform transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer">
+                          {sticker.emoji}
+                        </span>
+                        <div className="text-[10px] text-neutral-400 opacity-60 mt-1 flex items-center gap-1">
+                          <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          {isMe && (
+                            <button
+                              onClick={() => deleteMessage(message.id)}
+                              className="text-red-400 hover:text-red-500 ml-1 hover:underline opacity-0 group-hover:opacity-100 transition"
+                              title="Supprimer le sticker"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
@@ -726,11 +810,23 @@ export default function MessagesPage() {
                   </div>
                 );
               })}
+              {/* Ancre de scroll automatique */}
+              <div ref={messagesEndRef} className="h-1" />
             </div>
+
+            {/* Sélecteur de Stickers WhatsApp Flottant */}
+            {showStickerPicker && (
+              <div className="p-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex justify-center animate-slideUp">
+                <StickerPicker
+                  onSelectSticker={handleSendSticker}
+                  onClose={() => setShowStickerPicker(false)}
+                />
+              </div>
+            )}
 
             {/* Aperçu du Fichier Sélectionné avant envoi */}
             {mediaFile && (
-              <div className="p-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex items-center justify-between gap-3 animate-fadeIn">
+              <div className="p-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex items-center justify-between gap-3 animate-fadeIn flex-shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
                   {mediaPreviewUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -769,7 +865,7 @@ export default function MessagesPage() {
 
             {/* Barre de Mode Éphémère Détaillé */}
             {ephemeralMode && !mediaFile && (
-              <div className="bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] p-3 flex flex-wrap items-center justify-between gap-3 text-xs animate-fadeIn">
+              <div className="bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] p-3 flex flex-wrap items-center justify-between gap-3 text-xs animate-fadeIn flex-shrink-0">
                 <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
                   <Clock className="h-4 w-4 text-[var(--app-foreground)]" />
                   <span className="font-bold">Mode média temporaire</span>
@@ -805,24 +901,35 @@ export default function MessagesPage() {
             )}
 
             {sendError && (
-              <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+              <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20 text-red-400 text-xs flex items-center gap-2 flex-shrink-0">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{sendError}</span>
               </div>
             )}
 
-            {/* Barre de Saisie et Boutons d'Action */}
-            <div className="p-3 md:p-4 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-4">
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            {/* Barre de Saisie et Boutons d'Action (Compacte & Optimisée Clavier Mobile) */}
+            <div className="p-2 sm:p-3 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-3 flex-shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Bouton Sticker WhatsApp */}
+                <button
+                  onClick={() => setShowStickerPicker((v) => !v)}
+                  className={`p-2 rounded-full transition flex-shrink-0 ${showStickerPicker ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
+                  title="Stickers WhatsApp"
+                >
+                  <Smile className="h-5 w-5" />
+                </button>
+
+                {/* Bouton Média Éphémère */}
                 <button
                   onClick={() => setEphemeralMode(!ephemeralMode)}
-                  className={`p-2.5 rounded-full transition ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-500 hover:bg-[var(--app-surface-soft)]"}`}
+                  className={`p-2 rounded-full transition flex-shrink-0 ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
                   title="Activer/Désactiver média temporaire éphémère"
                 >
                   <Clock className="h-5 w-5" />
                 </button>
 
-                <label className="p-2.5 text-neutral-500 hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer flex-shrink-0">
+                {/* Bouton Joindre une photo */}
+                <label className="p-2 text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer flex-shrink-0">
                   <ImageIcon className="h-5 w-5" />
                   <input
                     type="file"
@@ -837,20 +944,26 @@ export default function MessagesPage() {
                   />
                 </label>
 
+                {/* Input de Message avec focus auto-scroll */}
                 <input
                   type="text"
                   value={inputText}
                   disabled={isSending}
                   onChange={handleInputChange}
+                  onFocus={() => {
+                    setShowStickerPicker(false);
+                    setTimeout(() => scrollToBottom(true), 250);
+                  }}
                   onKeyDown={(e) => e.key === "Enter" && !isSending && sendMessage()}
-                  placeholder={mediaFile ? "Ajouter une légende à la photo..." : "Écrire un message privé..."}
-                  className="flex-1 min-w-0 px-4 py-2.5 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
+                  placeholder={mediaFile ? "Légende de la photo..." : "Message privé..."}
+                  className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
                 />
 
+                {/* Bouton d'Envoi */}
                 <button
                   onClick={sendMessage}
                   disabled={isSending || (!inputText.trim() && !mediaFile)}
-                  className="p-3 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
+                  className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
                   title="Envoyer"
                 >
                   {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -863,7 +976,7 @@ export default function MessagesPage() {
             <Info className="h-8 w-8 mb-2" />
             <h4 className="font-bold text-base mb-1">Sélectionnez une discussion</h4>
             <p className="text-xs text-neutral-400">
-              Choisissez un contact pour commencer à échanger ou envoyer des photos.
+              Choisissez un contact pour commencer à échanger ou envoyer des photos et stickers.
             </p>
           </div>
         )}
