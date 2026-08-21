@@ -49,13 +49,23 @@ function showNotificationToast(title: string, body: string, onClick?: () => void
 
   const toast = document.createElement('div');
   toast.className = 'bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-foreground)] px-4 py-3 rounded-2xl shadow-xl flex flex-col gap-0.5 pointer-events-auto transform translate-y-2 opacity-0 transition-all duration-300 max-w-sm cursor-pointer select-none';
-  toast.innerHTML = `
-    <div class="font-black text-xs uppercase tracking-tight flex items-center gap-1.5">
-      <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-      ${title}
-    </div>
-    <div class="text-[11px] text-neutral-500">${body}</div>
-  `;
+
+  const header = document.createElement('div');
+  header.className = 'font-black text-xs uppercase tracking-tight flex items-center gap-1.5';
+
+  const pulseDot = document.createElement('span');
+  pulseDot.className = 'w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse';
+  header.appendChild(pulseDot);
+
+  const titleNode = document.createTextNode(title);
+  header.appendChild(titleNode);
+
+  const bodyEl = document.createElement('div');
+  bodyEl.className = 'text-[11px] text-neutral-500';
+  bodyEl.textContent = body;
+
+  toast.appendChild(header);
+  toast.appendChild(bodyEl);
 
   toast.onclick = onClick ?? null;
 

@@ -29,6 +29,8 @@ export default function PWARegister() {
     }
 
     // Enregistrement et mise à jour forcée du Service Worker
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
     navigator.serviceWorker
       .register("/sw.js", { updateViaCache: "none" })
       .then((reg) => {
@@ -36,7 +38,7 @@ export default function PWARegister() {
         // Force la vérification immédiate d'une nouvelle version sur le serveur
         reg.update();
 
-        setInterval(() => {
+        intervalId = setInterval(() => {
           reg.update();
         }, 60 * 60 * 1000);
       })
@@ -46,13 +48,22 @@ export default function PWARegister() {
 
     // Rechargement automatique et transparent dès qu'une nouvelle version prend le relais
     let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const handleControllerChange = () => {
       if (!refreshing) {
         refreshing = true;
         console.log("[PWA] Nouvelle version détectée, rafraîchissement...");
         window.location.reload();
       }
-    });
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+    };
   }, []);
 
   return null;

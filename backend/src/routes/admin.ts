@@ -53,15 +53,20 @@ adminRouter.get('/reports', requireAuth, requireStaff, async (_req, res, next) =
   }
 });
 
+const adminUserParamsSchema = z.object({
+  id: z.string().min(1, 'User ID is required'),
+});
+
 adminRouter.patch('/users/:id/role', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const { id } = adminUserParamsSchema.parse(req.params);
     const schema = z.object({
       role: z.enum(['USER', 'MODERATOR', 'ADMIN']),
     });
 
     const data = schema.parse(req.body);
     const user = await prisma.user.update({
-      where: { id: String(req.params.id) },
+      where: { id },
       data: { role: data.role as any },
       select: { id: true, email: true, displayName: true, role: true },
     });

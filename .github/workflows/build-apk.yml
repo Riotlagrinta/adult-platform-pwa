@@ -16,19 +16,19 @@ jobs:
 
     steps:
       - name: 📥 Cloner le dépôt
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: ☕ Configurer Java JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: 🤖 Configurer Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@d9426f00db1e089201f845d41f32a6bc84a86b36 # v3.2.1
 
       - name: 🛠️ Installer et Configurer Gradle 8.5
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@db151ea32e0d8f9aa57d0773100240cd82e08bdc # v3.8.2
         with:
           gradle-version: '8.5'
 
@@ -58,14 +58,14 @@ jobs:
           ls -la output/
 
       - name: 📤 Téléverser l'Artifact GitHub
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: OnlyAdults-Android-APK
           path: output/OnlyAdults.apk
           retention-days: 30
 
       - name: 🏷️ Publier dans les Releases GitHub
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef299c7d870e # v2.2.1
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: "v1.0.0"

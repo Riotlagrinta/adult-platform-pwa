@@ -54,11 +54,15 @@ blocksRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
   }
 });
 
+const deleteBlockParamsSchema = z.object({
+  blockedId: z.string().min(1, 'Blocked User ID is required'),
+});
+
 // Débloquer un utilisateur
 blocksRouter.delete('/:blockedId', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { blockedId } = deleteBlockParamsSchema.parse(req.params);
     const blockerId = req.user!.id;
-    const blockedId = String(req.params.blockedId);
 
     await prisma.block.delete({
       where: {

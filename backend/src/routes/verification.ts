@@ -84,8 +84,13 @@ verificationRouter.get('/queue', requireAuth, requireStaff, async (_req, res, ne
   }
 });
 
+const verificationParamsSchema = z.object({
+  id: z.string().min(1, 'Verification ID is required'),
+});
+
 verificationRouter.post('/:id/review', requireAuth, requireStaff, async (req, res, next) => {
   try {
+    const { id } = verificationParamsSchema.parse(req.params);
     const schema = z.object({
       status: z.enum(['APPROVED', 'REJECTED', 'SUSPENDED']),
       rejectionNote: z.string().max(1000).optional(),
@@ -94,7 +99,7 @@ verificationRouter.post('/:id/review', requireAuth, requireStaff, async (req, re
     const data = schema.parse(req.body);
 
     const request = await prisma.verificationRequest.update({
-      where: { id: String(req.params.id) },
+      where: { id },
       data: {
         status: data.status,
         reviewedAt: new Date(),

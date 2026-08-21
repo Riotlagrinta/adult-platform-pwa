@@ -66,9 +66,26 @@ messageRouter.get('/conversations', requireAuth, requireApproved, async (req, re
   }
 });
 
+const conversationParamsSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+});
+
+const messageParamsSchema = z.object({
+  conversationId: z.string().min(1, 'Conversation ID is required'),
+});
+
+const mediaParamsSchema = z.object({
+  mediaId: z.string().min(1, 'Media ID is required'),
+});
+
+const deleteMessageParamsSchema = z.object({
+  conversationId: z.string().min(1, 'Conversation ID is required'),
+  messageId: z.string().min(1, 'Message ID is required'),
+});
+
 messageRouter.post('/conversations/:userId', requireAuth, requireApproved, async (req, res, next) => {
   try {
-    const otherUserId = String(req.params.userId);
+    const { userId: otherUserId } = conversationParamsSchema.parse(req.params);
     const blockerId = req.user!.id;
 
     if (blockerId === otherUserId) {
@@ -103,6 +120,7 @@ messageRouter.post('/conversations/:userId', requireAuth, requireApproved, async
 
 messageRouter.post('/conversations/:conversationId/messages', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { conversationId } = messageParamsSchema.parse(req.params);
     const schema = z.object({
       text: z.string().max(4000).optional(),
       media: z.union([mediaSchema, z.array(mediaSchema).max(10)]).optional(),
@@ -112,7 +130,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
     const mediaItems = data.media ? (Array.isArray(data.media) ? data.media : [data.media]) : [];
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: String(req.params.conversationId) },
+      where: { id: conversationId },
     });
 
     if (!conversation) {
@@ -197,7 +215,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
 // Enregistrer l'ouverture d'un média temporaire et calculer sa date de péremption
 messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (req, res, next) => {
   try {
-    const mediaId = String(req.params.mediaId);
+    const { mediaId } = mediaParamsSchema.parse(req.params);
     const userId = req.user!.id;
 
     // Trouver le média et vérifier s'il appartient à une conversation de l'utilisateur
@@ -255,8 +273,7 @@ messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (
 // Supprimer un message (expéditeur ou modérateur/admin uniquement) et purger ses fichiers physiques
 messageRouter.delete('/conversations/:conversationId/messages/:messageId', requireAuth, requireApproved, async (req, res, next) => {
   try {
-    const conversationId = String(req.params.conversationId);
-    const messageId = String(req.params.messageId);
+    const { conversationId, messageId } = deleteMessageParamsSchema.parse(req.params);
     const userId = req.user!.id;
     const userRole = req.user!.role;
     const isUserAdmin = userRole === 'ADMIN' || userRole === 'MODERATOR';

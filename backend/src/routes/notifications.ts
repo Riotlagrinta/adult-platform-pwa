@@ -1,8 +1,13 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 
 export const notificationRouter = Router();
+
+const notificationParamsSchema = z.object({
+  id: z.string().min(1, 'Notification ID is required'),
+});
 
 notificationRouter.get('/', requireAuth, async (req, res, next) => {
   try {
@@ -19,8 +24,10 @@ notificationRouter.get('/', requireAuth, async (req, res, next) => {
 
 notificationRouter.post('/:id/read', requireAuth, async (req, res, next) => {
   try {
+    const { id } = notificationParamsSchema.parse(req.params);
+
     const existing = await prisma.notification.findUnique({
-      where: { id: String(req.params.id) },
+      where: { id },
     });
 
     if (!existing || existing.userId !== req.user!.id) {
@@ -28,7 +35,7 @@ notificationRouter.post('/:id/read', requireAuth, async (req, res, next) => {
     }
 
     const notification = await prisma.notification.update({
-      where: { id: String(req.params.id) },
+      where: { id },
       data: { readAt: new Date() },
     });
 

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireApproved } from '../middleware/approved.js';
@@ -8,10 +9,14 @@ import { signUrlIfNeeded } from '../lib/storage-online.js';
 
 export const socialRouter = Router();
 
+const socialParamsSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+});
+
 socialRouter.post('/:userId/follow', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { userId: followingId } = socialParamsSchema.parse(req.params);
     const followerId = req.user!.id;
-    const followingId = String(req.params.userId);
     const [a, b] = normalizePair(followerId, followingId);
 
     if (a === b) {
@@ -41,11 +46,12 @@ socialRouter.post('/:userId/follow', requireAuth, requireApproved, async (req, r
 
 socialRouter.delete('/:userId/follow', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { userId: followingId } = socialParamsSchema.parse(req.params);
     await prisma.follow.delete({
       where: {
         followerId_followingId: {
           followerId: req.user!.id,
-          followingId: String(req.params.userId),
+          followingId,
         },
       },
     });

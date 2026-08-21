@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import path from 'node:path';
 import fs from 'node:fs';
 import { prisma } from '../lib/prisma.js';
@@ -16,6 +17,10 @@ import {
 } from '../lib/storage-online.js';
 
 export const filesRouter = Router();
+
+const deleteQuerySchema = z.object({
+  path: z.string().min(1, 'File path is required'),
+});
 
 const avatarUpload = createUploader('avatars', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const mediaUpload = createUploader('media', ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']);
@@ -147,7 +152,7 @@ filesRouter.post('/verification', requireAuth, verificationUpload.single('file')
 
 filesRouter.delete('/delete', requireAuth, async (req, res, next) => {
   try {
-    const filePath = typeof req.query.path === 'string' ? req.query.path : '';
+    const { path: filePath } = deleteQuerySchema.parse(req.query);
     const key = extractStorageKey(filePath);
 
     if (!key) {

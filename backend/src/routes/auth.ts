@@ -10,15 +10,19 @@ import { signUrlIfNeeded } from '../lib/storage-online.js';
 export const authRouter = Router();
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  displayName: z.string().min(2).max(80),
-  dateOfBirth: z.string().datetime(),
+  email: z.string().email('Adresse e-mail invalide'),
+  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
+  displayName: z.string().min(2, 'Le pseudonyme doit contenir au moins 2 caractères').max(80, 'Le pseudonyme ne peut pas dépasser 80 caractères'),
+  dateOfBirth: z.string().refine((val) => !isNaN(new Date(val).getTime()), {
+    message: 'Date de naissance invalide',
+  }),
 });
 
 authRouter.post('/register', async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
+    const email = data.email.trim().toLowerCase();
+    const normalizedDisplayName = data.displayName.trim();
 
     // Validation de l'âge minimum de 18 ans
     const dob = new Date(data.dateOfBirth);
@@ -34,14 +38,13 @@ authRouter.post('/register', async (req, res, next) => {
 
     // Validation de l'e-mail unique
     const existingEmail = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase() },
+      where: { email },
     });
     if (existingEmail) {
       return res.status(400).json({ error: 'Cette adresse e-mail est déjà associée à un compte.' });
     }
 
     // Validation du pseudonyme unique (insensible à la casse)
-    const normalizedDisplayName = data.displayName.trim();
     const existingUser = await prisma.user.findFirst({
       where: {
         displayName: {
@@ -58,10 +61,10 @@ authRouter.post('/register', async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        email: data.email.toLowerCase(),
+        email,
         passwordHash,
-        displayName: data.displayName,
-        dateOfBirth: new Date(data.dateOfBirth),
+        displayName: normalizedDisplayName,
+        dateOfBirth: dob,
         verificationStatus: 'APPROVED',
         profile: { create: {} },
       },
@@ -82,21 +85,22 @@ authRouter.post('/register', async (req, res, next) => {
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email('Adresse e-mail invalide'),
+  password: z.string().min(1, 'Mot de passe requis'),
 });
 
 authRouter.post('/login', async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body);
-    const user = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
+    const email = data.email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Adresse e-mail ou mot de passe incorrect' });
     }
 
     const ok = await bcrypt.compare(data.password, user.passwordHash);
     if (!ok) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Adresse e-mail ou mot de passe incorrect' });
     }
 
     const token = signToken({ sub: user.id, role: user.role });

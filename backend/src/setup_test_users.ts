@@ -36,8 +36,8 @@ async function main() {
   });
 
   console.log('Comptes de test configurés avec succès !');
-  console.log('Compte Admin : admin@gmail.com / password123');
-  console.log('Compte Membre : member@gmail.com / password123');
+  console.log('Compte Admin : admin@gmail.com / [MASQUÉ]');
+  console.log('Compte Membre : member@gmail.com / [MASQUÉ]');
 }
 
 main()

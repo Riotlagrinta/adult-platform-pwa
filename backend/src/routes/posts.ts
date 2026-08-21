@@ -168,16 +168,22 @@ postRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
   }
 });
 
+const postParamsSchema = z.object({
+  id: z.string().min(1, 'Post ID is required'),
+});
+
 postRouter.post('/:id/like', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { id: postId } = postParamsSchema.parse(req.params);
+
     await prisma.postLike.upsert({
-      where: { postId_userId: { postId: String(req.params.id), userId: req.user!.id } },
-      create: { postId: String(req.params.id), userId: req.user!.id },
+      where: { postId_userId: { postId, userId: req.user!.id } },
+      create: { postId, userId: req.user!.id },
       update: {},
     });
 
     const post = await prisma.post.findUnique({
-      where: { id: String(req.params.id) },
+      where: { id: postId },
       select: { authorId: true },
     });
 
@@ -187,7 +193,7 @@ postRouter.post('/:id/like', requireAuth, requireApproved, async (req, res, next
         type: 'post.liked',
         title: 'Publication aimée',
         body: 'Un utilisateur a aimé votre publication.',
-        data: { postId: String(req.params.id), userId: req.user!.id },
+        data: { postId, userId: req.user!.id },
       });
     }
 
@@ -199,8 +205,10 @@ postRouter.post('/:id/like', requireAuth, requireApproved, async (req, res, next
 
 postRouter.delete('/:id/like', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { id: postId } = postParamsSchema.parse(req.params);
+
     await prisma.postLike.delete({
-      where: { postId_userId: { postId: String(req.params.id), userId: req.user!.id } },
+      where: { postId_userId: { postId, userId: req.user!.id } },
     });
     res.json({ ok: true });
   } catch (error) {
@@ -210,18 +218,19 @@ postRouter.delete('/:id/like', requireAuth, requireApproved, async (req, res, ne
 
 postRouter.post('/:id/comments', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { id: postId } = postParamsSchema.parse(req.params);
     const schema = z.object({ content: z.string().min(1).max(1000) });
     const data = schema.parse(req.body);
     const comment = await prisma.comment.create({
       data: {
-        postId: String(req.params.id),
+        postId,
         authorId: req.user!.id,
         content: data.content,
       },
     });
 
     const post = await prisma.post.findUnique({
-      where: { id: String(req.params.id) },
+      where: { id: postId },
       select: { authorId: true },
     });
 
@@ -231,7 +240,7 @@ postRouter.post('/:id/comments', requireAuth, requireApproved, async (req, res, 
         type: 'post.commented',
         title: 'Nouveau commentaire',
         body: 'Un utilisateur a commenté votre publication.',
-        data: { postId: String(req.params.id), commentId: comment.id },
+        data: { postId, commentId: comment.id },
       });
     }
 

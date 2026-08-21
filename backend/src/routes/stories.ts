@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import path from 'node:path';
 import fs from 'node:fs';
 import { prisma } from '../lib/prisma.js';
@@ -16,6 +17,18 @@ export const storiesRouter = Router();
 
 const storyUpload = createUploader('stories', ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']);
 
+const createStorySchema = z.object({
+  durationHours: z.coerce.number().int().refine((val) => [6, 12, 24, 48].includes(val), {
+    message: 'Durée invalide. Valeurs autorisées: 6, 12, 24, 48',
+  }).default(24),
+  visibility: z.enum(['PUBLIC', 'FOLLOWERS', 'VERIFIED_ONLY']).default('FOLLOWERS'),
+  caption: z.string().trim().max(500).optional(),
+});
+
+const deleteStoryParamsSchema = z.object({
+  id: z.string().min(1, 'Story ID is required'),
+});
+
 // Créer une story avec réglage de durée (6h, 12h, 24h, 48h) et de visibilité
 storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file'), async (req, res, next) => {
   try {
@@ -23,6 +36,8 @@ storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file')
     if (!file) {
       return res.status(400).json({ error: 'File is required' });
     }
+
+    const { durationHours, visibility, caption } = createStorySchema.parse(req.body);
 
     let url = publicUploadUrl(`stories/${path.basename(file.path)}`);
 
@@ -41,29 +56,14 @@ storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file')
       }
     }
 
-    // 1. Calcul de la durée d'expiration personnalisée (6h, 12h, 24h ou 48h)
-    const allowedDurations = [6, 12, 24, 48];
-    const durationHours = allowedDurations.includes(Number(req.body.durationHours))
-      ? Number(req.body.durationHours)
-      : 24;
     const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
-
-    // 2. Visibilité contrôlée (PUBLIC, FOLLOWERS, VERIFIED_ONLY)
-    const allowedVisibilities = ['PUBLIC', 'FOLLOWERS', 'VERIFIED_ONLY'];
-    const visibility = allowedVisibilities.includes(req.body.visibility)
-      ? (req.body.visibility as 'PUBLIC' | 'FOLLOWERS' | 'VERIFIED_ONLY')
-      : 'FOLLOWERS';
-
-    const caption = typeof req.body.caption === 'string' && req.body.caption.trim().length > 0
-      ? req.body.caption.trim()
-      : undefined;
 
     const story = await prisma.story.create({
       data: {
         authorId: req.user!.id,
         mediaUrl: url,
         mimeType: file.mimetype,
-        caption,
+        caption: caption && caption.length > 0 ? caption : undefined,
         visibility,
         expiresAt,
       },
@@ -196,7 +196,7 @@ storiesRouter.get('/', requireAuth, requireApproved, async (req, res, next) => {
 // Supprimer une story (par l'auteur ou un admin)
 storiesRouter.delete('/:id', requireAuth, async (req, res, next) => {
   try {
-    const storyId = String(req.params.id);
+    const { id: storyId } = deleteStoryParamsSchema.parse(req.params);
     const story = await prisma.story.findUnique({
       where: { id: storyId },
     });

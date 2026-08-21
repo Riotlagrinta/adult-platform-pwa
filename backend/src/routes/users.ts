@@ -49,10 +49,15 @@ usersRouter.get('/search', requireAuth, requireApproved, async (req, res, next) 
   }
 });
 
+const userParamsSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+});
+
 usersRouter.get('/:userId', requireAuth, requireApproved, async (req, res, next) => {
   try {
+    const { userId } = userParamsSchema.parse(req.params);
     const user = await prisma.user.findUnique({
-      where: { id: String(req.params.userId) },
+      where: { id: userId },
       select: {
         id: true,
         displayName: true,

@@ -24,10 +24,28 @@ export async function createServer() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000'],
-    credentials: true,
-  }));
+  const explicitOrigins = (process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'https://onlyadults-frontend.vercel.app'])
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const normalized = origin.replace(/\/$/, '');
+        if (
+          explicitOrigins.includes(normalized) ||
+          normalized.endsWith('.vercel.app') ||
+          normalized.includes('localhost') ||
+          normalized.includes('127.0.0.1')
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
+      credentials: true,
+    })
+  );
   app.use(express.json({ limit: '2mb' }));
   app.use(morgan('dev'));
   app.use('/uploads', express.static(uploadRoot, {

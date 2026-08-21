@@ -35,19 +35,30 @@ export default function AuthPanel() {
 
     try {
       if (mode === "login") {
-        await login(email, password);
+        await login(email.trim().toLowerCase(), password);
       } else {
+        const trimmedEmail = email.trim().toLowerCase();
+        const trimmedDisplayName = displayName.trim();
+
+        if (!trimmedDisplayName) {
+          throw new Error("Le nom d'utilisateur est requis.");
+        }
         if (password !== confirmPassword) {
           throw new Error("Les mots de passe ne correspondent pas.");
         }
         if (!dateOfBirth) {
           throw new Error("La date de naissance est obligatoire.");
         }
+        const parsedDob = new Date(dateOfBirth);
+        if (isNaN(parsedDob.getTime())) {
+          throw new Error("Format de date de naissance invalide.");
+        }
+
         await register({
-          email,
+          email: trimmedEmail,
           password,
-          displayName,
-          dateOfBirth: new Date(dateOfBirth).toISOString(),
+          displayName: trimmedDisplayName,
+          dateOfBirth: parsedDob.toISOString(),
         });
       }
     } catch (submitError) {
