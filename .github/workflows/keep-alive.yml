@@ -1,0 +1,15 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    # Exécuté toutes les 10 minutes pour empêcher Render Free Tier de s'endormir
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping OnlyAdults Backend API
+        run: |
+          curl -s -f --max-time 60 https://onlyadults-backend.onrender.com/health || true

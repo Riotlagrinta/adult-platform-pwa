@@ -50,23 +50,42 @@ export default function Home() {
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const isStandalone = useIsStandalone();
 
+  // Pré-chargement instantané depuis le cache local dès le montage
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("cached_feed");
+      if (cached) {
+        setFeed(JSON.parse(cached));
+      }
+    } catch {}
+  }, []);
+
   const loadFeed = useCallback(async () => {
     if (!token) {
       return;
     }
 
-    setLoading(true);
+    // Si on a déjà du contenu pré-chargé en cache, on ne bloque pas avec le squelette complet
+    const hasCachedContent = feed.length > 0;
+    if (!hasCachedContent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const payload = await apiRequest<{ feed: FeedPost[] }>("/social/feed", { token });
       setFeed(payload.feed);
+      try {
+        localStorage.setItem("cached_feed", JSON.stringify(payload.feed));
+      } catch {}
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de charger le fil");
+      if (!hasCachedContent) {
+        setError(err instanceof Error ? err.message : "Impossible de charger le fil");
+      }
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [feed.length, token]);
 
   useEffect(() => {
     if (token) {

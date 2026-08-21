@@ -103,6 +103,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const storedToken = getStoredToken();
+    let cachedUser: SessionUser | null = null;
+    try {
+      const u = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
+      if (u) cachedUser = JSON.parse(u);
+    } catch {}
+
+    if (cachedUser && storedToken) {
+      setUser(cachedUser);
+      setToken(storedToken);
+      setReady(true);
+    }
+
     if (!storedToken) {
       // Préchauffage silencieux en arrière-plan pour réveiller le backend Render immédiatement
       fetch(`${getApiBaseUrl()}/health`).catch(() => {});
@@ -114,16 +126,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiRequest<{ user: SessionUser }>("/auth/me", { token: storedToken })
       .then((payload) => {
         setUser(payload.user);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("auth_user", JSON.stringify(payload.user));
+        }
         const sock = getSocket(storedToken);
         setSocket(sock);
         fetchUnreadCount(storedToken);
       })
-      .catch(() => {
-        clearStoredToken();
-        setToken(null);
-        setUser(null);
-        disconnectSocket();
-        setSocket(null);
+      .catch((err) => {
+        // En cas d'erreur explicite d'authentification uniquement (401/403), on déconnecte
+        const msg = err instanceof Error ? err.message.toLowerCase() : "";
+        if (msg.includes("401") || msg.includes("token") || msg.includes("credential") || msg.includes("unauthorized")) {
+          clearStoredToken();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("auth_user");
+          }
+          setToken(null);
+          setUser(null);
+          disconnectSocket();
+          setSocket(null);
+        }
       })
       .finally(() => setReady(true));
   }, []);
@@ -157,6 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const syncSession = (payload: { user: SessionUser; token: string }) => {
     setStoredToken(payload.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("auth_user", JSON.stringify(payload.user));
+    }
     setToken(payload.token);
     setUser(payload.user);
     const sock = getSocket(payload.token);
@@ -181,6 +206,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     clearStoredToken();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth_user");
+    }
     setToken(null);
     setUser(null);
     disconnectSocket();
