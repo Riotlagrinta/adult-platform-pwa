@@ -52,7 +52,10 @@ export function getOnlineCount(): number {
 export function initSocket(httpServer: HttpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000'],
+      origin: (origin, callback) => {
+        // Permissive CORS to allow websocket handshake from vercel, localhost and PWA
+        callback(null, true);
+      },
       credentials: true,
     },
     pingTimeout: 60_000,

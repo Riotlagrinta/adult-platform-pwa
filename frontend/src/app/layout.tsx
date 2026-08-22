@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import PWARegister from "@/components/PWARegister";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PushNotificationBanner from "@/components/PushNotificationBanner";
+import IncidentNoticeModal from "@/components/IncidentNoticeModal";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -63,6 +64,7 @@ export default function RootLayout({
           <PWARegister />
           <PWAInstallPrompt />
           <PushNotificationBanner />
+          <IncidentNoticeModal />
           <Analytics />
           <AppShell>{children}</AppShell>
         </AuthProvider>
