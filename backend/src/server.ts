@@ -4,6 +4,7 @@ import { initSocket } from './lib/socket.js';
 import { startCleanupJobs } from './jobs/cleanup.js';
 
 const port = Number(process.env.PORT ?? 4000);
+const host = '0.0.0.0';
 
 createServer()
   .then((app) => {
@@ -15,11 +16,24 @@ createServer()
 
     startCleanupJobs();
 
-    httpServer.listen(port, () => {
-      console.log(`API + WebSocket listening on port ${port}`);
+    httpServer.listen(port, host, () => {
+      console.log(`API + WebSocket listening on http://${host}:${port}`);
     });
+
+    // Graceful shutdown pour Render
+    const shutdown = (signal: string) => {
+      console.log(`Received ${signal}, closing server...`);
+      httpServer.close(() => {
+        console.log('Server closed successfully.');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
     console.error('Failed to start server', error);
     process.exit(1);
   });
+
