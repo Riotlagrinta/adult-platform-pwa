@@ -31,7 +31,15 @@ messageRouter.get('/conversations', requireAuth, requireApproved, async (req, re
       },
       include: {
         messages: {
-          include: { media: true },
+          include: {
+            media: true,
+            replyTo: {
+              include: {
+                sender: { select: { id: true, displayName: true } },
+                media: true,
+              },
+            },
+          },
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
@@ -39,21 +47,33 @@ messageRouter.get('/conversations', requireAuth, requireApproved, async (req, re
       orderBy: { updatedAt: 'desc' },
     });
 
-    // Pré-signer à la volée les URLs de médias stockées dans Scaleway pour chaque message
+    // Pré-signer à la volée les URLs de médias stockées pour chaque message et citation
     const signedConversations = await Promise.all(
       conversations.map(async (conv) => {
         const signedMessages = await Promise.all(
           conv.messages.map(async (msg) => {
+            let signedMedia = msg.media;
             if (msg.media && msg.media.length) {
-              const signedMedia = await Promise.all(
+              signedMedia = await Promise.all(
                 msg.media.map(async (med) => ({
                   ...med,
                   url: (await signUrlIfNeeded(med.url)) || med.url,
                 }))
               );
-              return { ...msg, media: signedMedia };
             }
-            return msg;
+
+            let signedReplyTo = msg.replyTo;
+            if (signedReplyTo && signedReplyTo.media && signedReplyTo.media.length) {
+              const signedReplyMedia = await Promise.all(
+                signedReplyTo.media.map(async (med) => ({
+                  ...med,
+                  url: (await signUrlIfNeeded(med.url)) || med.url,
+                }))
+              );
+              signedReplyTo = { ...signedReplyTo, media: signedReplyMedia };
+            }
+
+            return { ...msg, media: signedMedia, replyTo: signedReplyTo };
           })
         );
         return { ...conv, messages: signedMessages };
@@ -123,6 +143,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
     const { conversationId } = messageParamsSchema.parse(req.params);
     const schema = z.object({
       text: z.string().max(4000).optional(),
+      replyToId: z.string().optional(),
       media: z.union([mediaSchema, z.array(mediaSchema).max(10)]).optional(),
     });
 
@@ -160,6 +181,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
       data: {
         conversationId: String(req.params.conversationId),
         senderId: req.user!.id,
+        replyToId: data.replyToId || null,
         kind: mediaItems.length ? 'MEDIA' : 'TEXT',
         text: data.text,
         media: mediaItems.length ? {
@@ -173,7 +195,15 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
           })),
         } : undefined,
       },
-      include: { media: true },
+      include: {
+        media: true,
+        replyTo: {
+          include: {
+            sender: { select: { id: true, displayName: true } },
+            media: true,
+          },
+        },
+      },
     });
 
     // Pré-signer les médias avant diffusion et réponse
@@ -183,7 +213,23 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
         url: (await signUrlIfNeeded(med.url)) || med.url,
       }))
     );
-    const signedMessage = { ...message, media: signedMedia };
+
+    let signedReplyTo = message.replyTo;
+    if (signedReplyTo && signedReplyTo.media && signedReplyTo.media.length) {
+      const signedReplyMedia = await Promise.all(
+        signedReplyTo.media.map(async (med) => ({
+          ...med,
+          url: (await signUrlIfNeeded(med.url)) || med.url,
+        }))
+      );
+      signedReplyTo = { ...signedReplyTo, media: signedReplyMedia };
+    }
+
+    const signedMessage = {
+      ...message,
+      media: signedMedia,
+      replyTo: signedReplyTo,
+    };
 
     // Push message in real-time to both participants
     emitToUser(req.user!.id, 'message:new', { message: signedMessage, conversationId: conversation.id });

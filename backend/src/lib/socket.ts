@@ -4,6 +4,7 @@ import { verifyToken } from './jwt.js';
 import { prisma } from './prisma.js';
 import { normalizePair } from '../utils/conversation.js';
 import type { MediaInput } from './media.js';
+import { signUrlIfNeeded } from './storage-online.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,10 +25,15 @@ let io: Server | null = null;
 /** Emit an event to all sockets of a specific user */
 export function emitToUser(userId: string, event: string, data: unknown) {
   if (!io) return;
+  // 1. Room-based broadcast (fiabilité maximale multi-onglets / reconnexion)
+  io.to(`user:${userId}`).emit(event, data);
+
+  // 2. Sécurité additionnelle : émettre aussi aux sockets individuels
   const sockets = onlineUsers.get(userId);
-  if (!sockets || sockets.size === 0) return;
-  for (const socketId of sockets) {
-    io.to(socketId).emit(event, data);
+  if (sockets && sockets.size > 0) {
+    for (const socketId of sockets) {
+      io.to(socketId).emit(event, data);
+    }
   }
 }
 
@@ -83,6 +89,9 @@ export function initSocket(httpServer: HttpServer) {
     const socket = rawSocket as AuthenticatedSocket;
     const { userId } = socket;
 
+    // Join room for this user
+    socket.join(`user:${userId}`);
+
     // Register presence
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
@@ -94,7 +103,7 @@ export function initSocket(httpServer: HttpServer) {
       socket.broadcast.emit('user:online', { userId });
     }
 
-    console.log(`[Socket.io] ${userId} connected (socket: ${socket.id})`);
+    console.log(`[Socket.io] ${userId} connected (socket: ${socket.id}, joined room user:${userId})`);
 
     // ── Typing indicators ───────────────────────────────────────────────
     socket.on('typing:start', (data: { conversationId: string; recipientId: string }) => {
@@ -117,10 +126,11 @@ export function initSocket(httpServer: HttpServer) {
     socket.on('message:send', async (data: {
       conversationId: string;
       text?: string;
+      replyToId?: string;
       media?: MediaInput[];
     }, ack?: (response: { ok: boolean; message?: unknown; error?: string }) => void) => {
       try {
-        const { conversationId, text, media } = data;
+        const { conversationId, text, replyToId, media } = data;
         const mediaItems = media ?? [];
 
         // Verify the user is approved
@@ -168,11 +178,12 @@ export function initSocket(httpServer: HttpServer) {
           return;
         }
 
-        // Create the message in DB
+        // Create the message in DB with replyTo relation
         const message = await prisma.message.create({
           data: {
             conversationId,
             senderId: userId,
+            replyToId: replyToId || null,
             kind: mediaItems.length ? 'MEDIA' : 'TEXT',
             text: text || null,
             media: mediaItems.length
@@ -188,7 +199,15 @@ export function initSocket(httpServer: HttpServer) {
                 }
               : undefined,
           },
-          include: { media: true },
+          include: {
+            media: true,
+            replyTo: {
+              include: {
+                sender: { select: { id: true, displayName: true } },
+                media: true,
+              },
+            },
+          },
         });
 
         // Update conversation timestamp
@@ -197,24 +216,52 @@ export function initSocket(httpServer: HttpServer) {
           data: { updatedAt: new Date() },
         });
 
-        // The recipient is already determined above as recipientId
+        // Sign media URLs
+        const signedMedia = await Promise.all(
+          message.media.map(async (med) => ({
+            ...med,
+            url: (await signUrlIfNeeded(med.url)) || med.url,
+          }))
+        );
+
+        let signedReplyTo = message.replyTo;
+        if (signedReplyTo && signedReplyTo.media && signedReplyTo.media.length) {
+          const signedReplyMedia = await Promise.all(
+            signedReplyTo.media.map(async (med) => ({
+              ...med,
+              url: (await signUrlIfNeeded(med.url)) || med.url,
+            }))
+          );
+          signedReplyTo = { ...signedReplyTo, media: signedReplyMedia };
+        }
+
+        const signedMessage = {
+          ...message,
+          media: signedMedia,
+          replyTo: signedReplyTo,
+        };
 
         // Push message to the sender (confirmation) and recipient
-        emitToUser(userId, 'message:new', { message, conversationId });
-        emitToUser(recipientId, 'message:new', { message, conversationId });
+        emitToUser(userId, 'message:new', { message: signedMessage, conversationId });
+        emitToUser(recipientId, 'message:new', { message: signedMessage, conversationId });
 
         // Create a notification for the recipient (will also push via emitToUser)
-        // Import is circular-safe because createNotification is a simple Prisma call
         const { createNotification } = await import('./notifications.js');
+        const sender = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { displayName: true },
+        });
+
         await createNotification({
           userId: recipientId,
           type: 'message.received',
-          title: 'Nouveau message',
-          body: text ?? 'Vous avez reçu un média privé.',
+          title: sender?.displayName ? `${sender.displayName}` : 'Nouveau message privé',
+          body: text ?? '📷 Vous a envoyé un média privé.',
+          url: '/messages',
           data: { conversationId, messageId: message.id },
         });
 
-        ack?.({ ok: true, message });
+        ack?.({ ok: true, message: signedMessage });
       } catch (error) {
         console.error('[Socket.io] message:send error:', error);
         ack?.({ ok: false, error: 'Internal error' });

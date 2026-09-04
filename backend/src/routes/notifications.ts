@@ -22,6 +22,18 @@ notificationRouter.get('/', requireAuth, async (req, res, next) => {
   }
 });
 
+notificationRouter.post('/read-all', requireAuth, async (req, res, next) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { userId: req.user!.id, readAt: null },
+      data: { readAt: new Date() },
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 notificationRouter.post('/:id/read', requireAuth, async (req, res, next) => {
   try {
     const { id } = notificationParamsSchema.parse(req.params);
@@ -40,6 +52,28 @@ notificationRouter.post('/:id/read', requireAuth, async (req, res, next) => {
     });
 
     res.json({ notification });
+  } catch (error) {
+    next(error);
+  }
+});
+
+notificationRouter.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { id } = notificationParamsSchema.parse(req.params);
+
+    const existing = await prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!existing || existing.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await prisma.notification.delete({
+      where: { id },
+    });
+
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }

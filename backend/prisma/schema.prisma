@@ -166,12 +166,15 @@ model Message {
   id           String       @id @default(cuid())
   conversationId String
   senderId     String
+  replyToId    String?
   kind         MessageKind  @default(TEXT)
   text         String?
   createdAt    DateTime     @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo      Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]    @relation("MessageReplies")
   media        Media[]
 }
 

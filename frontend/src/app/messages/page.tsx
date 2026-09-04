@@ -14,6 +14,7 @@ import {
   Maximize2,
   AlertCircle,
   Smile,
+  Reply,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -34,6 +35,18 @@ type Message = {
   senderId: string;
   text?: string | null;
   createdAt: string;
+  replyToId?: string | null;
+  replyTo?: {
+    id: string;
+    senderId: string;
+    text?: string | null;
+    sender?: { id: string; displayName: string };
+    media?: {
+      id: string;
+      url: string;
+      kind: "IMAGE" | "VIDEO";
+    }[];
+  } | null;
   media?: {
     id: string;
     url: string;
@@ -72,6 +85,8 @@ export default function MessagesPage() {
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserLookup[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -81,6 +96,7 @@ export default function MessagesPage() {
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Nouveaux états pour le temps réel et les médias
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
@@ -380,6 +396,45 @@ export default function MessagesPage() {
     return () => window.clearTimeout(handle);
   }, [searchQuery, showNewConversation, token, user?.id]);
 
+  const startReplying = (msg: Message) => {
+    setReplyingToMessage(msg);
+    setTimeout(() => {
+      messageInputRef.current?.focus();
+    }, 50);
+  };
+
+  const cancelReplying = () => {
+    setReplyingToMessage(null);
+  };
+
+  const scrollToQuotedMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => setHighlightedMessageId(null), 2000);
+    }
+  };
+
+  const getSnippetFromMessage = (msg: Message | null | undefined) => {
+    if (!msg) return "";
+    const sticker = parseSticker(msg.text);
+    if (sticker) return `${sticker.emoji} Sticker ${sticker.name}`;
+    if (msg.text) return msg.text;
+    if (msg.media && msg.media.length > 0) {
+      return msg.media[0].kind === "VIDEO" ? "🎥 Vidéo" : "📷 Photo";
+    }
+    return "Message";
+  };
+
+  const getAuthorNameFromMessage = (msg: Message | null | undefined) => {
+    if (!msg) return "";
+    if (msg.senderId === user?.id) return "Vous";
+    if (activePartner && msg.senderId === activePartner.id) return activePartner.displayName;
+    if (msg.replyTo?.sender?.displayName) return msg.replyTo.sender.displayName;
+    return "Utilisateur";
+  };
+
   const activePartner = useMemo(() => {
     if (!selectedConversation || !user) {
       return null;
@@ -453,6 +508,7 @@ export default function MessagesPage() {
         token,
         body: JSON.stringify({
           text: inputText.trim() || undefined,
+          replyToId: replyingToMessage?.id || undefined,
           media: mediaPayload,
         }),
       });
@@ -467,6 +523,7 @@ export default function MessagesPage() {
       setInputText("");
       setMediaFile(null);
       setEphemeralMode(false);
+      setReplyingToMessage(null);
       await loadConversations();
       setTimeout(() => scrollToBottom(true), 150);
     } catch (err) {
@@ -489,9 +546,11 @@ export default function MessagesPage() {
         token,
         body: JSON.stringify({
           text: encodeSticker(sticker),
+          replyToId: replyingToMessage?.id || undefined,
         }),
       });
 
+      setReplyingToMessage(null);
       await loadConversations();
       setTimeout(() => scrollToBottom(true), 100);
     } catch (err) {
@@ -701,12 +760,45 @@ export default function MessagesPage() {
                 const media = message.media?.[0];
                 const isEphemeral = Boolean(media?.durationSeconds || media?.expiresAt);
                 const sticker = parseSticker(message.text);
+                const isHighlighted = highlightedMessageId === message.id;
 
                 // Rendu spécial WhatsApp Sticker (sans bulle de fond épaisse)
                 if (sticker) {
                   return (
-                    <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"} animate-fadeIn`}>
-                      <div className="flex flex-col items-center select-none group">
+                    <div
+                      key={message.id}
+                      id={`msg-${message.id}`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} animate-fadeIn transition-all duration-300 ${isHighlighted ? "p-2 rounded-3xl bg-[var(--app-accent)]/20 ring-2 ring-[var(--app-accent)]" : ""}`}
+                    >
+                      <div className="flex flex-col items-center select-none group max-w-[80%]">
+                        {/* Encart de Citation pour Sticker */}
+                        {message.replyTo && (
+                          <div
+                            onClick={() => scrollToQuotedMessage(message.replyTo!.id)}
+                            className="cursor-pointer mb-2 w-full max-w-xs rounded-xl p-2 text-xs bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)] border-l-4 border-l-[var(--app-accent)] shadow-sm hover:opacity-90 transition flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-[10px] text-[var(--app-accent)] block truncate">
+                                {message.replyTo.senderId === user?.id
+                                  ? "Vous"
+                                  : (message.replyTo.sender?.displayName || activePartner?.displayName || "Utilisateur")}
+                              </span>
+                              <p className="truncate text-[11px] opacity-80 mt-0.5">
+                                {getSnippetFromMessage(message.replyTo as Message)}
+                              </p>
+                            </div>
+                            {message.replyTo.media?.[0] && (
+                              <div className="w-7 h-7 rounded overflow-hidden flex-shrink-0 bg-black/20">
+                                <img
+                                  src={toPublicUrl(message.replyTo.media[0].url) ?? undefined}
+                                  alt="Média cité"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {sticker.isCustom && sticker.url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -720,12 +812,19 @@ export default function MessagesPage() {
                             {sticker.emoji}
                           </span>
                         )}
-                        <div className="text-[10px] text-neutral-400 opacity-60 mt-1 flex items-center gap-1">
+                        <div className="text-[10px] text-neutral-400 opacity-70 mt-1 flex items-center gap-1.5">
                           <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          <button
+                            onClick={() => startReplying(message)}
+                            className="p-1 hover:bg-[var(--app-surface-soft)] rounded-full text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                            title="Répondre à ce sticker"
+                          >
+                            <Reply className="w-3 h-3" />
+                          </button>
                           {isMe && (
                             <button
                               onClick={() => deleteMessage(message.id)}
-                              className="text-red-400 hover:text-red-500 ml-1 hover:underline opacity-0 group-hover:opacity-100 transition"
+                              className="text-red-400 hover:text-red-500 ml-0.5 hover:underline opacity-0 group-hover:opacity-100 transition"
                               title="Supprimer le sticker"
                             >
                               ✕
@@ -738,8 +837,51 @@ export default function MessagesPage() {
                 }
 
                 return (
-                  <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[82%] sm:max-w-[70%] rounded-3xl p-3.5 text-sm leading-relaxed shadow-sm space-y-2 ${isMe ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)]"}`}>
+                  <div
+                    key={message.id}
+                    id={`msg-${message.id}`}
+                    className={`flex ${isMe ? "justify-end" : "justify-start"} transition-all duration-300 group`}
+                  >
+                    <div
+                      className={`max-w-[85%] sm:max-w-[72%] rounded-3xl p-3.5 text-sm leading-relaxed shadow-sm space-y-2 transition-all duration-300 ${
+                        isHighlighted ? "ring-4 ring-[var(--app-accent)] scale-[1.01]" : ""
+                      } ${
+                        isMe
+                          ? "bg-[var(--app-foreground)] text-[var(--app-background)]"
+                          : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)]"
+                      }`}
+                    >
+                      {/* Encart de Citation style WhatsApp dans la bulle */}
+                      {message.replyTo && (
+                        <div
+                          onClick={() => scrollToQuotedMessage(message.replyTo!.id)}
+                          className={`cursor-pointer rounded-2xl p-2.5 text-xs select-none transition hover:opacity-90 flex items-center justify-between gap-2 border-l-4 mb-2 ${
+                            isMe
+                              ? "bg-black/25 text-neutral-100 border-l-[var(--app-accent)]"
+                              : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-l-[var(--app-accent)]"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className={`font-black text-[10px] block truncate ${isMe ? "text-neutral-200" : "text-[var(--app-accent)]"}`}>
+                              {message.replyTo.senderId === user?.id
+                                ? "Vous"
+                                : (message.replyTo.sender?.displayName || activePartner?.displayName || "Utilisateur")}
+                            </span>
+                            <p className="truncate opacity-85 mt-0.5 text-[11px]">
+                              {getSnippetFromMessage(message.replyTo as Message)}
+                            </p>
+                          </div>
+                          {message.replyTo.media?.[0] && (
+                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-black/20">
+                              <img
+                                src={toPublicUrl(message.replyTo.media[0].url) ?? undefined}
+                                alt="Média cité"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       {/* Affichage des Médias */}
                       {media && (
@@ -803,9 +945,20 @@ export default function MessagesPage() {
                       {/* Texte du message */}
                       {message.text && <p className="break-words">{message.text}</p>}
 
-                      {/* Horodatage et suppression */}
-                      <div className="text-[10px] text-right mt-1 opacity-65 flex items-center justify-end gap-2 select-none">
+                      {/* Horodatage, Réponse et Suppression */}
+                      <div className="text-[10px] text-right mt-1 opacity-70 flex items-center justify-end gap-2 select-none">
                         <span>{new Date(message.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        
+                        {/* Bouton de Réponse WhatsApp */}
+                        <button
+                          onClick={() => startReplying(message)}
+                          className="hover:opacity-100 p-0.5 rounded transition flex items-center gap-0.5 font-bold"
+                          title="Répondre à ce message"
+                        >
+                          <Reply className="w-3 h-3" />
+                          <span>Répondre</span>
+                        </button>
+
                         {isMe && (
                           <button
                             onClick={() => deleteMessage(message.id)}
@@ -832,6 +985,40 @@ export default function MessagesPage() {
                   onSelectSticker={handleSendSticker}
                   onClose={() => setShowStickerPicker(false)}
                 />
+              </div>
+            )}
+
+            {/* Bannière de Citation Active (Style WhatsApp au-dessus de l'input) */}
+            {replyingToMessage && (
+              <div className="p-2.5 px-3 bg-[var(--app-surface-raised)] border-t border-[var(--app-border)] flex items-center justify-between gap-3 animate-fadeIn flex-shrink-0 shadow-sm">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-1 self-stretch rounded-full bg-[var(--app-foreground)] flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--app-foreground)]">
+                      <Reply className="w-3.5 h-3.5" />
+                      <span>Réponse à {getAuthorNameFromMessage(replyingToMessage)}</span>
+                    </div>
+                    <p className="text-xs text-neutral-400 truncate mt-0.5">
+                      {getSnippetFromMessage(replyingToMessage)}
+                    </p>
+                  </div>
+                  {replyingToMessage.media?.[0] && (
+                    <div className="w-9 h-9 rounded-lg overflow-hidden border border-[var(--app-border)] flex-shrink-0 bg-black/20">
+                      <img
+                        src={toPublicUrl(replyingToMessage.media[0].url) ?? undefined}
+                        alt="Aperçu réponse"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={cancelReplying}
+                  className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition flex-shrink-0"
+                  title="Annuler la réponse"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
 
@@ -955,8 +1142,9 @@ export default function MessagesPage() {
                   />
                 </label>
 
-                {/* Input de Message avec focus auto-scroll */}
+                {/* Input de Message avec focus auto-scroll et ref */}
                 <input
+                  ref={messageInputRef}
                   type="text"
                   value={inputText}
                   disabled={isSending}
@@ -966,7 +1154,13 @@ export default function MessagesPage() {
                     setTimeout(() => scrollToBottom(true), 250);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && !isSending && sendMessage()}
-                  placeholder={mediaFile ? "Légende de la photo..." : "Message privé..."}
+                  placeholder={
+                    replyingToMessage
+                      ? `Répondre à ${getAuthorNameFromMessage(replyingToMessage)}...`
+                      : mediaFile
+                      ? "Légende de la photo..."
+                      : "Message privé..."
+                  }
                   className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
                 />
 
