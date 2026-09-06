@@ -5,6 +5,7 @@ const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 // Ressources critiques à pré-mettre en cache dès l'installation
 const PRECACHE_ASSETS = [
   "/",
+  "/offline",
   "/manifest.json",
 ];
 
@@ -159,7 +160,7 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(() => {
-          return cachedResponse || caches.match("/");
+          return cachedResponse || caches.match("/offline") || caches.match("/");
         });
 
       return cachedResponse || fetchPromise;

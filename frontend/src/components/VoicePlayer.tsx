@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Play, Pause, RefreshCw, Mic, Loader2 } from "lucide-react";
 import { toPublicUrl } from "@/lib/api";
+import { haptics } from "@/lib/haptics";
 
 type VoicePlayerProps = {
   url: string;
@@ -111,10 +112,12 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     setErrorMessage(null);
 
     if (isPlaying) {
+      haptics.light();
       audio.pause();
       setIsPlaying(false);
       setIsLoading(false);
     } else {
+      haptics.light();
       // Mettre en pause tout autre audio en cours de lecture
       if (globalPlayingAudio && globalPlayingAudio !== audio) {
         globalPlayingAudio.pause();
@@ -193,6 +196,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
 
   const cyclePlaybackRate = (e: React.MouseEvent) => {
     e.stopPropagation();
+    haptics.selection();
     const rates = [1, 1.5, 2];
     const nextIndex = (rates.indexOf(playbackRate) + 1) % rates.length;
     const nextRate = rates[nextIndex];

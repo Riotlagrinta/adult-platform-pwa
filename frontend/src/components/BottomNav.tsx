@@ -14,6 +14,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import { haptics } from "@/lib/haptics";
 
 interface BottomNavProps {
   isAdmin?: boolean;
@@ -77,6 +78,9 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
             <Link
               key={tab.name}
               href={tab.href}
+              onClick={() => {
+                if (!isActive) haptics.selection();
+              }}
               className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative transition-all duration-200"
             >
               <div className="relative">
@@ -115,6 +119,7 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
       {!pathname.startsWith("/messages") && (
         <Link
           href="/messages"
+          onClick={() => haptics.medium()}
           className="md:hidden fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 rounded-full bg-[var(--app-accent,#25D366)] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:shadow-[0_6px_30px_rgba(37,211,102,0.5)] active:scale-95 transition-all duration-200 z-30"
           aria-label="Nouvelle discussion"
         >
