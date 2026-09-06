@@ -112,7 +112,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       {/* Mobile Top Bar – WhatsApp style */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
+      <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
         <Logo size="sm" showText={true} />
         <div className="flex items-center gap-2">
           {!isStandalone && (

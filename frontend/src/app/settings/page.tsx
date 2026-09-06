@@ -218,7 +218,7 @@ export default function SettingsPage() {
   return (
     <div className="bg-[var(--app-background)] min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--app-foreground)] select-none">
       {/* ─── HEADER TYPE WHATSAPP (Barre supérieure) ─── */}
-      <header className="sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl border-b border-[var(--app-border)] px-4 py-3 z-20 flex items-center justify-between">
+      <header className="sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl border-b border-[var(--app-border)] px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center">
             <Settings className="w-4 h-4" />

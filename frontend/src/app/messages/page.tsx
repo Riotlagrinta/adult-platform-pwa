@@ -863,7 +863,7 @@ export default function MessagesPage() {
     <div className="flex h-full w-full min-h-0 bg-[var(--app-background)] overflow-hidden relative divide-x divide-[var(--app-border)]">
       {/* Colonne de Gauche : Liste des Conversations */}
       <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 min-h-0 bg-[var(--app-surface)] flex flex-col ${selectedConvId ? "hidden md:flex" : "flex"} pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0`}>
-        <div className="p-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
+        <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] md:pt-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
           <div className="space-y-1">
             <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Messagerie</div>
             <h2 className="font-black text-xl tracking-tight">Conversations</h2>
@@ -1008,7 +1008,7 @@ export default function MessagesPage() {
         {selectedConversation && activePartner ? (
           <>
             {/* Header de Discussion WhatsApp */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-4 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => setSelectedConvId(null)}

@@ -160,6 +160,24 @@ html, body {
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+  -webkit-overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Rétablissement de la sélection texte dans les zones de saisie */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Variables utilitaires pour Safe Areas iOS */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
 /* ── ANIMATIONS DE CHARGEMENT ULTRA-FLUIDES ── */

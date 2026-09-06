@@ -225,7 +225,7 @@ export default function CommunityPage() {
         } pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0`}
       >
         {/* Header Communauté */}
-        <div className="p-4 border-b border-[var(--app-border)] flex items-center justify-between bg-[var(--app-surface-raised)]">
+        <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] md:pt-4 border-b border-[var(--app-border)] flex items-center justify-between bg-[var(--app-surface-raised)]">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-bold">
               <Users className="w-5 h-5" />
@@ -318,7 +318,7 @@ export default function CommunityPage() {
         {selectedGroup ? (
           <>
             {/* Header du Groupe */}
-            <div className="flex items-center justify-between p-3.5 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0 shadow-sm">
+            <div className="flex items-center justify-between p-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-3.5 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0 shadow-sm">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => setSelectedGroup(null)}
