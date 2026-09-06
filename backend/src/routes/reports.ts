@@ -83,9 +83,11 @@ reportRouter.post('/:reportId/resolve', requireAuth, requireStaff, async (req, r
 
     // Appliquer la sanction
     if (action === 'DELETE_POST' && report.targetPostId) {
-      await prisma.post.delete({
-        where: { id: report.targetPostId },
-      });
+      try {
+        await prisma.post.delete({
+          where: { id: report.targetPostId },
+        });
+      } catch {}
     } else if (action === 'SUSPEND_USER' && report.targetUserId) {
       await prisma.user.update({
         where: { id: report.targetUserId },

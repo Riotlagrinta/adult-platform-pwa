@@ -122,7 +122,7 @@ export default function NotificationsPage() {
     if (notif.data?.conversationId || notif.type.includes("message")) {
       router.push("/messages");
     } else if (notif.data?.postId || notif.type.includes("post")) {
-      router.push("/feed");
+      router.push("/");
     } else if (notif.data?.followerId || notif.type.includes("follow")) {
       router.push("/profile");
     }

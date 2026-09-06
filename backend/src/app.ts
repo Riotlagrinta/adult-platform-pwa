@@ -6,7 +6,6 @@ import { uploadRoot } from './lib/storage.js';
 import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
 import { verificationRouter } from './routes/verification.js';
-import { postRouter } from './routes/posts.js';
 import { socialRouter } from './routes/social.js';
 import { messageRouter } from './routes/messages.js';
 import { usersRouter } from './routes/users.js';
@@ -61,7 +60,6 @@ export async function createServer() {
   app.use('/auth', authRouter);
   app.use('/profile', profileRouter);
   app.use('/verification', verificationRouter);
-  app.use('/posts', postRouter);
   app.use('/social', socialRouter);
   app.use('/users', usersRouter);
   app.use('/notifications', notificationRouter);

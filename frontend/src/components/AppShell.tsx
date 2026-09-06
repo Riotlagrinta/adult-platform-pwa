@@ -11,20 +11,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
   const isStaff = user?.role === "MODERATOR" || user?.role === "ADMIN";
 
-  // Les pages interactives complexes (Messagerie, Reels) doivent occuper 100% de l'écran sans contraintes
-  const isFullBleed = pathname.startsWith("/messages") || pathname.startsWith("/reels");
+  // La messagerie occupe 100% de l'écran sans contraintes de largeur
+  const isFullBleed = pathname.startsWith("/messages");
 
   return (
     <div className="h-[100dvh] w-screen flex overflow-hidden select-none bg-[var(--app-background)] text-[var(--app-foreground)] relative">
       {user && <Sidebar isAdmin={isStaff} />}
-      <div className={`flex-1 flex flex-col ${user ? "md:pl-64" : ""} h-full overflow-hidden relative`}>
+      <div className={`flex-1 flex flex-col ${user ? "md:pl-[280px]" : ""} h-full overflow-hidden relative`}>
         <main className="flex-1 flex justify-center h-full overflow-hidden min-h-0 relative">
           {isFullBleed ? (
-            <div className={`w-full h-full flex flex-col min-w-0 ${user && pathname.startsWith("/reels") ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
+            <div className="w-full h-full flex flex-col min-w-0">
               {children}
             </div>
           ) : (
-            <div className={`w-full h-full flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] ${user ? "max-w-4xl pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
+            <div className={`w-full h-full flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] ${user ? "max-w-4xl pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
               <div className="flex-1 h-full overflow-y-auto scroll-smooth min-w-0 focus:outline-none">
                 {children}
               </div>
@@ -52,11 +52,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </main>
       </div>
-      {/* Cacher la BottomNav sur mobile quand on est activement dans un chat de messagerie */}
-      {user && (!pathname.startsWith("/messages") || typeof window === "undefined") && (
-        <BottomNav isAdmin={isStaff} />
-      )}
+      {/* BottomNav mobile WhatsApp */}
+      {user && <BottomNav isAdmin={isStaff} />}
     </div>
   );
 }
-

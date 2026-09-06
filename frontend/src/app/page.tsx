@@ -1,182 +1,70 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  Heart,
-  MessageCircle,
-  MoreHorizontal,
+  MessageSquare,
+  Search,
+  Users,
   CheckCircle2,
-  Image as ImageIcon,
+  Shield,
+  Eye,
   Download,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import AuthPanel from "@/components/AuthPanel";
 import StoryTray from "@/components/StoryTray";
-import { FeedSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
+import { GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 import { useIsStandalone } from "@/lib/use-standalone";
 
-type FeedPost = {
+type CommunityMember = {
   id: string;
-  authorId: string;
-  caption?: string | null;
-  createdAt: string;
-  visibility: "PUBLIC" | "FOLLOWERS" | "VERIFIED_ONLY";
-  author: {
-    id: string;
-    displayName: string;
-    avatarUrl?: string | null;
-    verificationStatus: string;
-  };
-  likes: { id: string; userId: string }[];
-  comments: { id: string }[];
-  media: {
-    id: string;
-    url: string;
-    kind: "IMAGE" | "VIDEO";
-    mimeType: string;
-  }[];
+  displayName: string;
+  avatarUrl?: string | null;
+  verificationStatus: string;
 };
 
 export default function Home() {
+  const router = useRouter();
   const { token, user, ready } = useAuth();
-  const [feed, setFeed] = useState<FeedPost[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const isStandalone = useIsStandalone();
+  const [members, setMembers] = useState<CommunityMember[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Pré-chargement instantané depuis le cache local dès le montage
-  useEffect(() => {
+  const loadMembers = useCallback(async () => {
+    if (!token) return;
     try {
-      const cached = localStorage.getItem("cached_feed");
-      if (cached) {
-        setFeed(JSON.parse(cached));
-      }
+      const followersPayload = await apiRequest<{ followers: CommunityMember[] }>("/social/followers", { token });
+      const followingPayload = await apiRequest<{ following: CommunityMember[] }>("/social/following", { token });
+
+      const seen = new Map<string, CommunityMember>();
+      [...followersPayload.followers, ...followingPayload.following].forEach((m) => {
+        if (m.id !== user?.id && !seen.has(m.id)) {
+          seen.set(m.id, m);
+        }
+      });
+      setMembers(Array.from(seen.values()));
     } catch {}
-  }, []);
-
-  const loadFeed = useCallback(async () => {
-    if (!token) {
-      return;
-    }
-
-    // Si on a déjà du contenu pré-chargé en cache, on ne bloque pas avec le squelette complet
-    const hasCachedContent = feed.length > 0;
-    if (!hasCachedContent) {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const payload = await apiRequest<{ feed: FeedPost[] }>("/social/feed", { token });
-      setFeed(payload.feed);
-      try {
-        localStorage.setItem("cached_feed", JSON.stringify(payload.feed));
-      } catch {}
-    } catch (err) {
-      if (!hasCachedContent) {
-        setError(err instanceof Error ? err.message : "Impossible de charger le fil");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [feed.length, token]);
+  }, [token, user?.id]);
 
   useEffect(() => {
     if (token) {
-      void loadFeed();
+      void loadMembers();
     }
-  }, [loadFeed, token]);
+  }, [loadMembers, token]);
 
-  const toggleLike = async (postId: string, liked: boolean) => {
-    if (!token) {
-      return;
-    }
-
-    await apiRequest(`/posts/${postId}/like`, {
-      method: liked ? "DELETE" : "POST",
-      token,
-    });
-    await loadFeed();
-  };
-
-  const submitComment = async (postId: string) => {
-    if (!token) {
-      return;
-    }
-
-    const content = commentDraft.trim();
-    if (!content) {
-      return;
-    }
-
-    setCommentSubmitting(true);
-    try {
-      await apiRequest(`/posts/${postId}/comments`, {
-        method: "POST",
-        token,
-        body: JSON.stringify({ content }),
-      });
-      setCommentDraft("");
-      setActiveCommentPostId(null);
-      await loadFeed();
-    } finally {
-      setCommentSubmitting(false);
-    }
-  };
-
-  const reportPost = async (postId: string) => {
-    const reason = prompt("Indiquez la raison du signalement de cette publication :");
-    if (!reason?.trim() || !token) {
-      return;
-    }
-
-    try {
-      await apiRequest("/reports", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          reason,
-          targetPostId: postId,
-        }),
-      });
-      alert("La publication a été signalée avec succès.");
-    } catch {
-      alert("Erreur lors de l'envoi du signalement.");
-    }
-  };
-
-  const recentProfiles = useMemo(() => {
-    const seen = new Map<string, { id: string; displayName: string; avatarUrl?: string | null }>();
-    if (user) {
-      seen.set(user.id, {
-        id: user.id,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-      });
-    }
-
-    feed.forEach((post) => {
-      if (!seen.has(post.author.id)) {
-        seen.set(post.author.id, {
-          id: post.author.id,
-          displayName: post.author.displayName,
-          avatarUrl: post.author.avatarUrl,
-        });
-      }
-    });
-
-    return Array.from(seen.values()).slice(0, 5);
-  }, [feed, user]);
+  const filteredMembers = members.filter((m) =>
+    searchQuery ? m.displayName.toLowerCase().includes(searchQuery.toLowerCase()) : true
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--app-background)]">
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_90%,transparent)] backdrop-blur-md z-20">
+      {/* Mobile Top Bar – WhatsApp style */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
         <Logo size="sm" showText={true} />
         <div className="flex items-center gap-2">
           {!isStandalone && (
@@ -184,14 +72,16 @@ export default function Home() {
               href="/download"
               className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition shadow-sm"
             >
-              <Download className="w-3 h-3 text-[var(--app-accent)]" />
-              <span>APK Android</span>
+              <Download className="w-3 h-3 text-[var(--app-accent,#25D366)]" />
+              <span>APK</span>
             </Link>
           )}
           {user ? (
-            <div className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] flex items-center justify-center font-bold text-xs">
-              {user.displayName.slice(0, 2).toUpperCase()}
-            </div>
+            <Link href="/profile">
+              <div className="w-9 h-9 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-xs border border-[var(--app-accent,#25D366)]/20">
+                {user.displayName.slice(0, 2).toUpperCase()}
+              </div>
+            </Link>
           ) : (
             <div className="text-xs text-neutral-500">Connexion</div>
           )}
@@ -201,6 +91,7 @@ export default function Home() {
       {!ready ? (
         <GlobalPulseLoader message="Initialisation sécurisée d'OnlyAdults..." />
       ) : !token ? (
+        /* ─── LANDING / AUTH ───────────────────────── */
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12">
           {/* Panneau de Présentation Premium à gauche */}
           <div className="lg:col-span-7 bg-black text-white p-8 md:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-neutral-900 relative overflow-hidden">
@@ -269,182 +160,126 @@ export default function Home() {
           </div>
         </div>
       ) : (
+        /* ─── HUB PRINCIPAL CONNECTÉ ─── WhatsApp-style ─── */
         <>
-          <div className="mx-4 mt-4 rounded-[28px] border border-[var(--app-border)] bg-[var(--app-surface)] p-4 md:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="space-y-2">
-                <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Fil social</div>
-                <h2 className="text-2xl md:text-3xl font-black tracking-tight">
-                  Bonjour {user?.displayName?.split(" ")[0] ?? "membre"}
-                </h2>
-                <p className="max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
-                  Découvrez les dernières publications, répondez aux commentaires et gardez un espace visuel propre sur tous les thèmes.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-4 py-3">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Profils</div>
-                  <div className="text-lg font-black">{recentProfiles.length}</div>
-                </div>
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-4 py-3">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Médias</div>
-                  <div className="text-lg font-black">{feed.filter((post) => post.media.length > 0).length}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
+          {/* Story Tray – Bande de stories éphémères en haut */}
           <StoryTray />
 
-          <div className="p-4 flex items-center justify-between border-b border-[var(--app-border)]">
-            <div>
-              <div className="text-xs uppercase tracking-[0.2em] text-neutral-500">Fil social</div>
-              <h2 className="text-xl font-black">Publications récentes</h2>
-            </div>
-            <button
-              onClick={loadFeed}
-              className="text-xs font-bold px-4 py-2 rounded-full bg-[var(--app-surface-soft)]"
+          {/* Section Rapide – Accès messages */}
+          <div className="mx-4 mt-4">
+            <Link
+              href="/messages"
+              className="flex items-center justify-between p-4 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm hover:shadow-md transition-all duration-200 group"
             >
-              Rafraîchir
-            </button>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-[var(--app-accent,#25D366)]/10 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Messagerie Privée</div>
+                  <div className="text-[11px] text-neutral-500">Chiffrée · Photos éphémères · Temps réel</div>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-neutral-400 group-hover:text-[var(--app-accent,#25D366)] transition-colors" />
+            </Link>
           </div>
 
-          {loading && <FeedSkeleton />}
-          {error && <div className="p-6 text-sm text-red-500">{error}</div>}
+          {/* Section Communauté – Membres */}
+          <div className="mx-4 mt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Communauté</div>
+                <h2 className="text-lg font-black tracking-tight">Membres</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-3 py-1.5">
+                  <span className="text-xs font-black">{members.length}</span>
+                  <span className="text-[10px] text-neutral-500 ml-1">contacts</span>
+                </div>
+              </div>
+            </div>
 
-          {!loading && (
-            <div className="divide-y divide-[var(--app-border)]">
-              {feed.length === 0 ? (
-                <div className="py-20 text-center text-neutral-500">
-                  Aucune publication disponible pour le moment.
+            {/* Recherche */}
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher un membre..."
+                className="w-full pl-10 pr-4 py-2.5 border border-[var(--app-border)] rounded-2xl text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] transition-colors"
+              />
+            </div>
+
+            {/* Liste des membres */}
+            <div className="space-y-1.5">
+              {filteredMembers.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm">
+                  <Users className="w-8 h-8 mx-auto mb-2 text-neutral-300 dark:text-neutral-700" />
+                  <div>Aucun membre trouvé</div>
+                  <div className="text-[11px] text-neutral-400 mt-1">Commencez par suivre d&apos;autres profils</div>
                 </div>
               ) : (
-              feed.map((post) => {
-                const firstMedia = post.media[0];
-                const mediaUrl = toPublicUrl(firstMedia?.url);
-                const liked = post.likes.some((like) => like.userId === user?.id);
-                return (
-                  <article key={post.id} className="p-4 md:p-6 space-y-4 bg-[var(--app-surface)]">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-base">
-                          {(post.author.avatarUrl ? post.author.displayName : post.author.displayName).slice(0, 2).toUpperCase()}
+                filteredMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    onClick={() => router.push(`/profile/${member.id}`)}
+                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-150 group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
+                        {member.displayName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 font-bold text-sm truncate">
+                          <span className="truncate">{member.displayName}</span>
+                          {member.verificationStatus === "APPROVED" && (
+                            <CheckCircle2 className="h-3.5 w-3.5 fill-[var(--app-accent,#25D366)] text-white dark:text-black flex-shrink-0" />
+                          )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <span>{post.author.displayName}</span>
-                            {post.author.verificationStatus === "APPROVED" && (
-                              <CheckCircle2 className="h-4 w-4 fill-black text-white dark:fill-white dark:text-black" />
-                            )}
-                          </div>
-                          <div className="text-xs text-neutral-500">
-                            {post.visibility} · {new Date(post.createdAt).toLocaleString("fr-FR")}
-                          </div>
+                        <div className="text-[11px] text-neutral-500">
+                          {member.verificationStatus === "APPROVED" ? "Vérifié" : "Membre"}
                         </div>
-                      </div>
-                      <button
-                        onClick={() => reportPost(post.id)}
-                        className="text-neutral-500 p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 transition"
-                        title="Signaler la publication"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    {post.caption && (
-                      <p className="text-sm md:text-base leading-relaxed text-neutral-800 dark:text-neutral-200 whitespace-pre-line">
-                        {post.caption}
-                      </p>
-                    )}
-
-                    {mediaUrl && (
-                      <div className="rounded-2xl overflow-hidden aspect-video border border-[var(--app-border)] bg-[var(--app-surface-soft)] relative">
-                        {firstMedia?.kind === "VIDEO" ? (
-                          <video
-                            controls
-                            preload="metadata"
-                            playsInline
-                            className="h-full w-full object-cover"
-                            src={mediaUrl}
-                          />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            alt="Média"
-                            src={mediaUrl}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover transition-opacity duration-300"
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {!mediaUrl && (
-                      <div className="rounded-2xl border border-dashed border-[var(--app-border)] p-6 text-center text-neutral-400">
-                        <ImageIcon className="h-8 w-8 mx-auto mb-2" />
-                        Aucun média joint
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-2 text-neutral-500 dark:text-neutral-400">
-                      <div className="flex items-center gap-6">
-                        <button
-                          onClick={() => toggleLike(post.id, liked)}
-                          className="flex items-center gap-2 p-1 hover:text-red-500"
-                        >
-                          <Heart className={`h-5 w-5 ${liked ? "fill-red-500 text-red-500" : ""}`} />
-                          <span className="text-xs font-bold">{post.likes.length}</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setActiveCommentPostId(post.id);
-                            setCommentDraft("");
-                          }}
-                          className="flex items-center gap-2 p-1 hover:text-black dark:hover:text-white"
-                        >
-                          <MessageCircle className="h-5 w-5" />
-                          <span className="text-xs font-bold">{post.comments.length}</span>
-                        </button>
                       </div>
                     </div>
-
-                    {activeCommentPostId === post.id && (
-                      <div className="space-y-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 bg-neutral-50 dark:bg-neutral-950">
-                        <div className="flex items-start gap-3">
-                          <textarea
-                            value={commentDraft}
-                            onChange={(event) => setCommentDraft(event.target.value)}
-                            placeholder="Écrire un commentaire public..."
-                            className="min-h-[88px] flex-1 resize-none rounded-2xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <button
-                            onClick={() => {
-                              setActiveCommentPostId(null);
-                              setCommentDraft("");
-                            }}
-                            className="text-xs font-bold text-neutral-500 hover:text-black dark:hover:text-white"
-                          >
-                            Annuler
-                          </button>
-                          <button
-                            onClick={() => submitComment(post.id)}
-                            disabled={commentSubmitting || !commentDraft.trim()}
-                            className="rounded-full bg-black px-4 py-2 text-xs font-bold text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black"
-                          >
-                            Publier
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })
-            )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push("/messages");
+                      }}
+                      className="p-2 rounded-full hover:bg-[var(--app-accent,#25D366)]/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                    >
+                      <MessageSquare className="w-4 h-4 text-[var(--app-accent,#25D366)]" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          )}
+
+          {/* Section Sécurité & Confiance */}
+          <div className="mx-4 mt-6 mb-6">
+            <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3 shadow-sm">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Sécurité & Confidentialité</div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)]">
+                  <Shield className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+                  <span className="text-[10px] font-bold text-center leading-tight">Chiffrement E2E</span>
+                </div>
+                <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)]">
+                  <Eye className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+                  <span className="text-[10px] font-bold text-center leading-tight">Anti-capture</span>
+                </div>
+                <Link
+                  href="/settings"
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] transition"
+                >
+                  <Users className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+                  <span className="text-[10px] font-bold text-center leading-tight">Paramètres</span>
+                </Link>
+              </div>
+            </div>
+          </div>
         </>
       )}
     </div>

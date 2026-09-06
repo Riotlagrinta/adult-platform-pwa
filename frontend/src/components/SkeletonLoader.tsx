@@ -144,27 +144,7 @@ export function ProfileSkeleton() {
   );
 }
 
-/**
- * 5. Skeleton pour les Reels plein écran
- */
-export function ReelSkeleton() {
-  return (
-    <div className="w-full h-full bg-neutral-950 flex items-center justify-center relative select-none">
-      <div className="w-full h-full shimmer-skeleton opacity-25" />
-      {/* Boutons d'actions à droite */}
-      <div className="absolute right-4 bottom-24 flex flex-col items-center gap-5">
-        <div className="w-12 h-12 rounded-full shimmer-skeleton" />
-        <div className="w-12 h-12 rounded-full shimmer-skeleton" />
-        <div className="w-12 h-12 rounded-full shimmer-skeleton" />
-      </div>
-      {/* Légende en bas à gauche */}
-      <div className="absolute left-6 bottom-24 space-y-2 max-w-xs">
-        <div className="w-32 h-4 rounded-full shimmer-skeleton" />
-        <div className="w-48 h-3 rounded-full shimmer-skeleton" />
-      </div>
-    </div>
-  );
-}
+
 
 /**
  * 6. Loader central fluide avec Emblème animé (pour transitions & boots)

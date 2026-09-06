@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   MapPin,
-  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -26,13 +25,7 @@ type OtherUser = {
   profile?: { city?: string | null; country?: string | null; headline?: string | null } | null;
 };
 
-type Post = {
-  id: string;
-  caption?: string | null;
-  media: { id: string; url: string; kind: "IMAGE" | "VIDEO" }[];
-  likes: { id: string }[];
-  comments: { id: string }[];
-};
+
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -44,7 +37,7 @@ export default function OtherProfilePage({ params }: PageProps) {
   const { token, ready } = useAuth();
 
   const [profileUser, setProfileUser] = useState<OtherUser | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+
   const [isFollowing, setIsFollowing] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,10 +51,6 @@ export default function OtherProfilePage({ params }: PageProps) {
       // Charger le profil de l'utilisateur
       const userPayload = await apiRequest<{ user: OtherUser }>(`/users/${profileUserId}`, { token });
       setProfileUser(userPayload.user);
-
-      // Charger ses publications publiques
-      const postsPayload = await apiRequest<{ posts: Post[] }>(`/posts?authorId=${profileUserId}`, { token });
-      setPosts(postsPayload.posts);
 
       // Vérifier le statut de blocage
       const blocksPayload = await apiRequest<{ blockedUsers: { id: string }[] }>("/blocks", { token });
@@ -304,39 +293,7 @@ export default function OtherProfilePage({ params }: PageProps) {
           </button>
         </div>
 
-        {/* Publications du membre */}
-        <div className="space-y-4 pt-4">
-          <h3 className="text-xs uppercase tracking-[0.2em] font-black text-neutral-500 flex items-center gap-1.5">
-            <FileText className="w-4 h-4" />
-            <span>Publications</span>
-          </h3>
-          
-          {posts.length === 0 ? (
-            <div className="text-sm text-neutral-500 py-6">Aucune publication publique disponible.</div>
-          ) : (
-            <div className="space-y-4 max-w-2xl">
-              {posts.map((post) => (
-                <article key={post.id} className="border border-[var(--app-border)] rounded-2xl p-4 space-y-3 bg-[var(--app-surface)] shadow-sm">
-                  {post.caption && <p className="text-sm leading-relaxed">{post.caption}</p>}
-                  {post.media[0] && (
-                    <div className="aspect-video rounded-xl overflow-hidden bg-[var(--app-surface-soft)] border border-[var(--app-border)]">
-                      {post.media[0].kind === "VIDEO" ? (
-                        <video controls className="h-full w-full object-cover" src={toPublicUrl(post.media[0].url) ?? undefined} />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img alt="media" src={toPublicUrl(post.media[0].url) ?? undefined} className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-neutral-500">
-                    <span>{post.likes.length} j'aime</span>
-                    <span>{post.comments.length} commentaires</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
+
       </div>
     </div>
   );

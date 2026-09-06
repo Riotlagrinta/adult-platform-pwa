@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
-  Image as ImageIcon,
   Camera,
   Edit3,
   Share2,
@@ -27,20 +26,13 @@ type MyUser = {
   profile?: { city?: string | null; country?: string | null; headline?: string | null } | null;
 };
 
-type Post = {
-  id: string;
-  caption?: string | null;
-  authorId: string;
-  media: { id: string; url: string; kind: "IMAGE" | "VIDEO"; mimeType: string }[];
-  likes: { id: string }[];
-  comments: { id: string }[];
-};
+
 
 export default function ProfilePage() {
   const router = useRouter();
   const { token, ready, refreshUser } = useAuth();
   const [me, setMe] = useState<MyUser | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const isStandalone = useIsStandalone();
@@ -52,19 +44,17 @@ export default function ProfilePage() {
   // Nouveaux états pour la gestion des relations
   const [followers, setFollowers] = useState<{ id: string; displayName: string; avatarUrl?: string | null }[]>([]);
   const [following, setFollowing] = useState<{ id: string; displayName: string; avatarUrl?: string | null }[]>([]);
-  const [activeTab, setActiveTab] = useState<"posts" | "social">("posts");
+
 
   const loadProfile = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
       const mePayload = await apiRequest<{ user: MyUser }>("/auth/me", { token });
-      const postsPayload = await apiRequest<{ posts: Post[] }>(`/posts?authorId=${mePayload.user.id}`, { token });
       const followersPayload = await apiRequest<{ followers: any[] }>("/social/followers", { token });
       const followingPayload = await apiRequest<{ following: any[] }>("/social/following", { token });
       
       setMe(mePayload.user);
-      setPosts(postsPayload.posts);
       setDisplayName(mePayload.user.displayName);
       setBio(mePayload.user.bio ?? "");
       setCity(mePayload.user.profile?.city ?? "");
@@ -230,88 +220,55 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm py-1 border-y border-[var(--app-border)]">
-          <button onClick={() => setActiveTab("posts")} className={`flex items-center gap-1.5 transition ${activeTab === "posts" ? "font-black text-[var(--app-foreground)]" : "text-neutral-500"}`}>
-            <span className="font-black">{posts.length}</span>
-            <span>Publications</span>
-          </button>
-          <button onClick={() => setActiveTab("social")} className={`flex items-center gap-1.5 transition ${activeTab === "social" ? "font-black text-[var(--app-foreground)]" : "text-neutral-500"}`}>
+          <div className="flex items-center gap-1.5 font-black text-[var(--app-foreground)]">
             <span className="font-black">{followers.length}</span>
             <span>Abonnés</span>
-          </button>
-          <button onClick={() => setActiveTab("social")} className={`flex items-center gap-1.5 transition ${activeTab === "social" ? "font-black text-[var(--app-foreground)]" : "text-neutral-500"}`}>
+          </div>
+          <div className="flex items-center gap-1.5 font-black text-[var(--app-foreground)]">
             <span className="font-black">{following.length}</span>
             <span>Suivis</span>
-          </button>
+          </div>
         </div>
 
         {loading && <div className="text-sm text-neutral-500">Chargement des données...</div>}
 
-        {activeTab === "social" ? (
-          <div className="space-y-6 pt-4 max-w-3xl">
-            <div className="space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Abonnés ({followers.length})</h4>
-              {followers.length === 0 ? (
-                <p className="text-xs text-neutral-500 italic">Aucun abonné pour le moment.</p>
-              ) : (
-                <div className="space-y-2">
-                  {followers.map((f) => (
-                    <div key={f.id} onClick={() => router.push(`/profile/${f.id}`)} className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] hover:border-[var(--app-foreground)] cursor-pointer bg-[var(--app-surface-raised)] transition">
-                      <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-xs flex-shrink-0">
-                        {f.displayName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <span className="font-bold text-xs">{f.displayName}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 pt-4">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Comptes suivis ({following.length})</h4>
-              {following.length === 0 ? (
-                <p className="text-xs text-neutral-500 italic">Vous ne suivez aucun compte pour le moment.</p>
-              ) : (
-                <div className="space-y-2">
-                  {following.map((f) => (
-                    <div key={f.id} onClick={() => router.push(`/profile/${f.id}`)} className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] hover:border-[var(--app-foreground)] cursor-pointer bg-[var(--app-surface-raised)] transition">
-                      <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-xs flex-shrink-0">
-                        {f.displayName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <span className="font-bold text-xs">{f.displayName}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 pt-4">
-            <div className="text-xs uppercase tracking-[0.2em] text-neutral-500">Mes publications</div>
-            {posts.length === 0 ? (
-              <div className="text-sm text-neutral-500">Aucune publication pour l'instant.</div>
+        <div className="space-y-6 pt-4 max-w-3xl">
+          <div className="space-y-3">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Abonnés ({followers.length})</h4>
+            {followers.length === 0 ? (
+              <p className="text-xs text-neutral-500 italic">Aucun abonné pour le moment.</p>
             ) : (
-              posts.map((post) => (
-                <article key={post.id} className="border border-[var(--app-border)] rounded-2xl p-4 space-y-3 bg-[var(--app-surface)]">
-                  {post.caption && <p className="text-sm">{post.caption}</p>}
-                  {post.media[0] && (
-                    <div className="aspect-video rounded-xl overflow-hidden bg-[var(--app-surface-soft)]">
-                      {post.media[0].kind === "VIDEO" ? (
-                        <video controls className="h-full w-full object-cover" src={toPublicUrl(post.media[0].url) ?? undefined} />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img alt="media" src={toPublicUrl(post.media[0].url) ?? undefined} className="h-full w-full object-cover" />
-                      )}
+              <div className="space-y-2">
+                {followers.map((f) => (
+                  <div key={f.id} onClick={() => router.push(`/profile/${f.id}`)} className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] hover:border-[var(--app-foreground)] cursor-pointer bg-[var(--app-surface-raised)] transition">
+                    <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      {f.displayName.slice(0, 2).toUpperCase()}
                     </div>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-neutral-500">
-                    <span>{post.likes.length} j'aime</span>
-                    <span>{post.comments.length} commentaires</span>
+                    <span className="font-bold text-xs">{f.displayName}</span>
                   </div>
-                </article>
-              ))
+                ))}
+              </div>
             )}
           </div>
-        )}
+
+          <div className="space-y-3 pt-4">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Comptes suivis ({following.length})</h4>
+            {following.length === 0 ? (
+              <p className="text-xs text-neutral-500 italic">Vous ne suivez aucun compte pour le moment.</p>
+            ) : (
+              <div className="space-y-2">
+                {following.map((f) => (
+                  <div key={f.id} onClick={() => router.push(`/profile/${f.id}`)} className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] hover:border-[var(--app-foreground)] cursor-pointer bg-[var(--app-surface-raised)] transition">
+                    <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      {f.displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="font-bold text-xs">{f.displayName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         </div>
       </div>
     </div>

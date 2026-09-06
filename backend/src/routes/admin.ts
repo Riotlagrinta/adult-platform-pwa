@@ -8,11 +8,11 @@ export const adminRouter = Router();
 
 adminRouter.get('/summary', requireAuth, requireAdmin, async (_req, res, next) => {
   try {
-    const [users, approved, pending, posts, reports, conversations, messages, mediaMessages] = await Promise.all([
+    const [users, approved, pending, stories, reports, conversations, messages, mediaMessages] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { verificationStatus: 'APPROVED' } }),
       prisma.user.count({ where: { verificationStatus: 'PENDING_REVIEW' } }),
-      prisma.post.count(),
+      prisma.story.count(),
       prisma.report.count(),
       prisma.conversation.count(),
       prisma.message.count(),
@@ -24,7 +24,7 @@ adminRouter.get('/summary', requireAuth, requireAdmin, async (_req, res, next) =
         users,
         approved,
         pending,
-        posts,
+        stories,
         reports,
         conversations,
         messages,

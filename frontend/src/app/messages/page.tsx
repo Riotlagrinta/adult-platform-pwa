@@ -600,7 +600,7 @@ export default function MessagesPage() {
   return (
     <div className="flex h-full w-full min-h-0 bg-[var(--app-background)] overflow-hidden relative divide-x divide-[var(--app-border)]">
       {/* Colonne de Gauche : Liste des Conversations */}
-      <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 min-h-0 bg-[var(--app-surface)] flex flex-col ${selectedConvId ? "hidden md:flex" : "flex"}`}>
+      <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 min-h-0 bg-[var(--app-surface)] flex flex-col ${selectedConvId ? "hidden md:flex" : "flex"} pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0`}>
         <div className="p-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3 bg-[var(--app-surface-raised)]">
           <div className="space-y-1">
             <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Messagerie</div>
@@ -702,7 +702,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Colonne de Droite : Fil de Discussion Actif */}
-      <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] overflow-hidden ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : "flex"}`}>
+      <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] overflow-hidden ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : "flex fixed inset-0 z-40 md:relative md:z-auto md:inset-auto"}`}>
         {selectedConversation && activePartner ? (
           <>
             {/* Header de Discussion */}
