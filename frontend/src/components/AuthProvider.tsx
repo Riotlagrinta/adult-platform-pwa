@@ -116,18 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUnreadNotificationsCount((prev) => prev + 1);
     };
 
-    const handleMessage = (data: { message: { senderId: string; text?: string | null }; conversationId: string }) => {
-      if (user && data.message.senderId !== user.id) {
-        soundManager.playMessageSound();
-      }
-    };
-
     socket.on("notification:new", handleNotification);
-    socket.on("message:new", handleMessage);
 
     return () => {
       socket.off("notification:new", handleNotification);
-      socket.off("message:new", handleMessage);
     };
   }, [router, socket, user]);
 

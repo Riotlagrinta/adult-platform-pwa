@@ -23,7 +23,21 @@ const deleteQuerySchema = z.object({
 });
 
 const avatarUpload = createUploader('avatars', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaUpload = createUploader('media', ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']);
+const mediaUpload = createUploader('media', [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'audio/webm',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/x-m4a',
+]);
 const verificationUpload = createUploader('verification', ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 
 filesRouter.post('/avatar', requireAuth, avatarUpload.single('file'), async (req, res, next) => {

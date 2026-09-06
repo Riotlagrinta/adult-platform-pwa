@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { MessageSquare, Bell, X, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
@@ -97,22 +97,45 @@ export default function FloatingNotificationManager() {
     }
   };
 
+  const seenKeysRef = useRef<Map<string, number>>(new Map());
+
   useEffect(() => {
     if (!socket) return;
 
     // 1. Écoute des nouveaux messages privés
     const handleNewMessage = (data: {
-      message: { senderId: string; text?: string | null; media?: any[] };
+      message: { id?: string; senderId: string; text?: string | null; media?: any[] };
       conversationId: string;
     }) => {
       // Ne pas notifier si c'est notre propre message
       if (user && data.message.senderId === user.id) return;
 
+      // Déduplication stricte : 1 message = 1 notification
+      const dedupKey = `msg-${data.message.id || data.conversationId + '-' + (data.message.text || '')}`;
+      const now = Date.now();
+      const lastSeen = seenKeysRef.current.get(dedupKey);
+      if (lastSeen && now - lastSeen < 3000) {
+        return;
+      }
+      seenKeysRef.current.set(dedupKey, now);
+
+      // Nettoyer les clés de plus de 10 secondes
+      seenKeysRef.current.forEach((timestamp: number, k: string) => {
+        if (now - timestamp > 10000) seenKeysRef.current.delete(k);
+      });
+
       soundManager.playMessageSound();
 
       let snippet = data.message.text || "";
       if (!snippet && data.message.media?.length) {
-        snippet = "📷 Vous a envoyé un média privé";
+        const firstMedia = data.message.media[0];
+        if (firstMedia.kind === "AUDIO") {
+          snippet = "🎤 Message vocal reçu";
+        } else if (firstMedia.kind === "VIDEO") {
+          snippet = "🎬 Vidéo reçue";
+        } else {
+          snippet = "📷 Photo reçue";
+        }
       }
 
       addToast({
@@ -123,18 +146,32 @@ export default function FloatingNotificationManager() {
       });
     };
 
-    // 2. Écoute des nouvelles notifications générales
+    // 2. Écoute des nouvelles notifications générales (exclut message.received car déjà géré par message:new)
     const handleNewNotification = (notif: {
+      id?: string;
       title: string;
       body: string;
       data?: { conversationId?: string };
       type?: string;
     }) => {
+      // Si c'est une notification de message reçu, on ignore pour éviter tout doublon
+      if (notif.type?.includes("message")) {
+        return;
+      }
+
+      const dedupKey = `notif-${notif.id || notif.title + '-' + notif.body}`;
+      const now = Date.now();
+      const lastSeen = seenKeysRef.current.get(dedupKey);
+      if (lastSeen && now - lastSeen < 3000) {
+        return;
+      }
+      seenKeysRef.current.set(dedupKey, now);
+
       soundManager.playNotificationSound();
       addToast({
         title: notif.title || "Notification",
         body: notif.body || "",
-        type: notif.type?.includes("message") ? "message" : "notification",
+        type: "notification",
         conversationId: notif.data?.conversationId,
       });
     };

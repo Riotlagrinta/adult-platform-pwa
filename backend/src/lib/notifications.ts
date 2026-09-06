@@ -27,11 +27,22 @@ export async function createNotification(input: CreateNotificationInput) {
   emitToUser(input.userId, 'notification:new', notification);
 
   // 2. Notification Web Push (si l'app est fermée ou en arrière-plan)
+  const conversationId =
+    input.data && typeof input.data === 'object' && 'conversationId' in (input.data as any)
+      ? (input.data as any).conversationId
+      : undefined;
+
   sendPushNotification(input.userId, {
     title: input.title,
     body: input.body,
     url: input.url || '/notifications',
-    data: { notificationId: notification.id, type: input.type },
+    tag: conversationId ? `msg-${conversationId}` : `notif-${notification.id}`,
+    data: {
+      notificationId: notification.id,
+      type: input.type,
+      conversationId,
+      ...(typeof input.data === 'object' && input.data !== null ? (input.data as any) : {}),
+    },
   }).catch((err) => {
     console.error('[WebPush] Échec envoi notification:', err);
   });

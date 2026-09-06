@@ -15,7 +15,7 @@ import path from 'node:path';
 export const messageRouter = Router();
 
 const mediaSchema = z.object({
-  kind: z.enum(['IMAGE', 'VIDEO']),
+  kind: z.enum(['IMAGE', 'VIDEO', 'AUDIO']),
   url: z.string().regex(/^(https?:\/\/|\/uploads\/)/, "L'URL ou le chemin du média est invalide"),
   mimeType: z.string().min(3),
   durationSeconds: z.number().int().positive().optional(),

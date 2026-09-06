@@ -36,12 +36,13 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "OnlyAdults";
   const options = {
     body: payload.body || "Vous avez reçu un nouveau message.",
-    icon: payload.icon || "/icon-192x192.jpg",
-    badge: payload.badge || "/icon-192x192.jpg",
+    icon: payload.icon || "/api/pwa-icon?v=2026",
+    badge: payload.badge || "/api/pwa-icon?v=2026",
     vibrate: [200, 100, 200],
     tag: payload.tag || "onlyadults-notification",
+    renotify: true,
     data: {
-      url: payload.url || "/",
+      url: payload.url || (payload.data?.conversationId ? "/messages" : "/notifications"),
       ...payload.data,
     },
   };

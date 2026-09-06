@@ -4,7 +4,7 @@ import { prisma } from './prisma.js';
 import { uploadRoot } from './storage.js';
 
 export type MediaInput = {
-  kind: 'IMAGE' | 'VIDEO';
+  kind: 'IMAGE' | 'VIDEO' | 'AUDIO';
   url: string;
   mimeType: string;
   durationSeconds?: number;

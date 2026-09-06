@@ -24,6 +24,7 @@ enum VerificationStatus {
 enum MediaKind {
   IMAGE
   VIDEO
+  AUDIO
 }
 
 enum MessageKind {

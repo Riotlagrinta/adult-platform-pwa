@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   Volume2,
   User,
+  Mic,
+  Trash2,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -30,6 +32,7 @@ import { apiRequest, toPublicUrl } from "@/lib/api";
 import { parseSticker, encodeSticker, Sticker } from "@/lib/stickers";
 import StickerPicker from "@/components/StickerPicker";
 import StoryTray, { StoryGroup, StoryItem } from "@/components/StoryTray";
+import VoicePlayer from "@/components/VoicePlayer";
 
 type Conversation = {
   id: string;
@@ -52,13 +55,13 @@ type Message = {
     media?: {
       id: string;
       url: string;
-      kind: "IMAGE" | "VIDEO";
+      kind: "IMAGE" | "VIDEO" | "AUDIO";
     }[];
   } | null;
   media?: {
     id: string;
     url: string;
-    kind: "IMAGE" | "VIDEO";
+    kind: "IMAGE" | "VIDEO" | "AUDIO";
     mimeType: string;
     durationSeconds?: number | null;
     allowDownload: boolean;
@@ -153,6 +156,173 @@ export default function MessagesPage() {
     url: string;
     kind: "IMAGE" | "VIDEO";
   } | null>(null);
+
+  // ── Enregistreur Vocal WhatsApp (MediaRecorder 1m30 max) ──
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceDuration, setVoiceDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const voiceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const startVoiceRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("L'enregistrement vocal n'est pas supporté sur ce navigateur.");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      let mimeType = "audio/webm";
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          mimeType = "audio/mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+          mimeType = "audio/aac";
+        } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+          mimeType = "audio/ogg";
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.start(100);
+      setIsRecordingVoice(true);
+      setVoiceDuration(0);
+
+      // Limite stricte de 1m30 (90 secondes)
+      const MAX_VOICE_SECONDS = 90;
+      const interval = setInterval(() => {
+        setVoiceDuration((prev) => {
+          if (prev + 1 >= MAX_VOICE_SECONDS) {
+            clearInterval(interval);
+            finishAndSendVoiceRecording();
+            return MAX_VOICE_SECONDS;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      voiceIntervalRef.current = interval;
+    } catch (err: any) {
+      console.error("Erreur micro:", err);
+      alert("Impossible d'accéder au microphone. Veuillez autoriser l'accès micro.");
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    if (voiceIntervalRef.current) {
+      clearInterval(voiceIntervalRef.current);
+      voiceIntervalRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecordingVoice(false);
+    setVoiceDuration(0);
+  };
+
+  const finishAndSendVoiceRecording = async () => {
+    if (!mediaRecorderRef.current || !selectedConvId) return;
+
+    if (voiceIntervalRef.current) {
+      clearInterval(voiceIntervalRef.current);
+      voiceIntervalRef.current = null;
+    }
+
+    const recordedDuration = voiceDuration;
+
+    mediaRecorderRef.current.onstop = async () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      if (audioChunksRef.current.length === 0) {
+        setIsRecordingVoice(false);
+        setVoiceDuration(0);
+        return;
+      }
+
+      const mimeType = mediaRecorderRef.current?.mimeType || "audio/mp4";
+      const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("aac") ? "aac" : mimeType.includes("ogg") ? "ogg" : "webm";
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+      const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: mimeType });
+
+      setIsRecordingVoice(false);
+      setVoiceDuration(0);
+      setIsSending(true);
+
+      try {
+        // 1. Upload audio sur Backblaze B2 via /files/media
+        const uploadForm = new FormData();
+        uploadForm.append("file", audioFile);
+
+        const uploadRes = await apiRequest<{ file: { url: string; mimeType: string } }>("/files/media", {
+          method: "POST",
+          token: token!,
+          body: uploadForm,
+        });
+
+        // 2. Envoi du message avec kind AUDIO
+        const payload = {
+          replyToId: replyingToMessage?.id || null,
+          media: {
+            kind: "AUDIO" as const,
+            url: uploadRes.file.url,
+            mimeType: uploadRes.file.mimeType,
+            durationSeconds: Math.max(1, recordedDuration),
+            allowDownload: true,
+          },
+        };
+
+        const res = await apiRequest<{ message: Message }>(`/messages/conversations/${selectedConvId}/messages`, {
+          method: "POST",
+          token: token!,
+          body: JSON.stringify(payload),
+        });
+
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (c.id === selectedConvId) {
+              const exists = c.messages.some((m) => m.id === res.message.id);
+              return {
+                ...c,
+                messages: exists ? c.messages : [...c.messages, res.message],
+              };
+            }
+            return c;
+          })
+        );
+
+        cancelReplying();
+        setTimeout(() => scrollToBottom(true), 150);
+      } catch (err: any) {
+        console.error("Erreur envoi vocal:", err);
+        setSendError(err?.message || "Échec de l'envoi du message vocal.");
+      } finally {
+        setIsSending(false);
+      }
+    };
+
+    if (mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
   const scrollToBottom = useCallback((smooth = true) => {
     if (messagesEndRef.current) {
@@ -993,7 +1163,14 @@ export default function MessagesPage() {
                       {/* Affichage des Médias */}
                       {media && (
                         <div>
-                          {isEphemeral ? (
+                          {media.kind === "AUDIO" ? (
+                            /* Message Vocal Interactif Waveform WhatsApp */
+                            <VoicePlayer
+                              url={media.url}
+                              durationSeconds={media.durationSeconds}
+                              isMe={isMe}
+                            />
+                          ) : isEphemeral ? (
                             /* Média Éphémère / Temporaire sécurisé */
                             <div className="space-y-2 select-none bg-[var(--app-surface-soft)] p-3 rounded-2xl">
                               <div className="flex items-center gap-2 border-b border-[color-mix(in_srgb,var(--app-foreground)_15%,transparent)] pb-1.5 mb-1.5">
@@ -1214,73 +1391,127 @@ export default function MessagesPage() {
 
             {/* Barre de Saisie et Boutons d'Action (Compacte & Optimisée Clavier Mobile) */}
             <div className="p-2 sm:p-3 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-3 flex-shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                {/* Bouton Sticker WhatsApp */}
-                <button
-                  onClick={() => setShowStickerPicker((v) => !v)}
-                  className={`p-2 rounded-full transition flex-shrink-0 ${showStickerPicker ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
-                  title="Stickers WhatsApp"
-                >
-                  <Smile className="h-5 w-5" />
-                </button>
+              {isRecordingVoice ? (
+                /* UI d'enregistrement vocal direct (1m30 max) */
+                <div className="flex items-center gap-2 w-full animate-fadeIn bg-[var(--app-surface-raised)] px-3 py-2 rounded-full border border-red-500/30">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                    <span className="text-xs font-mono font-bold text-red-500 flex-shrink-0">
+                      {Math.floor(voiceDuration / 60)}:{(voiceDuration % 60).toString().padStart(2, "0")} / 1:30
+                    </span>
+                    <div className="flex-1 flex items-center gap-1 h-3 overflow-hidden opacity-75">
+                      {Array.from({ length: 14 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 bg-red-500 rounded-full animate-pulse"
+                          style={{
+                            height: `${((i * 7 + (voiceDuration * 13)) % 80) + 20}%`,
+                            animationDuration: "0.8s",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Bouton Média Éphémère */}
-                <button
-                  onClick={() => setEphemeralMode(!ephemeralMode)}
-                  className={`p-2 rounded-full transition flex-shrink-0 ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
-                  title="Activer/Désactiver média temporaire éphémère"
-                >
-                  <Clock className="h-5 w-5" />
-                </button>
+                  <button
+                    onClick={cancelVoiceRecording}
+                    className="p-2 rounded-full hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition flex-shrink-0"
+                    title="Annuler l'enregistrement"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
 
-                {/* Bouton Joindre une photo */}
-                <label className="p-2 text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer flex-shrink-0">
-                  <ImageIcon className="h-5 w-5" />
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*,video/*"
+                  <button
+                    onClick={finishAndSendVoiceRecording}
                     disabled={isSending}
-                    onChange={(event) => {
-                      if (event.target.files?.[0]) {
-                        setMediaFile(event.target.files[0]);
-                      }
+                    className="p-2 bg-[var(--app-accent,#25D366)] text-white rounded-full hover:brightness-110 shadow-md transition flex items-center justify-center flex-shrink-0"
+                    title="Envoyer le message vocal"
+                  >
+                    {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Bouton Sticker WhatsApp */}
+                  <button
+                    onClick={() => setShowStickerPicker((v) => !v)}
+                    className={`p-2 rounded-full transition flex-shrink-0 ${showStickerPicker ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
+                    title="Stickers WhatsApp"
+                  >
+                    <Smile className="h-5 w-5" />
+                  </button>
+
+                  {/* Bouton Média Éphémère */}
+                  <button
+                    onClick={() => setEphemeralMode(!ephemeralMode)}
+                    className={`p-2 rounded-full transition flex-shrink-0 ${ephemeralMode ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)]"}`}
+                    title="Activer/Désactiver média temporaire éphémère"
+                  >
+                    <Clock className="h-5 w-5" />
+                  </button>
+
+                  {/* Bouton Joindre une photo */}
+                  <label className="p-2 text-neutral-400 hover:text-white hover:bg-[var(--app-surface-soft)] rounded-full transition cursor-pointer flex-shrink-0">
+                    <ImageIcon className="h-5 w-5" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,video/*"
+                      disabled={isSending}
+                      onChange={(event) => {
+                        if (event.target.files?.[0]) {
+                          setMediaFile(event.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+
+                  {/* Input de Message avec focus auto-scroll et ref */}
+                  <input
+                    ref={messageInputRef}
+                    type="text"
+                    value={inputText}
+                    disabled={isSending}
+                    onChange={handleInputChange}
+                    onFocus={() => {
+                      setShowStickerPicker(false);
+                      setTimeout(() => scrollToBottom(true), 250);
                     }}
+                    onKeyDown={(e) => e.key === "Enter" && !isSending && sendMessage()}
+                    placeholder={
+                      replyingToMessage
+                        ? `Répondre à ${getAuthorNameFromMessage(replyingToMessage)}...`
+                        : mediaFile
+                        ? "Légende de la photo..."
+                        : "Message privé..."
+                    }
+                    className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
                   />
-                </label>
 
-                {/* Input de Message avec focus auto-scroll et ref */}
-                <input
-                  ref={messageInputRef}
-                  type="text"
-                  value={inputText}
-                  disabled={isSending}
-                  onChange={handleInputChange}
-                  onFocus={() => {
-                    setShowStickerPicker(false);
-                    setTimeout(() => scrollToBottom(true), 250);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && !isSending && sendMessage()}
-                  placeholder={
-                    replyingToMessage
-                      ? `Répondre à ${getAuthorNameFromMessage(replyingToMessage)}...`
-                      : mediaFile
-                      ? "Légende de la photo..."
-                      : "Message privé..."
-                  }
-                  className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
-                />
-
-                {/* Bouton d'Envoi */}
-                <button
-                  onClick={sendMessage}
-                  disabled={isSending || (!inputText.trim() && !mediaFile)}
-                  className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
-                  title="Envoyer"
-                >
-                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </button>
-              </div>
+                  {/* Bouton Micro WhatsApp si champ vide, sinon bouton Envoi classique */}
+                  {!inputText.trim() && !mediaFile ? (
+                    <button
+                      type="button"
+                      onClick={startVoiceRecording}
+                      disabled={isSending}
+                      className="p-2.5 bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-[var(--app-foreground)] rounded-full transition flex-shrink-0 flex items-center justify-center border border-[var(--app-border)] active:scale-95 shadow-sm"
+                      title="Enregistrer un message vocal (1m30 max)"
+                    >
+                      <Mic className="h-4 w-4 text-[var(--app-accent,#25D366)]" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={sendMessage}
+                      disabled={isSending || (!inputText.trim() && !mediaFile)}
+                      className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
+                      title="Envoyer"
+                    >
+                      {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </>
         ) : (

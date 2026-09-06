@@ -4,27 +4,61 @@ import fs from 'node:fs';
 
 let cachedS3Client: S3Client | null = null;
 
+function getS3Config() {
+  const accessKey = (
+    process.env.S3_ACCESS_KEY ||
+    process.env.AWS_ACCESS_KEY_ID ||
+    process.env.B2_APPLICATION_KEY_ID ||
+    process.env.B2_KEY_ID ||
+    ''
+  ).trim();
+
+  const secretKey = (
+    process.env.S3_SECRET_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY ||
+    process.env.B2_APPLICATION_KEY ||
+    process.env.B2_APP_KEY ||
+    ''
+  ).trim();
+
+  const bucketName = (
+    process.env.S3_BUCKET_NAME ||
+    process.env.AWS_BUCKET_NAME ||
+    process.env.B2_BUCKET_NAME ||
+    'Only-Adult'
+  ).trim();
+
+  const endpoint = (
+    process.env.S3_ENDPOINT ||
+    'https://s3.us-east-005.backblazeb2.com'
+  ).trim().replace(/\/$/, '');
+
+  const region = (
+    process.env.S3_REGION ||
+    endpoint.split('.')[1] ||
+    'us-east-005'
+  ).trim();
+
+  return { accessKey, secretKey, bucketName, endpoint, region };
+}
+
 export function isS3Enabled(): boolean {
-  return !!(
-    process.env.S3_ACCESS_KEY &&
-    process.env.S3_SECRET_KEY &&
-    process.env.S3_BUCKET_NAME
-  );
+  const { accessKey, secretKey, bucketName } = getS3Config();
+  return Boolean(accessKey && secretKey && bucketName);
 }
 
 export function getS3Client(): S3Client | null {
   if (!isS3Enabled()) return null;
 
-  if (!cachedS3Client) {
-    const endpoint = process.env.S3_ENDPOINT || 'https://s3.us-west-004.backblazeb2.com';
-    const region = process.env.S3_REGION || 'us-west-004';
+  const { accessKey, secretKey, endpoint, region } = getS3Config();
 
+  if (!cachedS3Client) {
     cachedS3Client = new S3Client({
       endpoint,
       region,
       credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY!,
-        secretAccessKey: process.env.S3_SECRET_KEY!,
+        accessKeyId: accessKey,
+        secretAccessKey: secretKey,
       },
       forcePathStyle: true,
     });
@@ -38,12 +72,13 @@ export function getS3Client(): S3Client | null {
  */
 export async function uploadToS3(localFilePath: string, key: string, mimeType: string): Promise<string> {
   const client = getS3Client();
+  const { bucketName, endpoint } = getS3Config();
+
   if (!client) {
     throw new Error('S3 Client is not configured. Check environmental variables (S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME).');
   }
 
   const fileStream = fs.createReadStream(localFilePath);
-  const bucketName = process.env.S3_BUCKET_NAME!;
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
@@ -55,7 +90,6 @@ export async function uploadToS3(localFilePath: string, key: string, mimeType: s
   await client.send(command);
 
   // Return the public base URL of the uploaded file
-  const endpoint = (process.env.S3_ENDPOINT ?? 'https://s3.us-west-004.backblazeb2.com').replace(/\/$/, '');
   return `${endpoint}/${bucketName}/${key}`;
 }
 
@@ -66,9 +100,11 @@ export async function deleteFromS3(key: string): Promise<void> {
   const client = getS3Client();
   if (!client) return;
 
+  const { bucketName } = getS3Config();
+
   try {
     const command = new DeleteObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME!,
+      Bucket: bucketName,
       Key: key,
     });
     await client.send(command);
@@ -78,16 +114,18 @@ export async function deleteFromS3(key: string): Promise<void> {
 }
 
 /**
- * Generate a secure presigned GET URL for a private S3 object (valid for expiresInSeconds)
+ * Generate a secure presigned GET URL for a private S3 object (valid for expiresInSeconds, default 1 hour)
  */
-export async function getPresignedUrl(key: string, expiresInSeconds: number = 300): Promise<string> {
+export async function getPresignedUrl(key: string, expiresInSeconds: number = 3600): Promise<string> {
   const client = getS3Client();
   if (!client) {
     return `/uploads/${key}`;
   }
 
+  const { bucketName } = getS3Config();
+
   const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET_NAME!,
+    Bucket: bucketName,
     Key: key,
   });
 
