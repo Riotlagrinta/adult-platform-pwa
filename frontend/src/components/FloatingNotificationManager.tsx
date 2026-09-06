@@ -110,6 +110,12 @@ export default function FloatingNotificationManager() {
       // Ne pas notifier si c'est notre propre message
       if (user && data.message.senderId === user.id) return;
 
+      // Si l'utilisateur est déjà sur la page des messages, vérifier si la fenêtre est active
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/messages") && document.hasFocus()) {
+        soundManager.playMessageSound();
+        return;
+      }
+
       // Déduplication stricte : 1 message = 1 notification
       const dedupKey = `msg-${data.message.id || data.conversationId + '-' + (data.message.text || '')}`;
       const now = Date.now();

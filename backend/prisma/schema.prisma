@@ -150,6 +150,9 @@ model Media {
 
   post           Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
   message        Message?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([messageId])
 }
 
 model Conversation {
@@ -180,6 +183,8 @@ model Message {
   replyTo      Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies      Message[]    @relation("MessageReplies")
   media        Media[]
+
+  @@index([conversationId, createdAt])
 }
 
 model Comment {
@@ -241,6 +246,9 @@ model Notification {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
 
 model Block {

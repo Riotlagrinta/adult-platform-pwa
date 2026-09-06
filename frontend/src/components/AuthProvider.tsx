@@ -123,6 +123,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [router, socket, user]);
 
+  // Synchronisation du badge d'application sur l'écran d'accueil (iOS 16.4+ / Android)
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+      if (unreadNotificationsCount > 0) {
+        navigator.setAppBadge(unreadNotificationsCount).catch(() => {});
+      } else if ("clearAppBadge" in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  }, [unreadNotificationsCount]);
+
   const syncSession = (payload: { user: SessionUser; token: string }) => {
     setStoredToken(payload.token);
     if (typeof window !== "undefined") {
