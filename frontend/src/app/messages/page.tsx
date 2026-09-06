@@ -165,6 +165,28 @@ export default function MessagesPage() {
   const voiceIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Sélection du MIME type audio le plus stable selon le navigateur
+  const getOptimalAudioMimeType = () => {
+    if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
+      return "";
+    }
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4;codecs=mp4a.40.2",
+      "audio/mp4",
+      "audio/aac",
+      "audio/ogg;codecs=opus",
+      "audio/ogg",
+    ];
+    for (const candidate of candidates) {
+      if (MediaRecorder.isTypeSupported(candidate)) {
+        return candidate;
+      }
+    }
+    return "";
+  };
+
   const startVoiceRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -172,21 +194,20 @@ export default function MessagesPage() {
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
 
-      let mimeType = "audio/webm";
-      if (typeof MediaRecorder !== "undefined") {
-        if (MediaRecorder.isTypeSupported("audio/mp4")) {
-          mimeType = "audio/mp4";
-        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
-          mimeType = "audio/aac";
-        } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
-          mimeType = "audio/ogg";
-        }
-      }
+      const optimalMime = getOptimalAudioMimeType();
+      const recorder = optimalMime
+        ? new MediaRecorder(stream, { mimeType: optimalMime })
+        : new MediaRecorder(stream);
 
-      const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
 
@@ -225,7 +246,11 @@ export default function MessagesPage() {
       voiceIntervalRef.current = null;
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.warn("Recorder stop error:", e);
+      }
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -247,28 +272,33 @@ export default function MessagesPage() {
     const recordedDuration = Math.max(1, voiceDuration);
     const recorder = mediaRecorderRef.current;
 
-    // Arrêter le recorder et attendre que tous les chunks soient émis
+    // Attendre la fin d'émission de tous les chunks lors du stop
     const stopPromise = new Promise<Blob[]>((resolve) => {
-      const chunks: Blob[] = [...audioChunksRef.current];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-
       recorder.onstop = () => {
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
-        resolve(chunks);
+        resolve([...audioChunksRef.current]);
       };
 
       if (recorder.state !== "inactive") {
-        recorder.stop();
+        try {
+          recorder.stop();
+        } catch (e) {
+          console.warn("Recorder stop error:", e);
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+          resolve([...audioChunksRef.current]);
+        }
       } else {
-        resolve(chunks);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        resolve([...audioChunksRef.current]);
       }
     });
 
@@ -283,20 +313,24 @@ export default function MessagesPage() {
         throw new Error("Aucun audio n'a été enregistré.");
       }
 
-      const rawMime = recorder.mimeType || "audio/webm";
-      const cleanMime = rawMime.split(";")[0].trim() || "audio/webm";
-      const ext = cleanMime.includes("mp4")
-        ? "mp4"
-        : cleanMime.includes("aac")
-        ? "aac"
-        : cleanMime.includes("ogg")
-        ? "ogg"
-        : "webm";
+      const recorderMime = recorder.mimeType || getOptimalAudioMimeType() || "audio/webm";
+      const cleanMime = recorderMime.split(";")[0].trim().toLowerCase() || "audio/webm";
+      
+      let ext = "webm";
+      if (cleanMime.includes("mp4") || cleanMime.includes("m4a")) {
+        ext = "mp4";
+      } else if (cleanMime.includes("aac")) {
+        ext = "aac";
+      } else if (cleanMime.includes("ogg")) {
+        ext = "ogg";
+      } else if (cleanMime.includes("wav")) {
+        ext = "wav";
+      }
 
       const audioBlob = new Blob(chunks, { type: cleanMime });
       const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: cleanMime });
 
-      // 1. Upload audio sur Backblaze B2 via /files/media
+      // 1. Upload audio sur Backblaze B2 / stockage local via /files/media
       const uploadForm = new FormData();
       uploadForm.append("file", audioFile);
 
@@ -306,7 +340,7 @@ export default function MessagesPage() {
         body: uploadForm,
       });
 
-      // 2. Envoi du message avec kind AUDIO
+      // 2. Envoi du message avec kind AUDIO et durationSeconds
       const payload = {
         replyToId: replyingToMessage?.id || undefined,
         media: {

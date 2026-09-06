@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Play, Pause, Volume2, Mic, AlertCircle, RefreshCw } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Play, Pause, RefreshCw, Mic, Loader2 } from "lucide-react";
 import { toPublicUrl } from "@/lib/api";
 
 type VoicePlayerProps = {
@@ -10,33 +10,53 @@ type VoicePlayerProps = {
   isMe?: boolean;
 };
 
-// Global audio singleton to ensure only ONE voice note plays at any time
-let currentlyPlayingAudio: HTMLAudioElement | null = null;
-let stopCurrentPlayerCallback: (() => void) | null = null;
+// Global audio singleton to ensure only ONE voice note plays at any time across the entire application
+let globalPlayingAudio: HTMLAudioElement | null = null;
+let globalStopCallback: (() => void) | null = null;
 
 export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: VoicePlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [totalDuration, setTotalDuration] = useState<number>(durationSeconds || 0);
-  const [playbackRate, setPlaybackRate] = useState<number>(1);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const resolvedUrl = toPublicUrl(url) || url;
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState<number>(() => {
+    return durationSeconds && isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
+  });
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const resolvedUrl = useMemo(() => {
+    if (!url) return "";
+    return toPublicUrl(url) || url;
+  }, [url]);
+
+  // Durée effective robuste (résout le problème Infinity/NaN des enregistrements MediaRecorder WebM/Opus)
+  const effectiveDuration = useMemo(() => {
+    if (totalDuration && isFinite(totalDuration) && totalDuration > 0) {
+      return totalDuration;
+    }
+    if (durationSeconds && isFinite(durationSeconds) && durationSeconds > 0) {
+      return durationSeconds;
+    }
+    if (currentTime && isFinite(currentTime) && currentTime > 0) {
+      return currentTime;
+    }
+    return 1;
+  }, [totalDuration, durationSeconds, currentTime]);
 
   // Format seconds to mm:ss
   const formatTime = (secs: number) => {
-    if (!secs || isNaN(secs) || secs < 0) return "0:00";
+    if (!secs || isNaN(secs) || !isFinite(secs) || secs < 0) return "0:00";
     const minutes = Math.floor(secs / 60);
     const seconds = Math.floor(secs % 60);
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // Generate 28 deterministic bars for WhatsApp-like visual waveform
-  const waveformBars = React.useMemo(() => {
+  // Generate 26 deterministic bars for WhatsApp-like visual waveform
+  const waveformBars = useMemo(() => {
     let hash = 0;
     const cleanSeed = url ? url.split("?")[0] : "voice";
     for (let i = 0; i < cleanSeed.length; i++) {
@@ -52,87 +72,122 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     return bars;
   }, [url]);
 
+  // Réinitialiser en cas de changement d'URL
+  useEffect(() => {
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setIsLoading(false);
+    setHasError(false);
+    setErrorMessage(null);
+    if (durationSeconds && isFinite(durationSeconds) && durationSeconds > 0) {
+      setTotalDuration(durationSeconds);
+    }
+  }, [resolvedUrl, durationSeconds]);
+
+  // Cleanup singleton au démontage
+  useEffect(() => {
+    return () => {
+      if (globalPlayingAudio === audioRef.current) {
+        globalPlayingAudio = null;
+        globalStopCallback = null;
+      }
+    };
+  }, []);
+
   const stopPlayback = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
     setIsPlaying(false);
+    setIsLoading(false);
   }, []);
 
   const togglePlayPause = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio || !resolvedUrl) return;
 
     setHasError(false);
     setErrorMessage(null);
 
-    const audio = audioRef.current;
-
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
+      setIsLoading(false);
     } else {
-      // Pause any previously playing voice note in the whole app
-      if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
-        currentlyPlayingAudio.pause();
-        if (stopCurrentPlayerCallback) {
-          stopCurrentPlayerCallback();
+      // Mettre en pause tout autre audio en cours de lecture
+      if (globalPlayingAudio && globalPlayingAudio !== audio) {
+        globalPlayingAudio.pause();
+        if (globalStopCallback) {
+          globalStopCallback();
         }
       }
 
-      currentlyPlayingAudio = audio;
-      stopCurrentPlayerCallback = () => setIsPlaying(false);
+      globalPlayingAudio = audio;
+      globalStopCallback = () => {
+        setIsPlaying(false);
+        setIsLoading(false);
+      };
 
       try {
-        // Débloquer l'audio si nécessaire
-        if (audio.readyState === 0) {
-          audio.load();
-        }
+        setIsLoading(true);
+        audio.playbackRate = playbackRate;
         await audio.play();
         setIsPlaying(true);
+        setIsLoading(false);
       } catch (err: any) {
         console.error("Audio playback error:", err);
-        setHasError(true);
-        setErrorMessage("Lecture impossible");
+        // Ne pas afficher d'erreur si la lecture a simplement été annulée par une pause volontaire
+        if (err?.name !== "AbortError") {
+          setHasError(true);
+          setErrorMessage("Impossible de lire ce message vocal");
+        }
         setIsPlaying(false);
+        setIsLoading(false);
       }
     }
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-      if (!totalDuration && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-        setTotalDuration(audioRef.current.duration);
-      }
+    if (!audioRef.current) return;
+    const current = audioRef.current.currentTime;
+    if (isFinite(current) && current >= 0) {
+      setCurrentTime(current);
+    }
+
+    const dur = audioRef.current.duration;
+    if (dur && isFinite(dur) && dur > 0 && dur > totalDuration) {
+      setTotalDuration(dur);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      const dur = audioRef.current.duration;
-      if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
-        setTotalDuration(dur);
-      }
-      setIsLoaded(true);
-      setHasError(false);
+    if (!audioRef.current) return;
+    const dur = audioRef.current.duration;
+    if (dur && isFinite(dur) && dur > 0) {
+      setTotalDuration(dur);
     }
+    setHasError(false);
   };
 
   const handleEnded = () => {
     setIsPlaying(false);
+    setIsLoading(false);
     setCurrentTime(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
     }
   };
 
-  const handleError = (e: any) => {
-    console.warn("Erreur de chargement audio:", resolvedUrl, e);
-    // Ne marquer comme erreur critique que si la lecture échoue
-    if (isPlaying) {
+  const handleError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    const audio = audioRef.current;
+    console.warn("Erreur de chargement audio:", resolvedUrl, audio?.error);
+    // Marquer l'erreur seulement si l'audio était en tentative de lecture
+    if (isPlaying || isLoading) {
       setHasError(true);
+      setErrorMessage("Échec de chargement audio");
       setIsPlaying(false);
+      setIsLoading(false);
     }
   };
 
@@ -150,10 +205,19 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   const seekToPosition = (clientX: number) => {
     if (!waveformContainerRef.current || !audioRef.current) return;
     const rect = waveformContainerRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
     const clickRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const targetTime = clickRatio * (totalDuration || audioRef.current.duration || durationSeconds || 1);
-    audioRef.current.currentTime = targetTime;
-    setCurrentTime(targetTime);
+    const targetTime = clickRatio * effectiveDuration;
+
+    if (isFinite(targetTime) && targetTime >= 0) {
+      try {
+        audioRef.current.currentTime = targetTime;
+        setCurrentTime(targetTime);
+      } catch (err) {
+        console.warn("Seek error:", err);
+      }
+    }
   };
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -161,20 +225,12 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     seekToPosition(e.clientX);
   };
 
-  const effectiveDuration = totalDuration || durationSeconds || 0;
-  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
-
-  useEffect(() => {
-    return () => {
-      if (currentlyPlayingAudio === audioRef.current) {
-        currentlyPlayingAudio = null;
-        stopCurrentPlayerCallback = null;
-      }
-    };
-  }, []);
+  const progressPercent = effectiveDuration > 0
+    ? Math.min(100, Math.max(0, (currentTime / effectiveDuration) * 100))
+    : 0;
 
   return (
-    <div className={`flex items-center gap-2.5 py-1 select-none min-w-[210px] sm:min-w-[260px] max-w-full ${isMe ? "text-inherit" : "text-inherit"}`}>
+    <div className={`flex items-center gap-2.5 py-1 select-none min-w-[220px] sm:min-w-[270px] max-w-full ${isMe ? "text-inherit" : "text-inherit"}`}>
       <audio
         ref={audioRef}
         src={resolvedUrl}
@@ -184,9 +240,11 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
         onError={handleError}
+        onWaiting={() => setIsLoading(true)}
+        onPlaying={() => setIsLoading(false)}
       />
 
-      {/* Play / Pause button */}
+      {/* Bouton Lecture / Pause / Retry */}
       <button
         type="button"
         onClick={togglePlayPause}
@@ -199,7 +257,9 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         }`}
         title={hasError ? "Réessayer la lecture" : isPlaying ? "Mettre en pause" : "Écouter le message vocal"}
       >
-        {hasError ? (
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : hasError ? (
           <RefreshCw className="w-4 h-4" />
         ) : isPlaying ? (
           <Pause className="w-4 h-4 fill-current" />
@@ -208,7 +268,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         )}
       </button>
 
-      {/* Waveform & Scrubber */}
+      {/* Waveform & Scrubber Interactif */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
         <div
           ref={waveformContainerRef}
@@ -217,7 +277,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
           title="Naviguer dans le vocal"
         >
           {waveformBars.map((barHeight, idx) => {
-            const barProgress = (idx / waveformBars.length) * 100;
+            const barProgress = ((idx + 0.5) / waveformBars.length) * 100;
             const isPlayed = barProgress <= progressPercent;
 
             return (
@@ -239,7 +299,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
           })}
         </div>
 
-        {/* Duration / Elapsed Timer and Speed Controller */}
+        {/* Minuteur & Sélecteur de Vitesse */}
         <div className="flex items-center justify-between text-[10px] font-mono opacity-80 leading-none">
           <span>{isPlaying || currentTime > 0 ? formatTime(currentTime) : formatTime(effectiveDuration)}</span>
 
@@ -252,7 +312,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
                   ? "bg-[var(--app-accent,#25D366)] text-white"
                   : "bg-[color-mix(in_srgb,currentColor_15%,transparent)] hover:bg-[color-mix(in_srgb,currentColor_25%,transparent)]"
               }`}
-              title="Vitesse de lecture"
+              title="Vitesse de lecture (1x, 1.5x, 2x)"
             >
               {playbackRate}x
             </button>
