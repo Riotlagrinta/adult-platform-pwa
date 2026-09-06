@@ -28,7 +28,17 @@ export function createUploader(subdir: string, allowedMimeTypes: string[]) {
       fileSize: 100 * 1024 * 1024,
     },
     fileFilter: (_req, file, cb) => {
-      if (!allowedMimeTypes.includes(file.mimetype)) {
+      const cleanMime = file.mimetype.split(';')[0].trim().toLowerCase();
+      const rawMime = file.mimetype.trim().toLowerCase();
+
+      const isAllowed =
+        allowedMimeTypes.includes(cleanMime) ||
+        allowedMimeTypes.includes(rawMime) ||
+        (allowedMimeTypes.some((t) => t.startsWith('audio/')) && cleanMime.startsWith('audio/')) ||
+        (allowedMimeTypes.some((t) => t.startsWith('video/')) && cleanMime.startsWith('video/')) ||
+        (allowedMimeTypes.some((t) => t.startsWith('image/')) && cleanMime.startsWith('image/'));
+
+      if (!isAllowed) {
         cb(new Error(`Unsupported file type: ${file.mimetype}`));
         return;
       }

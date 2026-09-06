@@ -16,11 +16,11 @@ export const messageRouter = Router();
 
 const mediaSchema = z.object({
   kind: z.enum(['IMAGE', 'VIDEO', 'AUDIO']),
-  url: z.string().regex(/^(https?:\/\/|\/uploads\/)/, "L'URL ou le chemin du média est invalide"),
-  mimeType: z.string().min(3),
-  durationSeconds: z.number().int().positive().optional(),
-  allowDownload: z.boolean().default(false),
-  expiresAt: z.string().datetime().optional(),
+  url: z.string().min(1, "L'URL du média est requise"),
+  mimeType: z.string().min(2),
+  durationSeconds: z.number().nullable().optional(),
+  allowDownload: z.boolean().default(false).optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
 });
 
 messageRouter.get('/conversations', requireAuth, async (req, res, next) => {
@@ -142,9 +142,9 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, async
   try {
     const { conversationId } = messageParamsSchema.parse(req.params);
     const schema = z.object({
-      text: z.string().max(4000).optional(),
-      replyToId: z.string().optional(),
-      media: z.union([mediaSchema, z.array(mediaSchema).max(10)]).optional(),
+      text: z.string().max(4000).nullable().optional(),
+      replyToId: z.string().nullable().optional(),
+      media: z.union([mediaSchema, z.array(mediaSchema).max(10)]).nullable().optional(),
     });
 
     const data = schema.parse(req.body);
@@ -183,14 +183,14 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, async
         senderId: req.user!.id,
         replyToId: data.replyToId || null,
         kind: mediaItems.length ? 'MEDIA' : 'TEXT',
-        text: data.text,
+        text: data.text || null,
         media: mediaItems.length ? {
-          create: mediaItems.map((item: MediaInput) => ({
+          create: mediaItems.map((item: any) => ({
             kind: item.kind,
             url: item.url,
             mimeType: item.mimeType,
-            durationSeconds: item.durationSeconds,
-            allowDownload: item.allowDownload,
+            durationSeconds: item.durationSeconds ? Math.round(Number(item.durationSeconds)) : null,
+            allowDownload: item.allowDownload ?? false,
             expiresAt: item.expiresAt ? new Date(item.expiresAt) : undefined,
           })),
         } : undefined,

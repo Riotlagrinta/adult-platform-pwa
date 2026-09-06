@@ -244,83 +244,107 @@ export default function MessagesPage() {
       voiceIntervalRef.current = null;
     }
 
-    const recordedDuration = voiceDuration;
+    const recordedDuration = Math.max(1, voiceDuration);
+    const recorder = mediaRecorderRef.current;
 
-    mediaRecorderRef.current.onstop = async () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
+    // Arrêter le recorder et attendre que tous les chunks soient émis
+    const stopPromise = new Promise<Blob[]>((resolve) => {
+      const chunks: Blob[] = [...audioChunksRef.current];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        resolve(chunks);
+      };
+
+      if (recorder.state !== "inactive") {
+        recorder.stop();
+      } else {
+        resolve(chunks);
+      }
+    });
+
+    setIsRecordingVoice(false);
+    setVoiceDuration(0);
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      const chunks = await stopPromise;
+      if (!chunks || chunks.length === 0) {
+        throw new Error("Aucun audio n'a été enregistré.");
       }
 
-      if (audioChunksRef.current.length === 0) {
-        setIsRecordingVoice(false);
-        setVoiceDuration(0);
-        return;
-      }
+      const rawMime = recorder.mimeType || "audio/webm";
+      const cleanMime = rawMime.split(";")[0].trim() || "audio/webm";
+      const ext = cleanMime.includes("mp4")
+        ? "mp4"
+        : cleanMime.includes("aac")
+        ? "aac"
+        : cleanMime.includes("ogg")
+        ? "ogg"
+        : "webm";
 
-      const mimeType = mediaRecorderRef.current?.mimeType || "audio/mp4";
-      const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("aac") ? "aac" : mimeType.includes("ogg") ? "ogg" : "webm";
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-      const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: mimeType });
+      const audioBlob = new Blob(chunks, { type: cleanMime });
+      const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: cleanMime });
 
-      setIsRecordingVoice(false);
-      setVoiceDuration(0);
-      setIsSending(true);
+      // 1. Upload audio sur Backblaze B2 via /files/media
+      const uploadForm = new FormData();
+      uploadForm.append("file", audioFile);
 
-      try {
-        // 1. Upload audio sur Backblaze B2 via /files/media
-        const uploadForm = new FormData();
-        uploadForm.append("file", audioFile);
+      const uploadRes = await apiRequest<{ file: { url: string; mimeType: string } }>("/files/media", {
+        method: "POST",
+        token: token!,
+        body: uploadForm,
+      });
 
-        const uploadRes = await apiRequest<{ file: { url: string; mimeType: string } }>("/files/media", {
-          method: "POST",
-          token: token!,
-          body: uploadForm,
-        });
+      // 2. Envoi du message avec kind AUDIO
+      const payload = {
+        replyToId: replyingToMessage?.id || undefined,
+        media: {
+          kind: "AUDIO" as const,
+          url: uploadRes.file.url,
+          mimeType: uploadRes.file.mimeType || cleanMime,
+          durationSeconds: Math.round(recordedDuration),
+          allowDownload: true,
+        },
+      };
 
-        // 2. Envoi du message avec kind AUDIO
-        const payload = {
-          replyToId: replyingToMessage?.id || null,
-          media: {
-            kind: "AUDIO" as const,
-            url: uploadRes.file.url,
-            mimeType: uploadRes.file.mimeType,
-            durationSeconds: Math.max(1, recordedDuration),
-            allowDownload: true,
-          },
-        };
+      const res = await apiRequest<{ message: Message }>(`/messages/conversations/${selectedConvId}/messages`, {
+        method: "POST",
+        token: token!,
+        body: JSON.stringify(payload),
+      });
 
-        const res = await apiRequest<{ message: Message }>(`/messages/conversations/${selectedConvId}/messages`, {
-          method: "POST",
-          token: token!,
-          body: JSON.stringify(payload),
-        });
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === selectedConvId) {
+            const exists = c.messages.some((m) => m.id === res.message.id);
+            return {
+              ...c,
+              messages: exists ? c.messages : [...c.messages, res.message],
+            };
+          }
+          return c;
+        })
+      );
 
-        setConversations((prev) =>
-          prev.map((c) => {
-            if (c.id === selectedConvId) {
-              const exists = c.messages.some((m) => m.id === res.message.id);
-              return {
-                ...c,
-                messages: exists ? c.messages : [...c.messages, res.message],
-              };
-            }
-            return c;
-          })
-        );
-
-        cancelReplying();
-        setTimeout(() => scrollToBottom(true), 150);
-      } catch (err: any) {
-        console.error("Erreur envoi vocal:", err);
-        setSendError(err?.message || "Échec de l'envoi du message vocal.");
-      } finally {
-        setIsSending(false);
-      }
-    };
-
-    if (mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+      cancelReplying();
+      setTimeout(() => scrollToBottom(true), 150);
+    } catch (err: any) {
+      console.error("Erreur envoi vocal:", err);
+      setSendError(err?.message || "Échec de l'envoi du message vocal.");
+      alert(`Erreur d'envoi du vocal : ${err?.message || "Échec de transmission"}`);
+    } finally {
+      setIsSending(false);
     }
   };
 
