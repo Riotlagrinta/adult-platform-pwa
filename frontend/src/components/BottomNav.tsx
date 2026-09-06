@@ -44,10 +44,10 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
       badge: unreadNotificationsCount,
     },
     {
-      name: "Profil",
-      href: "/profile",
-      icon: User,
-      match: (p: string) => p.startsWith("/profile") && !p.startsWith("/profile/"),
+      name: "Paramètres",
+      href: "/settings",
+      icon: Settings,
+      match: (p: string) => p.startsWith("/settings") || p.startsWith("/profile"),
     },
   ];
 

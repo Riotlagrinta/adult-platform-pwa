@@ -31,8 +31,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
     { name: "Discussions", href: "/messages", icon: MessageSquare, match: (p: string) => p.startsWith("/messages") },
     { name: "Actus & Stories", href: "/", icon: CircleDot, match: (p: string) => p === "/" },
     { name: "Notifications", href: "/notifications", icon: Bell, match: (p: string) => p === "/notifications" },
-    { name: "Profil", href: "/profile", icon: User, match: (p: string) => p.startsWith("/profile") && !p.startsWith("/profile/") },
-    { name: "Paramètres", href: "/settings", icon: Settings, match: (p: string) => p === "/settings" },
+    { name: "Paramètres & Profil", href: "/settings", icon: Settings, match: (p: string) => p.startsWith("/settings") || p.startsWith("/profile") },
     ...(!isStandalone ? [{ name: "Télécharger l'APK", href: "/download", icon: Download, match: (p: string) => p === "/download" }] : []),
   ];
 
@@ -95,15 +94,19 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* User section */}
       <div className="px-3 pb-4 pt-2 border-t border-[var(--app-border)] space-y-2">
         {user && (
-          <div className="px-4 py-3 rounded-2xl bg-[var(--app-surface-raised)] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-sm flex-shrink-0">
+          <Link
+            href="/settings"
+            className="px-4 py-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] flex items-center gap-3 transition cursor-pointer group"
+            title="Accéder aux Paramètres & Profil"
+          >
+            <div className="w-10 h-10 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-sm flex-shrink-0 group-hover:scale-105 transition">
               {user.displayName.slice(0, 2).toUpperCase()}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="font-bold text-sm truncate">{user.displayName}</div>
               <div className="text-[10px] text-neutral-500 uppercase tracking-wider">{user.verificationStatus}</div>
             </div>
-          </div>
+          </Link>
         )}
         <button
           onClick={logout}

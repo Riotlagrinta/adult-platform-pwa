@@ -36,52 +36,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function showNotificationToast(title: string, body: string, onClick?: () => void) {
-  if (typeof window === 'undefined') return;
 
-  const container = document.getElementById('toast-container') || (() => {
-    const el = document.createElement('div');
-    el.id = 'toast-container';
-    el.className = 'fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none';
-    document.body.appendChild(el);
-    return el;
-  })();
-
-  const toast = document.createElement('div');
-  toast.className = 'bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-foreground)] px-4 py-3 rounded-2xl shadow-2xl flex flex-col gap-0.5 pointer-events-auto transform translate-y-2 opacity-0 transition-all duration-300 max-w-sm cursor-pointer select-none backdrop-blur-md';
-
-  const header = document.createElement('div');
-  header.className = 'font-black text-xs uppercase tracking-tight flex items-center gap-1.5 text-[var(--app-foreground)]';
-
-  const pulseDot = document.createElement('span');
-  pulseDot.className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
-  header.appendChild(pulseDot);
-
-  const titleNode = document.createTextNode(title);
-  header.appendChild(titleNode);
-
-  const bodyEl = document.createElement('div');
-  bodyEl.className = 'text-[11px] text-neutral-400 leading-snug';
-  bodyEl.textContent = body;
-
-  toast.appendChild(header);
-  toast.appendChild(bodyEl);
-
-  toast.onclick = onClick ?? null;
-
-  container.appendChild(toast);
-
-  requestAnimationFrame(() => {
-    toast.classList.remove('translate-y-2', 'opacity-0');
-  });
-
-  setTimeout(() => {
-    toast.classList.add('translate-y-2', 'opacity-0');
-    setTimeout(() => {
-      toast.remove();
-    }, 300);
-  }, 4500);
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -157,16 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!socket) return;
 
-    const handleNotification = (notif: { title: string; body: string; data?: any; type?: string }) => {
+    const handleNotification = () => {
       setUnreadNotificationsCount((prev) => prev + 1);
-      soundManager.playNotificationSound();
-      showNotificationToast(notif.title, notif.body, () => {
-        if (notif.data?.conversationId) {
-          router.push("/messages");
-        } else {
-          router.push("/notifications");
-        }
-      });
     };
 
     const handleMessage = (data: { message: { senderId: string; text?: string | null }; conversationId: string }) => {

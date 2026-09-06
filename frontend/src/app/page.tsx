@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   MessageSquare,
   Search,
   Users,
   CheckCircle2,
-  Shield,
-  Eye,
   Download,
-  ChevronRight,
+  Loader2,
+  X,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,9 @@ type CommunityMember = {
   id: string;
   displayName: string;
   avatarUrl?: string | null;
+  bio?: string | null;
   verificationStatus: string;
+  profile?: { city?: string | null; country?: string | null; headline?: string | null } | null;
 };
 
 export default function Home() {
@@ -34,35 +36,51 @@ export default function Home() {
   const isStandalone = useIsStandalone();
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadMembers = useCallback(async () => {
+  const fetchMembers = useCallback(async (query: string = "") => {
     if (!token) return;
+    setLoadingMembers(true);
     try {
-      const followersPayload = await apiRequest<{ followers: CommunityMember[] }>("/social/followers", { token });
-      const followingPayload = await apiRequest<{ following: CommunityMember[] }>("/social/following", { token });
-
-      const seen = new Map<string, CommunityMember>();
-      [...followersPayload.followers, ...followingPayload.following].forEach((m) => {
-        if (m.id !== user?.id && !seen.has(m.id)) {
-          seen.set(m.id, m);
-        }
-      });
-      setMembers(Array.from(seen.values()));
-    } catch {}
-  }, [token, user?.id]);
+      const endpoint = query.trim()
+        ? `/users/search?q=${encodeURIComponent(query.trim())}`
+        : "/users/search";
+      const res = await apiRequest<{ users: CommunityMember[] }>(endpoint, { token });
+      setMembers(res.users || []);
+    } catch (err) {
+      console.error("Erreur lors de la recherche de membres:", err);
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (token) {
-      void loadMembers();
+      void fetchMembers("");
     }
-  }, [loadMembers, token]);
+  }, [fetchMembers, token]);
 
-  const filteredMembers = members.filter((m) =>
-    searchQuery ? m.displayName.toLowerCase().includes(searchQuery.toLowerCase()) : true
-  );
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      void fetchMembers(val);
+    }, 300);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    void fetchMembers("");
+  };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--app-background)]">
+    <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       {/* Mobile Top Bar – WhatsApp style */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
         <Logo size="sm" showText={true} />
@@ -77,8 +95,8 @@ export default function Home() {
             </Link>
           )}
           {user ? (
-            <Link href="/profile">
-              <div className="w-9 h-9 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-xs border border-[var(--app-accent,#25D366)]/20">
+            <Link href="/settings" title="Paramètres & Profil">
+              <div className="w-9 h-9 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-xs border border-[var(--app-accent,#25D366)]/25 hover:scale-105 transition">
                 {user.displayName.slice(0, 2).toUpperCase()}
               </div>
             </Link>
@@ -95,7 +113,6 @@ export default function Home() {
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12">
           {/* Panneau de Présentation Premium à gauche */}
           <div className="lg:col-span-7 bg-black text-white p-8 md:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-neutral-900 relative overflow-hidden">
-            {/* Arrière-plan décoratif premium */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
             
@@ -113,27 +130,15 @@ export default function Home() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8">
                 <div className="space-y-2 border-l-2 border-amber-500 pl-4">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Médias Éphémères</h3>
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Stories 24h & Statut</h3>
                   <p className="text-xs text-neutral-400">
-                    Partagez des photos et des vidéos temporaires avec compte à rebours de destruction automatique et filigrane dynamique anti-capture.
+                    Partagez des stories photos et vidéos éphémères visibles 24 heures avec filigrane dynamique anti-capture.
                   </p>
                 </div>
                 <div className="space-y-2 border-l-2 border-amber-500 pl-4">
                   <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Messagerie Sécurisée</h3>
                   <p className="text-xs text-neutral-400">
-                    Communiquez en temps réel avec un chiffrement des sessions, un indicateur de saisie discret et un contrôle total sur vos blocages.
-                  </p>
-                </div>
-                <div className="space-y-2 border-l-2 border-amber-500 pl-4">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Zéro Publicité</h3>
-                  <p className="text-xs text-neutral-400">
-                    Aucun algorithme de recommandation invasif, aucun traqueur publicitaire. Juste vous et votre communauté en toute intimité.
-                  </p>
-                </div>
-                <div className="space-y-2 border-l-2 border-amber-500 pl-4">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Zéro Censure Externe</h3>
-                  <p className="text-xs text-neutral-400">
-                    Un espace autonome réservé aux adultes consentants avec modération interne pour garantir le respect de chacun.
+                    Communiquez en temps réel avec un chiffrement des sessions, photos éphémères et contrôle total.
                   </p>
                 </div>
               </div>
@@ -160,124 +165,124 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* ─── HUB PRINCIPAL CONNECTÉ ─── WhatsApp-style ─── */
+        /* ─── HUB PRINCIPAL CONNECTÉ (ACTUS) ─── */
         <>
           {/* Story Tray – Bande de stories éphémères en haut */}
           <StoryTray />
 
-          {/* Section Rapide – Accès messages */}
-          <div className="mx-4 mt-4">
-            <Link
-              href="/messages"
-              className="flex items-center justify-between p-4 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm hover:shadow-md transition-all duration-200 group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-[var(--app-accent,#25D366)]/10 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
-                </div>
-                <div>
-                  <div className="font-bold text-sm">Messagerie Privée</div>
-                  <div className="text-[11px] text-neutral-500">Chiffrée · Photos éphémères · Temps réel</div>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-neutral-400 group-hover:text-[var(--app-accent,#25D366)] transition-colors" />
-            </Link>
-          </div>
-
-          {/* Section Communauté – Membres */}
-          <div className="mx-4 mt-4 space-y-3">
+          {/* Section Communauté & Découverte des Membres */}
+          <div className="mx-4 mt-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Communauté</div>
-                <h2 className="text-lg font-black tracking-tight">Membres</h2>
+                <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Actus & Réseau</div>
+                <h2 className="text-xl font-black tracking-tight">Membres de la communauté</h2>
               </div>
               <div className="flex items-center gap-2">
-                <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-3 py-1.5">
+                <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-3 py-1.5 shadow-sm">
                   <span className="text-xs font-black">{members.length}</span>
-                  <span className="text-[10px] text-neutral-500 ml-1">contacts</span>
+                  <span className="text-[10px] text-neutral-500 ml-1">membres</span>
                 </div>
               </div>
             </div>
 
-            {/* Recherche */}
+            {/* Barre de Recherche Dynamique */}
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher un membre..."
-                className="w-full pl-10 pr-4 py-2.5 border border-[var(--app-border)] rounded-2xl text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] transition-colors"
+                onChange={handleSearchChange}
+                placeholder="Rechercher un membre par nom, ville ou bio..."
+                className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-2xl text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-1 focus:ring-[var(--app-accent,#25D366)] transition-all shadow-sm"
               />
+              {loadingMembers ? (
+                <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />
+              ) : searchQuery ? (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                  title="Effacer la recherche"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
 
-            {/* Liste des membres */}
-            <div className="space-y-1.5">
-              {filteredMembers.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">
-                  <Users className="w-8 h-8 mx-auto mb-2 text-neutral-300 dark:text-neutral-700" />
-                  <div>Aucun membre trouvé</div>
-                  <div className="text-[11px] text-neutral-400 mt-1">Commencez par suivre d&apos;autres profils</div>
+            {/* Liste des Membres */}
+            <div className="space-y-2">
+              {loadingMembers && members.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-neutral-500 text-sm gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--app-accent,#25D366)]" />
+                  <span>Recherche des membres...</span>
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-3xl border border-[var(--app-border)] p-6 space-y-2">
+                  <Users className="w-10 h-10 mx-auto text-neutral-300 dark:text-neutral-700" />
+                  <div className="font-bold">Aucun membre trouvé</div>
+                  <div className="text-xs text-neutral-400 max-w-xs mx-auto">
+                    {searchQuery
+                      ? `Aucun profil ne correspond à « ${searchQuery} ». Essayez un autre mot-clé.`
+                      : "La communauté grandit chaque jour. Soyez le premier à inviter vos contacts !"}
+                  </div>
+                  {searchQuery && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="mt-2 text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline"
+                    >
+                      Afficher tous les membres
+                    </button>
+                  )}
                 </div>
               ) : (
-                filteredMembers.map((member) => (
+                members.map((member) => (
                   <div
                     key={member.id}
                     onClick={() => router.push(`/profile/${member.id}`)}
-                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-150 group"
+                    className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-accent,#25D366)]/50 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-150 group shadow-sm"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
-                        {member.displayName.slice(0, 2).toUpperCase()}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden shadow-sm">
+                        {member.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={toPublicUrl(member.avatarUrl) ?? undefined}
+                            alt={member.displayName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          member.displayName.slice(0, 2).toUpperCase()
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 font-bold text-sm truncate">
                           <span className="truncate">{member.displayName}</span>
                           {member.verificationStatus === "APPROVED" && (
-                            <CheckCircle2 className="h-3.5 w-3.5 fill-[var(--app-accent,#25D366)] text-white dark:text-black flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 fill-[var(--app-accent,#25D366)] text-white dark:text-black flex-shrink-0" />
                           )}
                         </div>
-                        <div className="text-[11px] text-neutral-500">
-                          {member.verificationStatus === "APPROVED" ? "Vérifié" : "Membre"}
-                        </div>
+                        <p className="text-xs text-neutral-500 truncate max-w-[220px] sm:max-w-md">
+                          {member.profile?.headline ?? member.bio ?? (member.verificationStatus === "APPROVED" ? "Membre vérifié" : "Membre")}
+                        </p>
+                        {member.profile?.city && (
+                          <span className="text-[10px] text-neutral-400 block truncate">
+                            📍 {member.profile.city}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push("/messages");
+                        router.push(`/messages`);
                       }}
-                      className="p-2 rounded-full hover:bg-[var(--app-accent,#25D366)]/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      className="p-2.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-accent,#25D366)]/15 text-[var(--app-foreground)] hover:text-[var(--app-accent,#25D366)] transition-all flex-shrink-0 border border-[var(--app-border)]"
+                      title="Envoyer un message privé"
                     >
-                      <MessageSquare className="w-4 h-4 text-[var(--app-accent,#25D366)]" />
+                      <MessageSquare className="w-4 h-4" />
                     </button>
                   </div>
                 ))
               )}
-            </div>
-          </div>
-
-          {/* Section Sécurité & Confiance */}
-          <div className="mx-4 mt-6 mb-6">
-            <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3 shadow-sm">
-              <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Sécurité & Confidentialité</div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)]">
-                  <Shield className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
-                  <span className="text-[10px] font-bold text-center leading-tight">Chiffrement E2E</span>
-                </div>
-                <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)]">
-                  <Eye className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
-                  <span className="text-[10px] font-bold text-center leading-tight">Anti-capture</span>
-                </div>
-                <Link
-                  href="/settings"
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] transition"
-                >
-                  <Users className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
-                  <span className="text-[10px] font-bold text-center leading-tight">Paramètres</span>
-                </Link>
-              </div>
             </div>
           </div>
         </>

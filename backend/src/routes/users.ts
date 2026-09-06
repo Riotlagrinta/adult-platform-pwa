@@ -2,29 +2,32 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireApproved } from '../middleware/approved.js';
 import { signUrlIfNeeded } from '../lib/storage-online.js';
-
 
 export const usersRouter = Router();
 
-usersRouter.get('/search', requireAuth, requireApproved, async (req, res, next) => {
+usersRouter.get('/search', requireAuth, async (req, res, next) => {
   try {
     const schema = z.object({
       q: z.string().max(80).optional(),
     });
 
     const { q } = schema.parse(req.query);
+    const trimmed = q?.trim();
+
     const users = await prisma.user.findMany({
-      where: q
-        ? {
-            verificationStatus: 'APPROVED',
-            OR: [
-              { displayName: { contains: q, mode: 'insensitive' } },
-              { bio: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : { verificationStatus: 'APPROVED' },
+      where: {
+        id: { not: req.user!.id },
+        verificationStatus: { not: 'SUSPENDED' },
+        ...(trimmed
+          ? {
+              OR: [
+                { displayName: { contains: trimmed, mode: 'insensitive' } },
+                { bio: { contains: trimmed, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         displayName: true,
@@ -33,7 +36,8 @@ usersRouter.get('/search', requireAuth, requireApproved, async (req, res, next) 
         verificationStatus: true,
         profile: true,
       },
-      take: 20,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
     });
 
     const signedUsers = await Promise.all(
@@ -53,7 +57,7 @@ const userParamsSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
 });
 
-usersRouter.get('/:userId', requireAuth, requireApproved, async (req, res, next) => {
+usersRouter.get('/:userId', requireAuth, async (req, res, next) => {
   try {
     const { userId } = userParamsSchema.parse(req.params);
     const user = await prisma.user.findUnique({
@@ -68,7 +72,7 @@ usersRouter.get('/:userId', requireAuth, requireApproved, async (req, res, next)
       },
     });
 
-    if (!user || user.verificationStatus !== 'APPROVED') {
+    if (!user || user.verificationStatus === 'SUSPENDED') {
       return res.status(404).json({ error: 'User not found' });
     }
 
