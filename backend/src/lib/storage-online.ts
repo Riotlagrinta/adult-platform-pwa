@@ -136,16 +136,21 @@ export async function getPresignedUrl(key: string, expiresInSeconds: number = 36
  * Helper to extract storage key (e.g. "media/file.jpg") from any local or remote file URL
  */
 export function extractStorageKey(url: string): string | null {
-  if (url.startsWith('/uploads/')) {
-    return url.replace('/uploads/', '');
+  if (!url) return null;
+
+  // Nettoyer tous les paramètres de requête (?X-Amz-...) et ancres
+  const cleanUrl = url.split('?')[0].split('#')[0];
+
+  if (cleanUrl.startsWith('/uploads/')) {
+    return cleanUrl.replace('/uploads/', '');
   }
 
   const folders = ['avatars/', 'media/', 'verification/', 'stories/'];
   for (const folder of folders) {
-    const index = url.indexOf(folder);
+    const index = cleanUrl.indexOf(folder);
     if (index !== -1) {
-      // Extract the key starting with the folder name
-      return url.slice(index);
+      // Extract the clean key starting with the folder name
+      return cleanUrl.slice(index);
     }
   }
 
@@ -153,7 +158,7 @@ export function extractStorageKey(url: string): string | null {
 }
 
 /**
- * Helper to sign private URLs (media, verification) for temporary download access (5 mins)
+ * Helper to sign private URLs (media, verification, audio) for secure download access (1 hour)
  * Avatars remain public and do not need signing.
  */
 export async function signUrlIfNeeded(url: string | null | undefined): Promise<string | null> {
@@ -167,10 +172,9 @@ export async function signUrlIfNeeded(url: string | null | undefined): Promise<s
   const key = extractStorageKey(url);
   if (!key) return url;
 
-
   try {
-    // Generate secure presigned URL valid for 5 minutes (300 seconds)
-    return await getPresignedUrl(key, 300);
+    // Generate secure presigned URL valid for 1 hour (3600 seconds)
+    return await getPresignedUrl(key, 3600);
   } catch (error) {
     console.error('Error generating presigned URL:', error);
     return url;

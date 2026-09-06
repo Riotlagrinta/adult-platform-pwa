@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Play, Pause, Volume2, Mic } from "lucide-react";
+import { Play, Pause, Volume2, Mic, AlertCircle, RefreshCw } from "lucide-react";
 import { toPublicUrl } from "@/lib/api";
 
 type VoicePlayerProps = {
@@ -21,7 +21,8 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   const [totalDuration, setTotalDuration] = useState<number>(durationSeconds || 0);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);
 
   const resolvedUrl = toPublicUrl(url) || url;
@@ -37,19 +38,19 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   // Generate 28 deterministic bars for WhatsApp-like visual waveform
   const waveformBars = React.useMemo(() => {
     let hash = 0;
-    for (let i = 0; i < resolvedUrl.length; i++) {
-      hash = (hash << 5) - hash + resolvedUrl.charCodeAt(i);
+    const cleanSeed = url ? url.split("?")[0] : "voice";
+    for (let i = 0; i < cleanSeed.length; i++) {
+      hash = (hash << 5) - hash + cleanSeed.charCodeAt(i);
       hash |= 0;
     }
     const bars: number[] = [];
-    const barCount = 28;
+    const barCount = 26;
     for (let i = 0; i < barCount; i++) {
-      const pseudo = Math.abs(Math.sin(hash + i * 1.7) * 0.7 + Math.cos(hash * 0.5 + i * 2.3) * 0.3);
-      // Normalized between 20% and 100% height
-      bars.push(Math.max(20, Math.round(pseudo * 100)));
+      const pseudo = Math.abs(Math.sin(hash + i * 1.8) * 0.65 + Math.cos(hash * 0.4 + i * 2.2) * 0.35);
+      bars.push(Math.max(18, Math.round(pseudo * 100)));
     }
     return bars;
-  }, [resolvedUrl]);
+  }, [url]);
 
   const stopPlayback = useCallback(() => {
     if (audioRef.current) {
@@ -58,36 +59,50 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     setIsPlaying(false);
   }, []);
 
-  const togglePlayPause = () => {
+  const togglePlayPause = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!audioRef.current) return;
 
+    setHasError(false);
+    setErrorMessage(null);
+
+    const audio = audioRef.current;
+
     if (isPlaying) {
-      audioRef.current.pause();
+      audio.pause();
       setIsPlaying(false);
     } else {
-      // Pause any previously playing voice note
-      if (currentlyPlayingAudio && currentlyPlayingAudio !== audioRef.current) {
+      // Pause any previously playing voice note in the whole app
+      if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
         currentlyPlayingAudio.pause();
         if (stopCurrentPlayerCallback) {
           stopCurrentPlayerCallback();
         }
       }
 
-      currentlyPlayingAudio = audioRef.current;
+      currentlyPlayingAudio = audio;
       stopCurrentPlayerCallback = () => setIsPlaying(false);
 
-      audioRef.current.play().then(() => {
+      try {
+        // Débloquer l'audio si nécessaire
+        if (audio.readyState === 0) {
+          audio.load();
+        }
+        await audio.play();
         setIsPlaying(true);
-      }).catch((err) => {
+      } catch (err: any) {
         console.error("Audio playback error:", err);
-      });
+        setHasError(true);
+        setErrorMessage("Lecture impossible");
+        setIsPlaying(false);
+      }
     }
   };
 
   const handleTimeUpdate = () => {
-    if (!isDragging && audioRef.current) {
+    if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime);
-      if (!totalDuration && audioRef.current.duration) {
+      if (!totalDuration && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
         setTotalDuration(audioRef.current.duration);
       }
     }
@@ -96,10 +111,11 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       const dur = audioRef.current.duration;
-      if (dur && !isNaN(dur) && isFinite(dur)) {
+      if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
         setTotalDuration(dur);
       }
       setIsLoaded(true);
+      setHasError(false);
     }
   };
 
@@ -108,6 +124,15 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     setCurrentTime(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
+    }
+  };
+
+  const handleError = (e: any) => {
+    console.warn("Erreur de chargement audio:", resolvedUrl, e);
+    // Ne marquer comme erreur critique que si la lecture échoue
+    if (isPlaying) {
+      setHasError(true);
+      setIsPlaying(false);
     }
   };
 
@@ -126,16 +151,18 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     if (!waveformContainerRef.current || !audioRef.current) return;
     const rect = waveformContainerRef.current.getBoundingClientRect();
     const clickRatio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const targetTime = clickRatio * (totalDuration || audioRef.current.duration || 1);
+    const targetTime = clickRatio * (totalDuration || audioRef.current.duration || durationSeconds || 1);
     audioRef.current.currentTime = targetTime;
     setCurrentTime(targetTime);
   };
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     seekToPosition(e.clientX);
   };
 
-  const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+  const effectiveDuration = totalDuration || durationSeconds || 0;
+  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   useEffect(() => {
     return () => {
@@ -147,14 +174,16 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   }, []);
 
   return (
-    <div className={`flex items-center gap-2.5 py-1 select-none min-w-[220px] sm:min-w-[270px] max-w-full ${isMe ? "text-inherit" : "text-inherit"}`}>
+    <div className={`flex items-center gap-2.5 py-1 select-none min-w-[210px] sm:min-w-[260px] max-w-full ${isMe ? "text-inherit" : "text-inherit"}`}>
       <audio
         ref={audioRef}
         src={resolvedUrl}
         preload="metadata"
+        playsInline
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
+        onError={handleError}
       />
 
       {/* Play / Pause button */}
@@ -162,13 +191,17 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         type="button"
         onClick={togglePlayPause}
         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 shadow-sm ${
-          isMe
+          hasError
+            ? "bg-red-500/20 text-red-500 hover:bg-red-500/30"
+            : isMe
             ? "bg-[color-mix(in_srgb,var(--app-foreground)_18%,transparent)] hover:bg-[color-mix(in_srgb,var(--app-foreground)_28%,transparent)] text-current"
             : "bg-[var(--app-accent,#25D366)] text-white hover:brightness-110"
         }`}
-        title={isPlaying ? "Mettre en pause" : "Écouter le message vocal"}
+        title={hasError ? "Réessayer la lecture" : isPlaying ? "Mettre en pause" : "Écouter le message vocal"}
       >
-        {isPlaying ? (
+        {hasError ? (
+          <RefreshCw className="w-4 h-4" />
+        ) : isPlaying ? (
           <Pause className="w-4 h-4 fill-current" />
         ) : (
           <Play className="w-4 h-4 fill-current ml-0.5" />
@@ -181,7 +214,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
           ref={waveformContainerRef}
           onClick={handleWaveformClick}
           className="h-7 flex items-center gap-[2.5px] cursor-pointer relative group py-1"
-          title="Avancer / Reculer"
+          title="Naviguer dans le vocal"
         >
           {waveformBars.map((barHeight, idx) => {
             const barProgress = (idx / waveformBars.length) * 100;
@@ -208,7 +241,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
 
         {/* Duration / Elapsed Timer and Speed Controller */}
         <div className="flex items-center justify-between text-[10px] font-mono opacity-80 leading-none">
-          <span>{isPlaying || currentTime > 0 ? formatTime(currentTime) : formatTime(totalDuration || durationSeconds || 0)}</span>
+          <span>{isPlaying || currentTime > 0 ? formatTime(currentTime) : formatTime(effectiveDuration)}</span>
 
           <div className="flex items-center gap-1.5">
             <button
