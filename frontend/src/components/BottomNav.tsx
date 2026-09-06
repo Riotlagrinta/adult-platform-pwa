@@ -23,7 +23,15 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
   const pathname = usePathname();
   const { unreadNotificationsCount } = useAuth();
 
-  const tabs = [
+  type TabItem = {
+    name: string;
+    href: string;
+    icon: any;
+    match: (p: string) => boolean;
+    badge?: number;
+  };
+
+  const tabs: TabItem[] = [
     {
       name: "Discussions",
       href: "/messages",
@@ -38,10 +46,9 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
     },
     {
       name: "Communauté",
-      href: "/notifications",
-      icon: Bell,
-      match: (p: string) => p === "/notifications",
-      badge: unreadNotificationsCount,
+      href: "/community",
+      icon: Users,
+      match: (p: string) => p.startsWith("/community"),
     },
     {
       name: "Paramètres",

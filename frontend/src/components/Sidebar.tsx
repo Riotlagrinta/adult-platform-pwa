@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   MessageSquare,
   CircleDot,
+  Users,
   Bell,
   User,
   ShieldCheck,
@@ -30,6 +31,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
   const menuItems = [
     { name: "Discussions", href: "/messages", icon: MessageSquare, match: (p: string) => p.startsWith("/messages") },
     { name: "Actus & Stories", href: "/", icon: CircleDot, match: (p: string) => p === "/" },
+    { name: "Communauté & Groupes", href: "/community", icon: Users, match: (p: string) => p.startsWith("/community") },
     { name: "Notifications", href: "/notifications", icon: Bell, match: (p: string) => p === "/notifications" },
     { name: "Paramètres & Profil", href: "/settings", icon: Settings, match: (p: string) => p.startsWith("/settings") || p.startsWith("/profile") },
     ...(!isStandalone ? [{ name: "Télécharger l'APK", href: "/download", icon: Download, match: (p: string) => p === "/download" }] : []),

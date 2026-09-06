@@ -15,6 +15,11 @@ import {
   AlertCircle,
   Smile,
   Reply,
+  Palette,
+  Settings2,
+  ShieldCheck,
+  CheckCircle2,
+  Volume2,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -22,6 +27,7 @@ import AuthPanel from "@/components/AuthPanel";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 import { parseSticker, encodeSticker, Sticker } from "@/lib/stickers";
 import StickerPicker from "@/components/StickerPicker";
+import StoryTray, { StoryGroup, StoryItem } from "@/components/StoryTray";
 
 type Conversation = {
   id: string;
@@ -97,6 +103,31 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
+
+  // État des stories par utilisateur
+  const [storiesByUserId, setStoriesByUserId] = useState<Record<string, StoryItem[]>>({});
+
+  // Paramètres de discussion WhatsApp & Wallpapers
+  const [chatWallpaper, setChatWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
+  const [showChatSettingsModal, setShowChatSettingsModal] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedWp = localStorage.getItem("chat_wallpaper");
+      if (savedWp) setChatWallpaper(savedWp);
+      const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
+      if (savedFs) setChatFontSize(savedFs);
+    }
+  }, []);
+
+  const handleStoriesLoaded = useCallback((groups: StoryGroup[]) => {
+    const map: Record<string, StoryItem[]> = {};
+    groups.forEach((g) => {
+      map[g.userId] = g.items;
+    });
+    setStoriesByUserId(map);
+  }, []);
 
   // Nouveaux états pour le temps réel et les médias
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
@@ -658,13 +689,18 @@ export default function MessagesPage() {
           </div>
         )}
 
+        {/* Story Tray WhatsApp / Instagram style au-dessus des conversations */}
+        <div className="border-b border-[var(--app-border)]">
+          <StoryTray onStoriesLoaded={handleStoriesLoaded} />
+        </div>
+
         <div className="flex-1 overflow-y-auto divide-y divide-[var(--app-border)]">
           {loading && <ConversationListSkeleton />}
           {error && <div className="p-4 text-sm text-red-500">{error}</div>}
           {!loading && conversations.length === 0 && (
             <div className="p-8 text-center text-neutral-500 space-y-2">
               <Info className="w-8 h-8 mx-auto opacity-40" />
-              <p className="text-xs font-bold">Aucune discussion pour l'instant.</p>
+              <p className="text-xs font-bold">Aucune discussion pour l&apos;instant.</p>
               <p className="text-[11px] text-neutral-400">Cliquez sur « Nouveau » pour commencer une conversation.</p>
             </div>
           )}
@@ -673,18 +709,53 @@ export default function MessagesPage() {
             const partner = usersById[partnerId];
             const lastMessage = conversation.messages[0];
             const sticker = parseSticker(lastMessage?.text);
+            const hasStory = Boolean(partnerId && storiesByUserId[partnerId]?.length);
+
             return (
               <div
                 key={conversation.id}
                 onClick={() => setSelectedConvId(conversation.id)}
-                className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition ${selectedConvId === conversation.id ? "bg-[var(--app-surface-raised)]" : ""}`}
+                className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition ${
+                  selectedConvId === conversation.id ? "bg-[var(--app-surface-raised)]" : ""
+                }`}
               >
-                <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {(partner?.displayName ?? "??").slice(0, 2).toUpperCase()}
+                {/* Avatar avec cercle dégradé Story Instagram / WhatsApp si story active */}
+                <div
+                  onClick={(e) => {
+                    if (hasStory) {
+                      e.stopPropagation();
+                      window.dispatchEvent(new CustomEvent("open-user-story", { detail: { userId: partnerId } }));
+                    }
+                  }}
+                  className={`flex-shrink-0 relative rounded-full ${
+                    hasStory
+                      ? "p-[2.5px] bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer hover:scale-105 transition shadow-sm"
+                      : ""
+                  }`}
+                  title={hasStory ? "Voir la story active de ce membre" : ""}
+                >
+                  <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-[var(--app-surface)]">
+                    {partner?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={toPublicUrl(partner.avatarUrl) ?? undefined}
+                        alt={partner.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (partner?.displayName ?? "??").slice(0, 2).toUpperCase()
+                    )}
+                  </div>
                 </div>
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold truncate text-sm">{partner?.displayName ?? partnerId}</span>
+                    <span className="font-bold truncate text-sm flex items-center gap-1.5">
+                      <span>{partner?.displayName ?? partnerId}</span>
+                      {hasStory && (
+                        <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse flex-shrink-0" title="Story active" />
+                      )}
+                    </span>
                     <span className="text-xs text-neutral-400">
                       {lastMessage ? new Date(lastMessage.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}
                     </span>
@@ -705,7 +776,7 @@ export default function MessagesPage() {
       <div className={`flex-1 flex flex-col min-h-0 h-full bg-[var(--app-background)] overflow-hidden ${!selectedConvId ? "hidden md:flex justify-center items-center text-neutral-500" : "flex fixed inset-0 z-40 md:relative md:z-auto md:inset-auto"}`}>
         {selectedConversation && activePartner ? (
           <>
-            {/* Header de Discussion */}
+            {/* Header de Discussion WhatsApp */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
@@ -715,9 +786,40 @@ export default function MessagesPage() {
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {activePartner.displayName.slice(0, 2).toUpperCase()}
-                </div>
+
+                {/* Avatar du contact dans le header avec Story Ring */}
+                {(() => {
+                  const partnerHasStory = Boolean(activePartner && storiesByUserId[activePartner.id]?.length);
+                  return (
+                    <div
+                      onClick={() => {
+                        if (partnerHasStory) {
+                          window.dispatchEvent(new CustomEvent("open-user-story", { detail: { userId: activePartner.id } }));
+                        }
+                      }}
+                      className={`flex-shrink-0 relative rounded-full ${
+                        partnerHasStory
+                          ? "p-[2.5px] bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer hover:scale-105 transition"
+                          : ""
+                      }`}
+                      title={partnerHasStory ? "Regarder la story de ce membre" : ""}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm overflow-hidden border border-[var(--app-surface)]">
+                        {activePartner.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={toPublicUrl(activePartner.avatarUrl) ?? undefined}
+                            alt={activePartner.displayName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          activePartner.displayName.slice(0, 2).toUpperCase()
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div>
                   <h4 className="font-bold text-sm flex items-center gap-1.5">
                     <span>{activePartner.displayName}</span>
@@ -725,11 +827,23 @@ export default function MessagesPage() {
                       <span className="text-[10px] text-green-500 font-medium animate-pulse">(écrit...)</span>
                     )}
                   </h4>
-                  <span className="text-[11px] text-neutral-500">Discussion chiffrée</span>
+                  <span className="text-[11px] text-neutral-500 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                    <span>Discussion chiffrée</span>
+                  </span>
                 </div>
               </div>
               
               <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Bouton Paramètres de discussion WhatsApp */}
+                <button
+                  onClick={() => setShowChatSettingsModal(true)}
+                  className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                  title="Paramètres de discussion & Fond d'écran"
+                >
+                  <Palette className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={() => triggerBlock(activePartner.id)}
                   className="px-3 py-1.5 border border-red-200 dark:border-red-900/40 text-[10px] font-bold rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
@@ -745,10 +859,12 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Corps des Messages avec Défilement Fluide */}
+            {/* Corps des Messages avec Défilement Fluide et Fond d'écran WhatsApp */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto p-4 space-y-4 bg-[linear-gradient(to_bottom,var(--app-surface),var(--app-background))]"
+              className={`flex-1 overflow-y-auto p-4 space-y-4 transition-colors duration-300 ${chatWallpaper} ${
+                chatFontSize === "small" ? "text-xs" : chatFontSize === "large" ? "text-base" : "text-sm"
+              }`}
             >
               {selectedConversation.messages.length === 0 && (
                 <div className="text-center py-12 text-neutral-500 text-xs">
@@ -1275,6 +1391,165 @@ export default function MessagesPage() {
           >
             Fermer la visionneuse
           </button>
+        </div>
+      )}
+
+      {/* ── MODALE PARAMÈTRES DE DISCUSSION STYLE WHATSAPP ── */}
+      {showChatSettingsModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 select-none animate-fadeIn"
+          onClick={() => setShowChatSettingsModal(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header des Réglages */}
+            <div className="px-5 py-4 border-b border-[var(--app-border)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-2xl bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center">
+                  <Palette className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm tracking-tight">Paramètres de discussion</h3>
+                  <p className="text-[11px] text-neutral-400">Personnalisation style WhatsApp</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowChatSettingsModal(false)}
+                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenu Déroulant */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+              {/* 1. Sélection du Fond d'écran */}
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2.5 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-neutral-400" />
+                  Fond d&apos;écran de la discussion
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { id: "wallpaper-doodle-dark", name: "WhatsApp Dark", desc: "Doodles sombres", bg: "bg-[#0b141a]" },
+                    { id: "wallpaper-doodle-light", name: "WhatsApp Clair", desc: "Doodles beiges", bg: "bg-[#efeae2]" },
+                    { id: "wallpaper-obsidian", name: "Obsidienne VIP", desc: "Carbone & Onyx", bg: "bg-[#07080a]" },
+                    { id: "wallpaper-emerald", name: "Émeraude Velvet", desc: "Vert WhatsApp", bg: "bg-[#061c16]" },
+                    { id: "wallpaper-midnight", name: "Bleu Minuit", desc: "Dégradé saphir", bg: "bg-[#070b19]" },
+                    { id: "wallpaper-sunset", name: "Sunset Rose", desc: "Rubis & Pourpre", bg: "bg-[#140711]" },
+                    { id: "wallpaper-gold", name: "Or Champagne", desc: "Onyx & Or VIP", bg: "bg-[#121008]" },
+                    { id: "wallpaper-solid", name: "Thème Uni", desc: "Fond dynamique", bg: "bg-[var(--app-background)]" },
+                  ].map((wp) => {
+                    const isSelected = chatWallpaper === wp.id;
+                    return (
+                      <button
+                        key={wp.id}
+                        type="button"
+                        onClick={() => {
+                          setChatWallpaper(wp.id);
+                          localStorage.setItem("chat_wallpaper", wp.id);
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition relative overflow-hidden flex flex-col justify-between h-20 ${
+                          isSelected
+                            ? "border-[var(--app-accent,#25D366)] ring-2 ring-[var(--app-accent,#25D366)]/30"
+                            : "border-[var(--app-border)] hover:border-neutral-400"
+                        } ${wp.bg}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[11px] font-bold ${wp.id === "wallpaper-doodle-light" ? "text-neutral-900" : "text-white"}`}>
+                            {wp.name}
+                          </span>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-[var(--app-accent,#25D366)] flex-shrink-0" />
+                          )}
+                        </div>
+                        <span className={`text-[9px] ${wp.id === "wallpaper-doodle-light" ? "text-neutral-600" : "text-neutral-400"}`}>
+                          {wp.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Taille de police des bulles */}
+              <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between">
+                <div>
+                  <div className="font-bold">Taille de police</div>
+                  <div className="text-[11px] text-neutral-400">Lisibilité des messages</div>
+                </div>
+                <div className="flex items-center gap-1 bg-[var(--app-surface-raised)] p-1 rounded-xl border border-[var(--app-border)]">
+                  {(["small", "medium", "large"] as const).map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setChatFontSize(size);
+                        localStorage.setItem("chat_font_size", size);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-[10px] transition ${
+                        chatFontSize === size
+                          ? "bg-[var(--app-accent,#25D366)] text-white"
+                          : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                      }`}
+                    >
+                      {size === "small" ? "Petite" : size === "medium" ? "Moyenne" : "Grande"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Sécurité & Chiffrement E2E */}
+              <div className="p-3.5 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span className="font-bold">Chiffrement de bout en bout actif</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  Les messages et appels sont chiffrés. Personne en dehors de cette discussion ne peut les lire.
+                </p>
+              </div>
+
+              {/* 4. Raccourcis de Confidentialité */}
+              {activePartner && (
+                <div className="pt-2 border-t border-[var(--app-border)] space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChatSettingsModal(false);
+                      triggerBlock(activePartner.id);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Bloquer ce contact ({activePartner.displayName})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChatSettingsModal(false);
+                      triggerReport(activePartner.id);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] font-bold text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Signaler ce compte</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Bouton Fermer */}
+            <div className="p-4 border-t border-[var(--app-border)] bg-[var(--app-surface-raised)] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowChatSettingsModal(false)}
+                className="px-6 py-2.5 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] text-xs font-bold hover:opacity-90 transition"
+              >
+                Terminer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -9,7 +9,9 @@ import {
   Download,
   Loader2,
   X,
+  UserCheck,
   UserPlus,
+  Compass,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,12 +36,30 @@ export default function Home() {
   const router = useRouter();
   const { token, user, ready } = useAuth();
   const isStandalone = useIsStandalone();
-  const [members, setMembers] = useState<CommunityMember[]>([]);
+  
+  const [followingMembers, setFollowingMembers] = useState<CommunityMember[]>([]);
+  const [searchResults, setSearchResults] = useState<CommunityMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [mode, setMode] = useState<"following" | "discover">("following");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchMembers = useCallback(async (query: string = "") => {
+  // Charger les comptes suivis
+  const loadFollowing = useCallback(async () => {
+    if (!token) return;
+    setLoadingMembers(true);
+    try {
+      const res = await apiRequest<{ following: CommunityMember[] }>("/social/following", { token });
+      setFollowingMembers(res.following || []);
+    } catch (err) {
+      console.error("Erreur de chargement des suivis:", err);
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, [token]);
+
+  // Rechercher parmi tous les membres
+  const searchCommunity = useCallback(async (query: string) => {
     if (!token) return;
     setLoadingMembers(true);
     try {
@@ -47,9 +67,9 @@ export default function Home() {
         ? `/users/search?q=${encodeURIComponent(query.trim())}`
         : "/users/search";
       const res = await apiRequest<{ users: CommunityMember[] }>(endpoint, { token });
-      setMembers(res.users || []);
+      setSearchResults(res.users || []);
     } catch (err) {
-      console.error("Erreur lors de la recherche de membres:", err);
+      console.error("Erreur de recherche:", err);
     } finally {
       setLoadingMembers(false);
     }
@@ -57,9 +77,9 @@ export default function Home() {
 
   useEffect(() => {
     if (token) {
-      void fetchMembers("");
+      void loadFollowing();
     }
-  }, [fetchMembers, token]);
+  }, [loadFollowing, token]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -69,15 +89,25 @@ export default function Home() {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    searchTimeoutRef.current = setTimeout(() => {
-      void fetchMembers(val);
-    }, 300);
+    if (val.trim().length > 0) {
+      setMode("discover");
+      searchTimeoutRef.current = setTimeout(() => {
+        void searchCommunity(val);
+      }, 300);
+    } else {
+      setMode("following");
+      setSearchResults([]);
+    }
   };
 
   const handleClearSearch = () => {
     setSearchQuery("");
-    void fetchMembers("");
+    setMode("following");
+    setSearchResults([]);
+    void loadFollowing();
   };
+
+  const displayedMembers = mode === "discover" || searchQuery.trim() ? searchResults : followingMembers;
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
@@ -111,7 +141,6 @@ export default function Home() {
       ) : !token ? (
         /* ─── LANDING / AUTH ───────────────────────── */
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12">
-          {/* Panneau de Présentation Premium à gauche */}
           <div className="lg:col-span-7 bg-black text-white p-8 md:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-neutral-900 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
@@ -149,7 +178,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Panneau de Connexion/Inscription à droite */}
           <div className="lg:col-span-5 bg-neutral-50 dark:bg-neutral-950 flex flex-col justify-center p-6 md:p-12">
             <div className="max-w-md w-full mx-auto space-y-6">
               <div className="space-y-2">
@@ -170,19 +198,56 @@ export default function Home() {
           {/* Story Tray – Bande de stories éphémères en haut */}
           <StoryTray />
 
-          {/* Section Communauté & Découverte des Membres */}
+          {/* Section Membres suivis */}
           <div className="mx-4 mt-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Actus & Réseau</div>
-                <h2 className="text-xl font-black tracking-tight">Membres de la communauté</h2>
+                <div className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold">Actus</div>
+                <h2 className="text-xl font-black tracking-tight">
+                  {mode === "following" ? "Comptes suivis" : "Découvrir des membres"}
+                </h2>
               </div>
               <div className="flex items-center gap-2">
                 <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] px-3 py-1.5 shadow-sm">
-                  <span className="text-xs font-black">{members.length}</span>
-                  <span className="text-[10px] text-neutral-500 ml-1">membres</span>
+                  <span className="text-xs font-black">{displayedMembers.length}</span>
+                  <span className="text-[10px] text-neutral-500 ml-1">
+                    {mode === "following" ? "suivis" : "résultats"}
+                  </span>
                 </div>
               </div>
+            </div>
+
+            {/* Onglets de filtre (Mes Suivis / Découvrir) */}
+            <div className="flex items-center gap-2 p-1 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-xs font-bold">
+              <button
+                onClick={() => {
+                  setMode("following");
+                  setSearchQuery("");
+                  void loadFollowing();
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  mode === "following"
+                    ? "bg-[var(--app-surface)] text-[var(--app-foreground)] shadow-sm"
+                    : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5 text-[var(--app-accent,#25D366)]" />
+                <span>Mes Abonnements ({followingMembers.length})</span>
+              </button>
+              <button
+                onClick={() => {
+                  setMode("discover");
+                  void searchCommunity("");
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  mode === "discover"
+                    ? "bg-[var(--app-surface)] text-[var(--app-foreground)] shadow-sm"
+                    : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 text-blue-500" />
+                <span>Découvrir</span>
+              </button>
             </div>
 
             {/* Barre de Recherche Dynamique */}
@@ -192,7 +257,7 @@ export default function Home() {
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Rechercher un membre par nom, ville ou bio..."
+                placeholder="Rechercher parmi les membres..."
                 className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-2xl text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-1 focus:ring-[var(--app-accent,#25D366)] transition-all shadow-sm"
               />
               {loadingMembers ? (
@@ -210,31 +275,44 @@ export default function Home() {
 
             {/* Liste des Membres */}
             <div className="space-y-2">
-              {loadingMembers && members.length === 0 ? (
+              {loadingMembers && displayedMembers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-neutral-500 text-sm gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[var(--app-accent,#25D366)]" />
-                  <span>Recherche des membres...</span>
+                  <span>Chargement...</span>
                 </div>
-              ) : members.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-3xl border border-[var(--app-border)] p-6 space-y-2">
+              ) : displayedMembers.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-3xl border border-[var(--app-border)] p-6 space-y-3">
                   <Users className="w-10 h-10 mx-auto text-neutral-300 dark:text-neutral-700" />
-                  <div className="font-bold">Aucun membre trouvé</div>
-                  <div className="text-xs text-neutral-400 max-w-xs mx-auto">
-                    {searchQuery
-                      ? `Aucun profil ne correspond à « ${searchQuery} ». Essayez un autre mot-clé.`
-                      : "La communauté grandit chaque jour. Soyez le premier à inviter vos contacts !"}
+                  <div className="font-bold">
+                    {mode === "following" ? "Vous ne suivez aucun compte" : "Aucun membre trouvé"}
                   </div>
-                  {searchQuery && (
+                  <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
+                    {mode === "following"
+                      ? "Recherchez et suivez d'autres membres pour voir leurs actus et leurs stories directement ici !"
+                      : `Aucun membre ne correspond à « ${searchQuery} ».`}
+                  </p>
+                  {mode === "following" ? (
+                    <button
+                      onClick={() => {
+                        setMode("discover");
+                        void searchCommunity("");
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition shadow-sm"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Découvrir la communauté</span>
+                    </button>
+                  ) : (
                     <button
                       onClick={handleClearSearch}
-                      className="mt-2 text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline"
+                      className="text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline"
                     >
-                      Afficher tous les membres
+                      Retour aux abonnements
                     </button>
                   )}
                 </div>
               ) : (
-                members.map((member) => (
+                displayedMembers.map((member) => (
                   <div
                     key={member.id}
                     onClick={() => router.push(`/profile/${member.id}`)}

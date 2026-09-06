@@ -30,7 +30,7 @@ const deleteStoryParamsSchema = z.object({
 });
 
 // Créer une story avec réglage de durée (6h, 12h, 24h, 48h) et de visibilité
-storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file'), async (req, res, next) => {
+storiesRouter.post('/', requireAuth, storyUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -85,7 +85,7 @@ storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file')
 });
 
 // Récupérer toutes les stories actives selon la visibilité
-storiesRouter.get('/', requireAuth, requireApproved, async (req, res, next) => {
+storiesRouter.get('/', requireAuth, async (req, res, next) => {
   try {
     const now = new Date();
 

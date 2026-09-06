@@ -16,7 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-interface StoryItem {
+export interface StoryItem {
   id: string;
   mediaUrl: string;
   mimeType: string;
@@ -26,7 +26,7 @@ interface StoryItem {
   expiresAt: string;
 }
 
-interface StoryGroup {
+export interface StoryGroup {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
@@ -34,7 +34,12 @@ interface StoryGroup {
   items: StoryItem[];
 }
 
-export default function StoryTray() {
+interface StoryTrayProps {
+  onStoriesLoaded?: (groups: StoryGroup[]) => void;
+  compact?: boolean;
+}
+
+export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps = {}) {
   const { token, user } = useAuth();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null);
@@ -56,16 +61,45 @@ export default function StoryTray() {
     try {
       const data = await apiRequest<{ stories: StoryGroup[] }>("/stories", { token });
       setGroups(data.stories);
+      if (onStoriesLoaded) {
+        onStoriesLoaded(data.stories);
+      }
     } catch (err) {
       console.error("Erreur de chargement des stories :", err);
     }
-  }, [token]);
+  }, [token, onStoriesLoaded]);
 
   useEffect(() => {
     if (token) {
       void fetchStories();
     }
   }, [fetchStories, token]);
+
+  // Écouteur d'ouverture externe par clic sur avatar (ex: messages/discussions)
+  useEffect(() => {
+    const handleOpenExternal = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId: string }>;
+      const targetUserId = customEvent.detail?.userId;
+      if (!targetUserId) return;
+
+      const groupIdx = groups.findIndex((g) => g.userId === targetUserId);
+      if (groupIdx !== -1) {
+        const group = groups[groupIdx];
+        if (group.items.length > 0) {
+          setActiveGroupIndex(groupIdx);
+          setActiveStoryIndex(0);
+          setProgress(0);
+        } else if (group.userId === user?.id) {
+          fileInputRef.current?.click();
+        }
+      }
+    };
+
+    window.addEventListener("open-user-story", handleOpenExternal);
+    return () => {
+      window.removeEventListener("open-user-story", handleOpenExternal);
+    };
+  }, [groups, user?.id]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

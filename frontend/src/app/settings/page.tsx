@@ -24,6 +24,7 @@ import {
   ShieldAlert,
   Sparkles,
   Volume2,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -77,6 +78,19 @@ export default function SettingsPage() {
   // Blocages & Confidentialité
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
+
+  // Préférences Discussions & Wallpapers
+  const [selectedWallpaper, setSelectedWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedWp = localStorage.getItem("chat_wallpaper");
+      if (savedWp) setSelectedWallpaper(savedWp);
+      const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
+      if (savedFs) setChatFontSize(savedFs);
+    }
+  }, []);
 
   // Accordéons de réglages
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -542,7 +556,103 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* SECTION D : NOTIFICATIONS & SONS */}
+          {/* SECTION D : DISCUSSIONS & FONDS D'ÉCRAN */}
+          <div
+            onClick={() => toggleSection("chats")}
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm">Discussions & Fonds d&apos;écran</div>
+                <div className="text-[11px] text-neutral-400">Arrière-plans WhatsApp, taille police, médias</div>
+              </div>
+            </div>
+            {openSection === "chats" ? (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-neutral-400" />
+            )}
+          </div>
+
+          {openSection === "chats" && (
+            <div className="p-4 bg-[var(--app-surface-raised)] space-y-4 animate-fadeIn text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2">
+                  Fond d&apos;écran des discussions
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { id: "wallpaper-doodle-dark", name: "WhatsApp Dark", desc: "Doodles sombres", bg: "bg-[#0b141a]" },
+                    { id: "wallpaper-doodle-light", name: "WhatsApp Clair", desc: "Doodles beiges", bg: "bg-[#efeae2]" },
+                    { id: "wallpaper-obsidian", name: "Obsidienne VIP", desc: "Carbone & Onyx", bg: "bg-[#07080a]" },
+                    { id: "wallpaper-emerald", name: "Émeraude Velvet", desc: "Vert WhatsApp", bg: "bg-[#061c16]" },
+                    { id: "wallpaper-midnight", name: "Bleu Minuit", desc: "Dégradé saphir", bg: "bg-[#070b19]" },
+                    { id: "wallpaper-sunset", name: "Sunset Rose", desc: "Rubis & Pourpre", bg: "bg-[#140711]" },
+                    { id: "wallpaper-gold", name: "Or Champagne", desc: "Onyx & Or VIP", bg: "bg-[#121008]" },
+                    { id: "wallpaper-solid", name: "Thème Uni", desc: "Fond dynamique", bg: "bg-[var(--app-background)]" },
+                  ].map((wp) => {
+                    const isSelected = selectedWallpaper === wp.id;
+                    return (
+                      <button
+                        key={wp.id}
+                        onClick={() => {
+                          setSelectedWallpaper(wp.id);
+                          localStorage.setItem("chat_wallpaper", wp.id);
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition relative overflow-hidden flex flex-col justify-between h-20 ${
+                          isSelected
+                            ? "border-[var(--app-accent,#25D366)] ring-2 ring-[var(--app-accent,#25D366)]/30"
+                            : "border-[var(--app-border)] hover:border-neutral-400"
+                        } ${wp.bg}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[11px] font-bold ${wp.id === "wallpaper-doodle-light" ? "text-neutral-900" : "text-white"}`}>
+                            {wp.name}
+                          </span>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-[var(--app-accent,#25D366)] flex-shrink-0" />
+                          )}
+                        </div>
+                        <span className={`text-[9px] ${wp.id === "wallpaper-doodle-light" ? "text-neutral-600" : "text-neutral-400"}`}>
+                          {wp.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between">
+                <div>
+                  <div className="font-bold">Taille de police du chat</div>
+                  <div className="text-[11px] text-neutral-400">Ajuster la lisibilité des bulles</div>
+                </div>
+                <div className="flex items-center gap-1 bg-[var(--app-surface)] p-1 rounded-xl border border-[var(--app-border)]">
+                  {(["small", "medium", "large"] as const).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => {
+                        setChatFontSize(size);
+                        localStorage.setItem("chat_font_size", size);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition ${
+                        chatFontSize === size
+                          ? "bg-[var(--app-accent,#25D366)] text-white"
+                          : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                      }`}
+                    >
+                      {size === "small" ? "Petite" : size === "medium" ? "Moyenne" : "Grande"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION E : NOTIFICATIONS & SONS */}
           <div
             onClick={() => toggleSection("notifications")}
             className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"

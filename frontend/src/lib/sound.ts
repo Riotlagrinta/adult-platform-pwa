@@ -5,6 +5,27 @@
 
 class SoundEffects {
   private ctx: AudioContext | null = null;
+  private isUnlocked: boolean = false;
+
+  constructor() {
+    if (typeof window !== "undefined") {
+      const unlock = () => {
+        if (this.ctx && this.ctx.state === "suspended") {
+          this.ctx.resume().catch(() => {});
+        } else if (!this.ctx) {
+          this.getAudioContext();
+        }
+        this.isUnlocked = true;
+        window.removeEventListener("touchstart", unlock);
+        window.removeEventListener("click", unlock);
+        window.removeEventListener("keydown", unlock);
+      };
+
+      window.addEventListener("touchstart", unlock, { passive: true });
+      window.addEventListener("click", unlock, { passive: true });
+      window.addEventListener("keydown", unlock, { passive: true });
+    }
+  }
 
   private getAudioContext(): AudioContext | null {
     if (typeof window === "undefined") return null;
