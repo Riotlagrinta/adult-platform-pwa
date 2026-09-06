@@ -684,6 +684,30 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)]">
+                <div>
+                  <div className="font-bold">Notifications Push du Navigateur</div>
+                  <div className="text-[11px] text-neutral-400">Alertes système même quand l&apos;application est en arrière-plan</div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (typeof window !== "undefined" && "Notification" in window) {
+                      const res = await Notification.requestPermission();
+                      if (res === "granted") {
+                        alert("✅ Notifications système autorisées avec succès !");
+                      } else {
+                        alert("⚠️ Les notifications ont été refusées dans les paramètres de votre navigateur.");
+                      }
+                    } else {
+                      alert("Votre navigateur ne supporte pas les notifications système.");
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-[var(--app-accent,#25D366)] text-white font-bold text-[10px] hover:opacity-90 transition shadow-sm"
+                >
+                  Activer
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)]">
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-[var(--app-accent,#25D366)]" />
                   <div>

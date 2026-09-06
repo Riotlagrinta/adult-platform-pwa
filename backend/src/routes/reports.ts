@@ -7,7 +7,7 @@ import { requireStaff } from '../middleware/auth.js';
 
 export const reportRouter = Router();
 
-reportRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
+reportRouter.post('/', requireAuth, async (req, res, next) => {
   try {
     const schema = z.object({
       reason: z.string().min(3).max(1000),
@@ -32,7 +32,7 @@ reportRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
   }
 });
 
-reportRouter.get('/mine', requireAuth, requireApproved, async (req, res, next) => {
+reportRouter.get('/mine', requireAuth, async (req, res, next) => {
   try {
     const reports = await prisma.report.findMany({
       where: { reporterId: req.user!.id },

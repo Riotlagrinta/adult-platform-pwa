@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Send,
   Image as ImageIcon,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Volume2,
+  User,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -77,6 +79,7 @@ type UserLookup = {
 };
 
 export default function MessagesPage() {
+  const router = useRouter();
   const { token, user, ready, socket } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -834,27 +837,15 @@ export default function MessagesPage() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {/* Bouton Paramètres de discussion WhatsApp */}
+              <div className="flex items-center gap-2">
+                {/* Bouton Paramètres & Options de discussion WhatsApp */}
                 <button
                   onClick={() => setShowChatSettingsModal(true)}
-                  className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
-                  title="Paramètres de discussion & Fond d'écran"
+                  className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition flex items-center gap-1.5 px-3"
+                  title="Paramètres de discussion"
                 >
-                  <Palette className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => triggerBlock(activePartner.id)}
-                  className="px-3 py-1.5 border border-red-200 dark:border-red-900/40 text-[10px] font-bold rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition"
-                >
-                  Bloquer
-                </button>
-                <button
-                  onClick={() => triggerReport(activePartner.id)}
-                  className="px-3 py-1.5 bg-neutral-100 dark:bg-neutral-900 text-[10px] font-bold rounded-full hover:opacity-80 transition"
-                >
-                  Signaler
+                  <Settings2 className="w-4 h-4 text-[var(--app-accent,#25D366)]" />
+                  <span className="text-xs font-bold hidden sm:inline">Options</span>
                 </button>
               </div>
             </div>
@@ -1512,9 +1503,20 @@ export default function MessagesPage() {
                 </p>
               </div>
 
-              {/* 4. Raccourcis de Confidentialité */}
+              {/* 4. Raccourcis de Confidentialité & Profil */}
               {activePartner && (
                 <div className="pt-2 border-t border-[var(--app-border)] space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChatSettingsModal(false);
+                      router.push(`/profile/${activePartner.id}`);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-[var(--app-foreground)] font-bold text-xs transition flex items-center justify-center gap-1.5 border border-[var(--app-border)]"
+                  >
+                    <User className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>Afficher le profil de {activePartner.displayName}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {

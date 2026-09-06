@@ -23,7 +23,7 @@ const mediaSchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 
-messageRouter.get('/conversations', requireAuth, requireApproved, async (req, res, next) => {
+messageRouter.get('/conversations', requireAuth, async (req, res, next) => {
   try {
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -103,7 +103,7 @@ const deleteMessageParamsSchema = z.object({
   messageId: z.string().min(1, 'Message ID is required'),
 });
 
-messageRouter.post('/conversations/:userId', requireAuth, requireApproved, async (req, res, next) => {
+messageRouter.post('/conversations/:userId', requireAuth, async (req, res, next) => {
   try {
     const { userId: otherUserId } = conversationParamsSchema.parse(req.params);
     const blockerId = req.user!.id;
@@ -138,7 +138,7 @@ messageRouter.post('/conversations/:userId', requireAuth, requireApproved, async
   }
 });
 
-messageRouter.post('/conversations/:conversationId/messages', requireAuth, requireApproved, async (req, res, next) => {
+messageRouter.post('/conversations/:conversationId/messages', requireAuth, async (req, res, next) => {
   try {
     const { conversationId } = messageParamsSchema.parse(req.params);
     const schema = z.object({
@@ -259,7 +259,7 @@ messageRouter.post('/conversations/:conversationId/messages', requireAuth, requi
 });
 
 // Enregistrer l'ouverture d'un média temporaire et calculer sa date de péremption
-messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (req, res, next) => {
+messageRouter.post('/media/:mediaId/open', requireAuth, async (req, res, next) => {
   try {
     const { mediaId } = mediaParamsSchema.parse(req.params);
     const userId = req.user!.id;
@@ -317,7 +317,7 @@ messageRouter.post('/media/:mediaId/open', requireAuth, requireApproved, async (
 });
 
 // Supprimer un message (expéditeur ou modérateur/admin uniquement) et purger ses fichiers physiques
-messageRouter.delete('/conversations/:conversationId/messages/:messageId', requireAuth, requireApproved, async (req, res, next) => {
+messageRouter.delete('/conversations/:conversationId/messages/:messageId', requireAuth, async (req, res, next) => {
   try {
     const { conversationId, messageId } = deleteMessageParamsSchema.parse(req.params);
     const userId = req.user!.id;

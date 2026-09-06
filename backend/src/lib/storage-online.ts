@@ -2,6 +2,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } fro
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'node:fs';
 
+let cachedS3Client: S3Client | null = null;
+
 export function isS3Enabled(): boolean {
   return !!(
     process.env.S3_ACCESS_KEY &&
@@ -10,24 +12,34 @@ export function isS3Enabled(): boolean {
   );
 }
 
-const s3Client = isS3Enabled()
-  ? new S3Client({
-      endpoint: process.env.S3_ENDPOINT, // e.g. https://s3.us-west-004.backblazeb2.com
-      region: process.env.S3_REGION ?? 'us-west-004',
+export function getS3Client(): S3Client | null {
+  if (!isS3Enabled()) return null;
+
+  if (!cachedS3Client) {
+    const endpoint = process.env.S3_ENDPOINT || 'https://s3.us-west-004.backblazeb2.com';
+    const region = process.env.S3_REGION || 'us-west-004';
+
+    cachedS3Client = new S3Client({
+      endpoint,
+      region,
       credentials: {
         accessKeyId: process.env.S3_ACCESS_KEY!,
         secretAccessKey: process.env.S3_SECRET_KEY!,
       },
       forcePathStyle: true,
-    })
-  : null;
+    });
+  }
+
+  return cachedS3Client;
+}
 
 /**
  * Upload a local file to S3-compatible cloud storage (e.g. Backblaze B2)
  */
 export async function uploadToS3(localFilePath: string, key: string, mimeType: string): Promise<string> {
-  if (!s3Client) {
-    throw new Error('S3 Client is not configured. Check environmental variables.');
+  const client = getS3Client();
+  if (!client) {
+    throw new Error('S3 Client is not configured. Check environmental variables (S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME).');
   }
 
   const fileStream = fs.createReadStream(localFilePath);
@@ -40,7 +52,7 @@ export async function uploadToS3(localFilePath: string, key: string, mimeType: s
     ContentType: mimeType,
   });
 
-  await s3Client.send(command);
+  await client.send(command);
 
   // Return the public base URL of the uploaded file
   const endpoint = (process.env.S3_ENDPOINT ?? 'https://s3.us-west-004.backblazeb2.com').replace(/\/$/, '');
@@ -51,14 +63,15 @@ export async function uploadToS3(localFilePath: string, key: string, mimeType: s
  * Delete a file from S3-compatible cloud storage (e.g. Backblaze B2)
  */
 export async function deleteFromS3(key: string): Promise<void> {
-  if (!s3Client) return;
+  const client = getS3Client();
+  if (!client) return;
 
   try {
     const command = new DeleteObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME!,
       Key: key,
     });
-    await s3Client.send(command);
+    await client.send(command);
   } catch (error) {
     console.error(`Failed to delete object from S3: ${key}`, error);
   }
@@ -68,7 +81,8 @@ export async function deleteFromS3(key: string): Promise<void> {
  * Generate a secure presigned GET URL for a private S3 object (valid for expiresInSeconds)
  */
 export async function getPresignedUrl(key: string, expiresInSeconds: number = 300): Promise<string> {
-  if (!s3Client) {
+  const client = getS3Client();
+  if (!client) {
     return `/uploads/${key}`;
   }
 
@@ -77,7 +91,7 @@ export async function getPresignedUrl(key: string, expiresInSeconds: number = 30
     Key: key,
   });
 
-  return getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
+  return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
 }
 
 /**

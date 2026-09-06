@@ -76,7 +76,7 @@ filesRouter.post('/avatar', requireAuth, avatarUpload.single('file'), async (req
   }
 });
 
-filesRouter.post('/media', requireAuth, requireApproved, mediaUpload.single('file'), async (req, res, next) => {
+filesRouter.post('/media', requireAuth, mediaUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {

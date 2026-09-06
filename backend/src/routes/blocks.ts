@@ -7,7 +7,7 @@ import { requireApproved } from '../middleware/approved.js';
 export const blocksRouter = Router();
 
 // Bloquer un utilisateur
-blocksRouter.post('/', requireAuth, requireApproved, async (req, res, next) => {
+blocksRouter.post('/', requireAuth, async (req, res, next) => {
   try {
     const schema = z.object({
       blockedId: z.string(),
@@ -59,7 +59,7 @@ const deleteBlockParamsSchema = z.object({
 });
 
 // Débloquer un utilisateur
-blocksRouter.delete('/:blockedId', requireAuth, requireApproved, async (req, res, next) => {
+blocksRouter.delete('/:blockedId', requireAuth, async (req, res, next) => {
   try {
     const { blockedId } = deleteBlockParamsSchema.parse(req.params);
     const blockerId = req.user!.id;
@@ -77,7 +77,7 @@ blocksRouter.delete('/:blockedId', requireAuth, requireApproved, async (req, res
 });
 
 // Lister les utilisateurs bloqués
-blocksRouter.get('/', requireAuth, requireApproved, async (req, res, next) => {
+blocksRouter.get('/', requireAuth, async (req, res, next) => {
   try {
     const blockerId = req.user!.id;
     const blocks = await prisma.block.findMany({
