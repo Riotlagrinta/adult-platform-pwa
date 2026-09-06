@@ -2,7 +2,7 @@
   "name": "OnlyAdults",
   "short_name": "OnlyAdults",
   "description": "Plateforme web progressive pour adultes validés",
-  "start_url": "/",
+  "start_url": "/?mode=pwa&standalone=true",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",

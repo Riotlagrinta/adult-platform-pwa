@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     name: icon.appName,
     short_name: icon.appName,
     description: icon.description,
-    start_url: "/",
+    start_url: "/?mode=pwa&standalone=true",
     display: "standalone",
     background_color: icon.bgColor,
     theme_color: icon.themeColor,
