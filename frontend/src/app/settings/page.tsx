@@ -725,24 +725,22 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* SECTION E : APK ANDROID (si pas en standalone) */}
-          {!isStandalone && (
-            <div
-              onClick={() => router.push("/download")}
-              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-500 flex items-center justify-center">
-                  <Download className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-sm">Application Android (.APK)</div>
-                  <div className="text-[11px] text-neutral-400">Télécharger le fichier d&apos;installation officiel</div>
-                </div>
+          {/* SECTION E : APPLICATION MOBILE (APK ANDROID & IOS) */}
+          <div
+            onClick={() => router.push("/download")}
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-500 flex items-center justify-center">
+                <Download className="w-4 h-4" />
               </div>
-              <ChevronRight className="w-4 h-4 text-neutral-400" />
+              <div>
+                <div className="font-bold text-sm">Application Mobile (Android & iPhone)</div>
+                <div className="text-[11px] text-neutral-400">Télécharger l&apos;APK Android ou installer sur iOS</div>
+              </div>
             </div>
-          )}
+            <ChevronRight className="w-4 h-4 text-neutral-400" />
+          </div>
 
           {/* SECTION F : AIDE & SUPPORT */}
           <div
