@@ -282,13 +282,13 @@ export default function DownloadPage() {
                 </p>
                 <div className="pt-1">
                   <a
-                    href="/downloads/OnlyAdults-iOS.zip"
-                    download="OnlyAdults-iOS.zip"
+                    href="/downloads/OnlyAdults.ipa"
+                    download="OnlyAdults.ipa"
                     onClick={() => haptics.medium()}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition shadow-sm"
                   >
                     <FileDown className="w-4 h-4" />
-                    <span>Télécharger le Package iOS (.zip · 3.8 Mo)</span>
+                    <span>Télécharger OnlyAdults.ipa (.ipa · 3.8 Mo)</span>
                   </a>
                 </div>
               </div>
