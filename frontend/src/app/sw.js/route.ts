@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const swScript = `
-const CACHE_VERSION = "onlyadults-v3-push";
+const CACHE_VERSION = "onlyadults-v4-push";
 const STATIC_CACHE = \`\${CACHE_VERSION}-static\`;
 
 // Installation : Prise en charge immédiate
@@ -37,25 +37,38 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "OnlyAdults";
+  const conversationId = payload.data?.conversationId || (payload.tag && payload.tag.startsWith("msg-") ? payload.tag.replace("msg-", "") : undefined);
   const options = {
     body: payload.body || "Vous avez reçu un nouveau message.",
-    icon: payload.icon || "/icon-192x192.jpg",
-    badge: payload.badge || "/icon-192x192.jpg",
+    icon: payload.icon || "/api/pwa-icon?v=2026",
+    badge: payload.badge || "/api/pwa-icon?v=2026",
     vibrate: [200, 100, 200],
-    tag: payload.tag || "onlyadults-notification",
+    tag: payload.tag || (conversationId ? \`msg-\${conversationId}\` : \`notif-\${Date.now()}\`),
+    renotify: true,
     data: {
-      url: payload.url || "/",
+      url: payload.url || (conversationId ? "/messages" : "/notifications"),
+      conversationId,
       ...payload.data,
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(() => {
+      if ("setAppBadge" in navigator) {
+        navigator.setAppBadge().catch(() => {});
+      }
+    })
+  );
 });
 
 // Clic sur une notification push : Ouvre ou met au premier plan la conversation/page ciblée
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || "/";
+
+  if ("clearAppBadge" in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
@@ -80,7 +93,14 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/auth") || url.pathname.startsWith("/stories") || url.pathname.startsWith("/push")) {
+  if (
+    url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/auth") ||
+    url.pathname.startsWith("/messages") ||
+    url.pathname.startsWith("/notifications") ||
+    url.pathname.startsWith("/push") ||
+    url.hostname !== self.location.hostname
+  ) {
     return;
   }
 

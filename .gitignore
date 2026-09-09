@@ -30,6 +30,7 @@ backend/uploads/
 Thumbs.db
 
 .vercel
+.vscode/
 
 # Android build outputs
 android/.gradle/

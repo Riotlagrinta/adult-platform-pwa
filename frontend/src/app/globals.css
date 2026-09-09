@@ -128,10 +128,14 @@ body {
   background: var(--app-background);
   color: var(--app-foreground);
   font-family: var(--font-sans), sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.3s ease-out, color 0.3s ease-out;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transform: translateZ(0);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 /* Arrière-plan GPU-accéléré sans ralentissement sur mobile */
@@ -145,6 +149,34 @@ body::before {
     radial-gradient(circle at top left, color-mix(in srgb, var(--app-accent) 12%, transparent), transparent 40%),
     radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 8%, transparent), transparent 35%);
   will-change: transform;
+}
+
+button,
+a,
+input,
+textarea,
+select,
+summary,
+[role="button"] {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform, filter;
+  transition-duration: 300ms;
+  transition-timing-function: ease-out;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-accent) 24%, transparent);
 }
 
 @media (max-width: 767px) {
@@ -170,6 +202,29 @@ html, body {
 input, textarea, [contenteditable="true"] {
   -webkit-user-select: text;
   user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .shimmer-skeleton,
+  .pulse-glow,
+  .animate-slideDown,
+  .animate-slideUp,
+  .animate-fadeIn {
+    animation: none !important;
+  }
 }
 
 /* Variables utilitaires pour Safe Areas iOS */

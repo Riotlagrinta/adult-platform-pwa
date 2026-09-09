@@ -250,6 +250,9 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
 
   const activeGroup = activeGroupIndex !== null ? groups[activeGroupIndex] : null;
   const activeStory = activeGroup && activeStoryIndex < activeGroup.items.length ? activeGroup.items[activeStoryIndex] : null;
+  const trayPadding = compact ? "gap-3 py-3 px-3" : "gap-4 py-4 px-4";
+  const avatarRingSize = compact ? "w-14 h-14" : "w-16 h-16";
+  const labelWidth = compact ? "max-w-[60px]" : "max-w-[70px]";
 
   return (
     <div className="w-full bg-[var(--app-surface)] border-b border-[var(--app-border)] select-none">
@@ -262,7 +265,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
         accept="image/*,video/*"
       />
 
-      <div className="flex items-center gap-4 overflow-x-auto py-4 px-4 hide-scrollbar">
+      <div className={`flex items-center overflow-x-auto hide-scrollbar ${trayPadding}`}>
         {groups.map((group, index) => {
           const isCurrentUser = group.userId === user.id;
           const hasStories = group.items.length > 0;
@@ -270,13 +273,14 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
           return (
             <div
               key={group.userId}
-              className="flex flex-col items-center flex-shrink-0 cursor-pointer"
+              className="flex flex-col items-center flex-shrink-0 cursor-pointer animate-fadeIn"
               onClick={() => openStories(index)}
+              style={{ animationDelay: `${index * 45}ms` }}
             >
               <div className="relative">
                 {/* Cercle avec bordure dégradée active */}
                 <div
-                  className={`w-16 h-16 rounded-full p-[2.5px] flex items-center justify-center ${
+                  className={`${avatarRingSize} rounded-full p-[2.5px] flex items-center justify-center transition-transform duration-300 ease-out hover:scale-[1.03] ${
                     hasStories
                       ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
                       : "border border-[var(--app-border)] bg-[var(--app-surface-raised)]"
@@ -305,7 +309,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                       e.stopPropagation();
                       fileInputRef.current?.click();
                     }}
-                    className="absolute bottom-0 right-0 p-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black border-2 border-[var(--app-surface)] flex items-center justify-center hover:scale-105 transition"
+                    className="absolute bottom-0 right-0 p-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black border-2 border-[var(--app-surface)] flex items-center justify-center hover:scale-105 transition-all duration-300 ease-out shadow-sm"
                     title="Ajouter une story"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -313,7 +317,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                 )}
               </div>
 
-              <span className="text-[10px] font-bold text-neutral-500 mt-1 max-w-[70px] truncate text-center">
+              <span className={`text-[10px] font-bold text-neutral-500 mt-1 ${labelWidth} truncate text-center`}>
                 {isCurrentUser ? "Votre story" : group.displayName}
               </span>
             </div>
@@ -333,7 +337,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
               </div>
               <button
                 onClick={closeStudio}
-                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition-all duration-300 ease-out"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -342,7 +346,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
             {/* Contenu : Aperçu et Réglages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Cadre de prévisualisation média */}
-              <div className="w-full h-64 sm:h-72 rounded-2xl bg-black overflow-hidden flex items-center justify-center relative border border-[var(--app-border)]">
+              <div className="w-full h-64 sm:h-72 rounded-[28px] bg-black overflow-hidden flex items-center justify-center relative border border-[var(--app-border)]">
                 {selectedFile.type.startsWith("video/") ? (
                   <video src={previewUrl} className="w-full h-full object-contain" autoPlay playsInline loop muted />
                 ) : (
@@ -360,7 +364,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                   onChange={(e) => setCaption(e.target.value)}
                   placeholder="Écrivez un message sur votre story..."
                   maxLength={120}
-                  className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm outline-none focus:border-[var(--app-foreground)] transition"
+                  className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm outline-none focus:border-[var(--app-foreground)] focus:ring-2 focus:ring-[var(--app-accent)]/15 transition-all duration-300 ease-out"
                 />
               </div>
 
@@ -381,7 +385,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                       key={item.hours}
                       type="button"
                       onClick={() => setDurationHours(item.hours)}
-                      className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition border text-center ${
+                      className={`py-2.5 px-2 rounded-[22px] text-xs font-bold transition-all duration-300 ease-out border text-center ${
                         durationHours === item.hours
                           ? "bg-[var(--app-foreground)] text-[var(--app-background)] border-[var(--app-foreground)] shadow-sm"
                           : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-transparent hover:border-[var(--app-border)]"
@@ -412,7 +416,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                         key={item.value}
                         type="button"
                         onClick={() => setVisibility(item.value as any)}
-                        className={`p-3 rounded-2xl text-left transition border flex flex-col gap-1 ${
+                        className={`p-3 rounded-[22px] text-left transition-all duration-300 ease-out border flex flex-col gap-1 ${
                           isSelected
                             ? "bg-[var(--app-foreground)] text-[var(--app-background)] border-[var(--app-foreground)] shadow-sm"
                             : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-transparent hover:border-[var(--app-border)]"
@@ -438,7 +442,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                 type="button"
                 onClick={closeStudio}
                 disabled={uploading}
-                className="flex-1 py-3 rounded-full border border-[var(--app-border)] text-xs font-bold hover:bg-[var(--app-surface-soft)] transition"
+                className="flex-1 py-3 rounded-full border border-[var(--app-border)] text-xs font-bold hover:bg-[var(--app-surface-soft)] transition-all duration-300 ease-out"
               >
                 Annuler
               </button>
@@ -446,7 +450,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                 type="button"
                 onClick={publishStory}
                 disabled={uploading}
-                className="flex-[2] py-3 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:opacity-90 text-white text-xs font-black transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                className="flex-[2] py-3 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:opacity-90 text-white text-xs font-black transition-all duration-300 ease-out flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 hover:shadow-xl hover:-translate-y-0.5"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{uploading ? "Publication en cours..." : "Publier ma Story 🚀"}</span>

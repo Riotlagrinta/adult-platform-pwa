@@ -23,7 +23,11 @@ import { errorHandler } from './middleware/error-handler.js';
 export async function createServer() {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
   const explicitOrigins = (process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'https://onlyadults-frontend.vercel.app'])
     .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
@@ -48,11 +52,42 @@ export async function createServer() {
   );
   app.use(express.json({ limit: '2mb' }));
   app.use(morgan('dev'));
-  app.use('/uploads', express.static(uploadRoot, {
-    fallthrough: false,
-    maxAge: '7d',
-    immutable: false,
-  }));
+  app.use(
+    '/uploads',
+    (req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+      }
+      next();
+    },
+    express.static(uploadRoot, {
+      fallthrough: false,
+      maxAge: '7d',
+      immutable: false,
+      setHeaders: (res, filePath) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Accept-Ranges', 'bytes');
+        const lower = filePath.toLowerCase();
+        if (lower.endsWith('.webm')) {
+          res.setHeader('Content-Type', 'audio/webm');
+        } else if (lower.endsWith('.mp4') || lower.endsWith('.m4a')) {
+          res.setHeader('Content-Type', 'audio/mp4');
+        } else if (lower.endsWith('.ogg') || lower.endsWith('.opus')) {
+          res.setHeader('Content-Type', 'audio/ogg');
+        } else if (lower.endsWith('.aac')) {
+          res.setHeader('Content-Type', 'audio/aac');
+        } else if (lower.endsWith('.mp3')) {
+          res.setHeader('Content-Type', 'audio/mpeg');
+        } else if (lower.endsWith('.wav')) {
+          res.setHeader('Content-Type', 'audio/wav');
+        }
+      },
+    })
+  );
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'adult-platform-backend' });

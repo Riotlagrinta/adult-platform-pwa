@@ -110,7 +110,7 @@ export default function Home() {
   const displayedMembers = mode === "discover" || searchQuery.trim() ? searchResults : followingMembers;
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+    <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] selection:bg-[var(--app-accent)]/20">
       {/* Mobile Top Bar – WhatsApp style */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
         <Logo size="sm" showText={true} />
@@ -118,7 +118,7 @@ export default function Home() {
           {!isStandalone && (
             <Link
               href="/download"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition shadow-sm"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-[10px] font-black text-[var(--app-foreground)] hover:opacity-80 transition-all duration-300 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5"
             >
               <Download className="w-3 h-3 text-[var(--app-accent,#25D366)]" />
               <span>APK</span>
@@ -126,7 +126,7 @@ export default function Home() {
           )}
           {user ? (
             <Link href="/settings" title="Paramètres & Profil">
-              <div className="w-9 h-9 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-xs border border-[var(--app-accent,#25D366)]/25 hover:scale-105 transition">
+              <div className="w-9 h-9 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-xs border border-[var(--app-accent,#25D366)]/25 hover:scale-105 transition-all duration-300 ease-out shadow-sm">
                 {user.displayName.slice(0, 2).toUpperCase()}
               </div>
             </Link>
@@ -158,13 +158,13 @@ export default function Home() {
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8">
-                <div className="space-y-2 border-l-2 border-amber-500 pl-4">
+                <div className="space-y-2 border-l-2 border-amber-500 pl-4 rounded-r-2xl">
                   <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Stories 24h & Statut</h3>
                   <p className="text-xs text-neutral-400">
                     Partagez des stories photos et vidéos éphémères visibles 24 heures avec filigrane dynamique anti-capture.
                   </p>
                 </div>
-                <div className="space-y-2 border-l-2 border-amber-500 pl-4">
+                <div className="space-y-2 border-l-2 border-amber-500 pl-4 rounded-r-2xl">
                   <h3 className="font-bold text-sm uppercase tracking-wider text-amber-400">Messagerie Sécurisée</h3>
                   <p className="text-xs text-neutral-400">
                     Communiquez en temps réel avec un chiffrement des sessions, photos éphémères et contrôle total.
@@ -186,7 +186,7 @@ export default function Home() {
                   Entrez vos identifiants ou inscrivez-vous en quelques clics pour débloquer votre accès.
                 </p>
               </div>
-              <div className="bg-white dark:bg-black border border-neutral-200 dark:border-neutral-900 rounded-3xl p-6 shadow-sm">
+              <div className="bg-white dark:bg-black border border-neutral-200 dark:border-neutral-900 rounded-[32px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-sm">
                 <AuthPanel />
               </div>
             </div>
@@ -218,17 +218,17 @@ export default function Home() {
             </div>
 
             {/* Onglets de filtre (Mes Suivis / Découvrir) */}
-            <div className="flex items-center gap-2 p-1 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-xs font-bold">
+            <div className="flex items-center gap-2 p-1 rounded-[28px] bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-xs font-bold shadow-sm">
               <button
                 onClick={() => {
                   setMode("following");
                   setSearchQuery("");
                   void loadFollowing();
                 }}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2.5 px-3 rounded-[22px] transition-all duration-300 ease-out flex items-center justify-center gap-1.5 ${
                   mode === "following"
                     ? "bg-[var(--app-surface)] text-[var(--app-foreground)] shadow-sm"
-                    : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                    : "text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)]"
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5 text-[var(--app-accent,#25D366)]" />
@@ -239,10 +239,10 @@ export default function Home() {
                   setMode("discover");
                   void searchCommunity("");
                 }}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2.5 px-3 rounded-[22px] transition-all duration-300 ease-out flex items-center justify-center gap-1.5 ${
                   mode === "discover"
                     ? "bg-[var(--app-surface)] text-[var(--app-foreground)] shadow-sm"
-                    : "text-neutral-400 hover:text-[var(--app-foreground)]"
+                    : "text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)]"
                 }`}
               >
                 <Compass className="w-3.5 h-3.5 text-blue-500" />
@@ -258,14 +258,14 @@ export default function Home() {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 placeholder="Rechercher parmi les membres..."
-                className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-2xl text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-1 focus:ring-[var(--app-accent,#25D366)] transition-all shadow-sm"
+                className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-[24px] text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-2 focus:ring-[var(--app-accent,#25D366)]/15 transition-all duration-300 ease-out shadow-sm"
               />
               {loadingMembers ? (
                 <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />
               ) : searchQuery ? (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition-all duration-300 ease-out"
                   title="Effacer la recherche"
                 >
                   <X className="h-4 w-4" />
@@ -281,7 +281,7 @@ export default function Home() {
                   <span>Chargement...</span>
                 </div>
               ) : displayedMembers.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-3xl border border-[var(--app-border)] p-6 space-y-3">
+                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-[32px] border border-[var(--app-border)] p-6 space-y-3 shadow-sm">
                   <Users className="w-10 h-10 mx-auto text-neutral-300 dark:text-neutral-700" />
                   <div className="font-bold">
                     {mode === "following" ? "Vous ne suivez aucun compte" : "Aucun membre trouvé"}
@@ -297,29 +297,30 @@ export default function Home() {
                         setMode("discover");
                         void searchCommunity("");
                       }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition shadow-sm"
-                    >
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition-all duration-300 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Découvrir la communauté</span>
                     </button>
                   ) : (
                     <button
                       onClick={handleClearSearch}
-                      className="text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline"
-                    >
-                      Retour aux abonnements
-                    </button>
-                  )}
-                </div>
+                    className="text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline transition-all duration-300 ease-out"
+                  >
+                    Retour aux abonnements
+                  </button>
+                )}
+              </div>
               ) : (
-                displayedMembers.map((member) => (
+                displayedMembers.map((member, index) => (
                   <div
                     key={member.id}
                     onClick={() => router.push(`/profile/${member.id}`)}
-                    className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-accent,#25D366)]/50 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-150 group shadow-sm"
+                    className="flex items-center justify-between p-3.5 rounded-[28px] border border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-accent,#25D366)]/50 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-300 ease-out group shadow-sm hover:shadow-md hover:-translate-y-0.5 animate-fadeIn"
+                    style={{ animationDelay: `${index * 45}ms` }}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden shadow-sm">
+                      <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden shadow-sm ring-1 ring-black/5">
                         {member.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -353,7 +354,7 @@ export default function Home() {
                         e.stopPropagation();
                         router.push(`/messages`);
                       }}
-                      className="p-2.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-accent,#25D366)]/15 text-[var(--app-foreground)] hover:text-[var(--app-accent,#25D366)] transition-all flex-shrink-0 border border-[var(--app-border)]"
+                      className="p-2.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-accent,#25D366)]/15 text-[var(--app-foreground)] hover:text-[var(--app-accent,#25D366)] transition-all duration-300 ease-out flex-shrink-0 border border-[var(--app-border)] hover:-translate-y-0.5"
                       title="Envoyer un message privé"
                     >
                       <MessageSquare className="w-4 h-4" />

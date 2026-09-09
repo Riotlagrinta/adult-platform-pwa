@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getVapidPublicKey, sendPushNotification } from '../lib/push.js';
+import { getVapidPublicKey, isPushConfigured, sendPushNotification } from '../lib/push.js';
 
 export const pushRouter = Router();
 
@@ -71,13 +71,24 @@ pushRouter.post('/unsubscribe', requireAuth, async (req, res, next) => {
 // Tester l'envoi d'une notification push sur l'appareil de l'utilisateur connecté
 pushRouter.post('/test', requireAuth, async (req, res, next) => {
   try {
+    if (!isPushConfigured()) {
+      return res.status(503).json({ error: 'Les clés VAPID ne sont pas configurées sur le serveur.' });
+    }
+
+    const subscriptionCount = await prisma.pushSubscription.count({
+      where: { userId: req.user!.id },
+    });
+    if (subscriptionCount === 0) {
+      return res.status(409).json({ error: 'Aucun appareil n’est enregistré pour les notifications push.' });
+    }
+
     await sendPushNotification(req.user!.id, {
       title: 'OnlyAdults 🔔',
       body: 'Les notifications Web Push sont parfaitement actives sur votre appareil !',
       url: '/',
     });
 
-    res.json({ ok: true, message: 'Notification test envoyée.' });
+    res.json({ ok: true, message: 'Notification test envoyée.', subscriptionCount });
   } catch (error) {
     next(error);
   }

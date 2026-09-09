@@ -1,4 +1,4 @@
-import { PWA_ICON_OPTIONS, getPwaIconById, type PwaIconOption } from "./pwa-icons";
+import { PWA_ICON_OPTIONS, getPwaIconById } from "./pwa-icons";
 
 export const PWA_ICON_STORAGE_KEY = "onlyadults_pwa_icon";
 
@@ -44,7 +44,7 @@ export function applyPwaIcon(iconId: string) {
   faviconLink.href = `/api/pwa-icon?id=${icon.id}&size=192`;
 
   // 4. Mettre à jour les meta theme-color
-  let metaTheme = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+  const metaTheme = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
   if (metaTheme) {
     metaTheme.content = icon.themeColor;
   }

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BellRing, X, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
-import { isPushSupported, getSubscriptionStatus, subscribeToPush } from "@/lib/push";
+import { isPushSupported, getSubscriptionStatus, subscribeToPush, syncPushSubscription } from "@/lib/push";
 import { soundManager } from "@/lib/sound";
 
 export default function PushNotificationBanner() {
@@ -22,10 +22,17 @@ export default function PushNotificationBanner() {
       const supported = await isPushSupported();
       if (!supported) return;
 
-      const isSubscribed = await getSubscriptionStatus();
-      setSubscribed(isSubscribed);
+      const hasBrowserSubscription = await getSubscriptionStatus();
+      if (hasBrowserSubscription) {
+        try {
+          await syncPushSubscription(token);
+        } catch (error) {
+          console.error("Impossible de synchroniser l'abonnement push:", error);
+        }
+      }
+      setSubscribed(hasBrowserSubscription);
 
-      if (!isSubscribed && typeof window !== "undefined" && "Notification" in window) {
+      if (!hasBrowserSubscription && typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "default") {
           const dismissedUntil = localStorage.getItem("push_banner_dismissed_until");
           if (!dismissedUntil || Date.now() > parseInt(dismissedUntil, 10)) {

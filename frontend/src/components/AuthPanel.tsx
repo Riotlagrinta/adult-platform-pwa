@@ -5,7 +5,6 @@ import { useAuth } from "./AuthProvider";
 import { Eye, EyeOff } from "lucide-react";
 import ModernDatePicker from "./ModernDatePicker";
 
-
 type Mode = "login" | "register";
 
 export default function AuthPanel() {
@@ -19,14 +18,6 @@ export default function AuthPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const getMaxBirthDate = () => {
-    const today = new Date();
-    const maxYear = today.getFullYear() - 18;
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    return `${maxYear}-${month}-${day}`;
-  };
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,18 +60,18 @@ export default function AuthPanel() {
   };
 
   return (
-    <div className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 shadow-sm">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--app-surface)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+      <div className="flex items-center gap-2 mb-4 p-1 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)]">
         <button
           onClick={() => setMode("login")}
-          className={`px-4 py-2 rounded-full text-sm font-bold ${mode === "login" ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)]"}`}
+          className={`px-4 py-2 rounded-full text-sm font-bold flex-1 ${mode === "login" ? "bg-[var(--app-foreground)] text-[var(--app-background)] shadow-sm" : "bg-transparent text-[var(--app-foreground)]"}`}
           type="button"
         >
           Connexion
         </button>
         <button
           onClick={() => setMode("register")}
-          className={`px-4 py-2 rounded-full text-sm font-bold ${mode === "register" ? "bg-[var(--app-foreground)] text-[var(--app-background)]" : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)]"}`}
+          className={`px-4 py-2 rounded-full text-sm font-bold flex-1 ${mode === "register" ? "bg-[var(--app-foreground)] text-[var(--app-background)] shadow-sm" : "bg-transparent text-[var(--app-foreground)]"}`}
           type="button"
         >
           Inscription
@@ -89,14 +80,14 @@ export default function AuthPanel() {
 
       <form onSubmit={onSubmit} className="space-y-3">
         {mode === "register" && (
-          <div className="bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 rounded-2xl p-3 text-xs font-semibold leading-relaxed mb-4">
+          <div className="bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 rounded-[22px] p-3 text-xs font-semibold leading-relaxed mb-4">
             🔞 L'inscription est strictement réservée aux personnes âgées de 18 ans et plus. Tout compte ne respectant pas cette règle sera immédiatement supprimé.
           </div>
         )}
 
         {mode === "register" && (
           <input
-            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
+            className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-accent)]/15"
             placeholder="Nom d'utilisateur"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -104,7 +95,7 @@ export default function AuthPanel() {
           />
         )}
         <input
-          className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none"
+          className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm outline-none focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-accent)]/15"
           placeholder="Adresse e-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -113,7 +104,7 @@ export default function AuthPanel() {
         />
         <div className="relative">
           <input
-            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none"
+            className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-accent)]/15"
             placeholder="Mot de passe"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -123,7 +114,7 @@ export default function AuthPanel() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[var(--app-foreground)] transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-[var(--app-foreground)] transition-all duration-300 ease-out"
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -131,7 +122,7 @@ export default function AuthPanel() {
         {mode === "register" && (
           <div className="relative">
             <input
-              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none"
+              className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface)] pl-4 pr-10 py-3 text-sm outline-none focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-accent)]/15"
               placeholder="Confirmer le mot de passe"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -150,7 +141,7 @@ export default function AuthPanel() {
         {error && <div className="text-sm text-red-500">{error}</div>}
         <button
           disabled={loading}
-          className="w-full rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] font-black py-3 text-sm disabled:opacity-50"
+          className="w-full rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] font-black py-3 text-sm disabled:opacity-50 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-300 ease-out"
           type="submit"
         >
           {loading ? "Chargement..." : mode === "login" ? "Se connecter" : "Créer le compte"}

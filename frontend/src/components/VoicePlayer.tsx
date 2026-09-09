@@ -135,6 +135,9 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
       try {
         setIsLoading(true);
         audio.playbackRate = playbackRate;
+        if (audio.error || audio.readyState === 0 || !audio.currentSrc) {
+          audio.load();
+        }
         await audio.play();
         setIsPlaying(true);
         setIsLoading(false);

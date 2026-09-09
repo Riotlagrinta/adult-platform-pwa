@@ -31,6 +31,52 @@ export async function getSubscriptionStatus(): Promise<boolean> {
   }
 }
 
+type SerializedPushSubscription = {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
+
+function serializeSubscription(subscription: PushSubscription): SerializedPushSubscription {
+  const rawSubscription = subscription.toJSON();
+  if (!rawSubscription.endpoint || !rawSubscription.keys?.p256dh || !rawSubscription.keys?.auth) {
+    throw new Error("Abonnement push incomplet généré par le navigateur.");
+  }
+
+  return {
+    endpoint: rawSubscription.endpoint,
+    keys: {
+      p256dh: rawSubscription.keys.p256dh,
+      auth: rawSubscription.keys.auth,
+    },
+  };
+}
+
+async function saveSubscription(token: string, subscription: PushSubscription): Promise<void> {
+  await apiRequest("/push/subscribe", {
+    method: "POST",
+    token,
+    body: JSON.stringify(serializeSubscription(subscription)),
+  });
+}
+
+export async function syncPushSubscription(token: string): Promise<boolean> {
+  if (!(await isPushSupported()) || Notification.permission !== "granted") {
+    return false;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    return false;
+  }
+
+  await saveSubscription(token, subscription);
+  return true;
+}
+
 export async function subscribeToPush(token: string): Promise<boolean> {
   if (!(await isPushSupported())) {
     throw new Error("Les notifications push ne sont pas supportées par votre navigateur.");
@@ -61,22 +107,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
   }
 
   // 4. Envoyer l'abonnement au serveur
-  const rawSub = subscription.toJSON();
-  if (!rawSub.endpoint || !rawSub.keys?.p256dh || !rawSub.keys?.auth) {
-    throw new Error("Abonnement push incomplet généré par le navigateur.");
-  }
-
-  await apiRequest("/push/subscribe", {
-    method: "POST",
-    token,
-    body: JSON.stringify({
-      endpoint: rawSub.endpoint,
-      keys: {
-        p256dh: rawSub.keys.p256dh,
-        auth: rawSub.keys.auth,
-      },
-    }),
-  });
+  await saveSubscription(token, subscription);
 
   return true;
 }
