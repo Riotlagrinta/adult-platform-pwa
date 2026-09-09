@@ -30,6 +30,10 @@ messageRouter.get('/conversations', requireAuth, async (req, res, next) => {
         OR: [{ userAId: req.user!.id }, { userBId: req.user!.id }],
       },
       include: {
+        readReceipts: {
+          where: { userId: req.user!.id },
+          select: { lastReadAt: true },
+        },
         messages: {
           include: {
             media: true,
@@ -50,6 +54,14 @@ messageRouter.get('/conversations', requireAuth, async (req, res, next) => {
     // Pré-signer à la volée les URLs de médias stockées pour chaque message et citation
     const signedConversations = await Promise.all(
       conversations.map(async (conv) => {
+        const lastReadAt = conv.readReceipts[0]?.lastReadAt;
+        const unreadCount = await prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            senderId: { not: req.user!.id },
+            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+          },
+        });
         const signedMessages = await Promise.all(
           conv.messages.map(async (msg) => {
             let signedMedia = msg.media;
@@ -76,7 +88,7 @@ messageRouter.get('/conversations', requireAuth, async (req, res, next) => {
             return { ...msg, media: signedMedia, replyTo: signedReplyTo };
           })
         );
-        return { ...conv, messages: signedMessages };
+        return { ...conv, messages: signedMessages, unreadCount };
       })
     );
 
@@ -101,6 +113,30 @@ const mediaParamsSchema = z.object({
 const deleteMessageParamsSchema = z.object({
   conversationId: z.string().min(1, 'Conversation ID is required'),
   messageId: z.string().min(1, 'Message ID is required'),
+});
+
+messageRouter.post('/conversations/:conversationId/read', requireAuth, async (req, res, next) => {
+  try {
+    const { conversationId } = messageParamsSchema.parse(req.params);
+    const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    if (conversation.userAId !== req.user!.id && conversation.userBId !== req.user!.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await prisma.conversationReadReceipt.upsert({
+      where: { userId_conversationId: { userId: req.user!.id, conversationId } },
+      create: { userId: req.user!.id, conversationId },
+      update: { lastReadAt: new Date() },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 messageRouter.post('/conversations/:userId', requireAuth, async (req, res, next) => {

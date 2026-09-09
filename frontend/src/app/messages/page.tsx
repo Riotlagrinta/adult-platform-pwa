@@ -39,6 +39,7 @@ type Conversation = {
   userAId: string;
   userBId: string;
   messages: Message[];
+  unreadCount: number;
 };
 
 type Message = {
@@ -457,9 +458,32 @@ export default function MessagesPage() {
     }
   }, [token, user?.id]);
 
+  const markConversationAsRead = useCallback(async (conversationId: string) => {
+    if (!token) return;
+
+    setConversations((previous) => previous.map((conversation) => (
+      conversation.id === conversationId ? { ...conversation, unreadCount: 0 } : conversation
+    )));
+
+    try {
+      await apiRequest(`/messages/conversations/${conversationId}/read`, {
+        method: "POST",
+        token,
+      });
+    } catch (readError) {
+      console.error("Impossible de marquer la conversation comme lue:", readError);
+    }
+  }, [token]);
+
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
   }, [selectedConvId]);
+
+  useEffect(() => {
+    if (selectedConvId) {
+      void markConversationAsRead(selectedConvId);
+    }
+  }, [markConversationAsRead, selectedConvId]);
 
   // Gestion de la réception temps réel des messages et écriture
   useEffect(() => {
@@ -473,9 +497,14 @@ export default function MessagesPage() {
             const updatedMessages = alreadyExists
               ? conv.messages
               : [data.message, ...conv.messages];
+            const isIncomingMessage = data.message.senderId !== user?.id;
+            const isActiveConversation = selectedConvIdRef.current === data.conversationId;
             return {
               ...conv,
               messages: updatedMessages,
+              unreadCount: alreadyExists || !isIncomingMessage || isActiveConversation
+                ? conv.unreadCount
+                : conv.unreadCount + 1,
             };
           }
           return conv;
@@ -483,6 +512,7 @@ export default function MessagesPage() {
       });
       // Scroll en douceur dès qu'un nouveau message arrive
       if (selectedConvIdRef.current === data.conversationId) {
+        void markConversationAsRead(data.conversationId);
         setTimeout(() => scrollToBottom(true), 100);
       }
     };
@@ -516,7 +546,7 @@ export default function MessagesPage() {
       socket.off("typing:update", handleTypingUpdate);
       socket.off("message:deleted", handleMessageDeleted);
     };
-  }, [socket, selectedConvId, scrollToBottom]);
+  }, [socket, selectedConvId, user?.id, markConversationAsRead, scrollToBottom]);
 
   // Gestion du compte à rebours de la modale sécurisée pour médias éphémères
   useEffect(() => {
@@ -925,7 +955,7 @@ export default function MessagesPage() {
           <StoryTray onStoriesLoaded={handleStoriesLoaded} />
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-[var(--app-border)]">
+        <div className="flex-1 overflow-y-auto space-y-1.5 p-2">
           {loading && <ConversationListSkeleton />}
           {error && <div className="p-4 text-sm text-red-500">{error}</div>}
           {!loading && conversations.length === 0 && (
@@ -946,8 +976,10 @@ export default function MessagesPage() {
               <div
                 key={conversation.id}
                 onClick={() => setSelectedConvId(conversation.id)}
-                className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition ${
-                  selectedConvId === conversation.id ? "bg-[var(--app-surface-raised)]" : ""
+                className={`flex items-center gap-3 rounded-[1.65rem] p-3.5 cursor-pointer border transition-all duration-200 ${
+                  selectedConvId === conversation.id
+                    ? "bg-[var(--app-surface-raised)] border-[var(--app-border)] shadow-sm"
+                    : "border-transparent hover:bg-[var(--app-surface-soft)] hover:border-[var(--app-border)]"
                 }`}
               >
                 {/* Avatar avec cercle dégradé Story Instagram / WhatsApp si story active */}
@@ -980,18 +1012,25 @@ export default function MessagesPage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold truncate text-sm flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-bold truncate text-sm flex items-center gap-1.5 ${conversation.unreadCount > 0 ? "text-[var(--app-foreground)]" : ""}`}>
                       <span>{partner?.displayName ?? partnerId}</span>
                       {hasStory && (
                         <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse flex-shrink-0" title="Story active" />
                       )}
                     </span>
-                    <span className="text-xs text-neutral-400">
-                      {lastMessage ? new Date(lastMessage.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={`text-[11px] ${conversation.unreadCount > 0 ? "font-bold text-[var(--app-accent)]" : "text-neutral-400"}`}>
+                        {lastMessage ? new Date(lastMessage.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}
+                      </span>
+                      {conversation.unreadCount > 0 && (
+                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--app-accent)] text-white text-[10px] leading-5 text-center font-black shadow-sm">
+                          {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs truncate text-neutral-500">
+                  <p className={`text-xs truncate ${conversation.unreadCount > 0 ? "font-semibold text-[var(--app-foreground)]" : "text-neutral-500"}`}>
                     {sticker
                       ? `${sticker.emoji} Sticker ${sticker.name}`
                       : (lastMessage?.text ?? (lastMessage?.media?.length ? "📷 Photo envoyée" : "Conversation ouverte"))}

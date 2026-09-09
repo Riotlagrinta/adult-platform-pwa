@@ -72,6 +72,7 @@ model User {
   adminActions         AdminAction[]        @relation("AdminActions")
   reviewedRequests     VerificationRequest[] @relation("VerificationReviewedBy")
   notifications        Notification[]
+  conversationReadReceipts ConversationReadReceipt[]
   blocksMade           Block[]              @relation("Blocker")
   blocksReceived       Block[]              @relation("Blocked")
   stories              Story[]
@@ -165,6 +166,7 @@ model Conversation {
   userA       User      @relation("ConversationA", fields: [userAId], references: [id], onDelete: Cascade)
   userB       User      @relation("ConversationB", fields: [userBId], references: [id], onDelete: Cascade)
   messages    Message[]
+  readReceipts ConversationReadReceipt[]
 
   @@unique([userAId, userBId])
 }
@@ -185,6 +187,18 @@ model Message {
   media        Media[]
 
   @@index([conversationId, createdAt])
+}
+
+model ConversationReadReceipt {
+  userId         String
+  conversationId String
+  lastReadAt     DateTime @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, conversationId])
+  @@index([conversationId, lastReadAt])
 }
 
 model Comment {
