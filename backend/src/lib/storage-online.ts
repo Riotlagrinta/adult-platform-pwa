@@ -39,7 +39,14 @@ function getS3Config() {
     'us-east-005'
   ).trim();
 
-  return { accessKey, secretKey, bucketName, endpoint, region };
+  const cdnUrl = (
+    process.env.CLOUDFLARE_CDN_URL ||
+    process.env.S3_PUBLIC_DOMAIN ||
+    process.env.CDN_URL ||
+    ''
+  ).trim().replace(/\/$/, '');
+
+  return { accessKey, secretKey, bucketName, endpoint, region, cdnUrl };
 }
 
 export function isS3Enabled(): boolean {
@@ -72,7 +79,7 @@ export function getS3Client(): S3Client | null {
  */
 export async function uploadToS3(localFilePath: string, key: string, mimeType: string): Promise<string> {
   const client = getS3Client();
-  const { bucketName, endpoint } = getS3Config();
+  const { bucketName, endpoint, cdnUrl } = getS3Config();
 
   if (!client) {
     throw new Error('S3 Client is not configured. Check environmental variables (S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME).');
@@ -88,6 +95,11 @@ export async function uploadToS3(localFilePath: string, key: string, mimeType: s
   });
 
   await client.send(command);
+
+  // Si un CDN Cloudflare est configuré, renvoyer l'URL optimisée Cloudflare CDN
+  if (cdnUrl) {
+    return `${cdnUrl}/${bucketName}/${key}`;
+  }
 
   // Return the public base URL of the uploaded file
   return `${endpoint}/${bucketName}/${key}`;
