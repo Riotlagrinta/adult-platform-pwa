@@ -27,6 +27,9 @@ import {
   getSavedCustomWallpaper,
   getSavedCustomDimming,
   getWallpaperContainerStyle,
+  getSavedBubbleColor,
+  getSavedCustomBubbleHex,
+  getBubbleStyle,
 } from "@/lib/wallpaper";
 
 type GroupItem = {
@@ -75,9 +78,11 @@ export default function CommunityPage() {
   const [availableContacts, setAvailableContacts] = useState<ContactUser[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
-  const [chatWallpaper, setChatWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [chatWallpaper, setChatWallpaper] = useState<string>("default");
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [wallpaperDimming, setWallpaperDimming] = useState<number>(40);
+  const [bubbleColor, setBubbleColorState] = useState<string>("default");
+  const [customBubbleHex, setCustomBubbleHex] = useState<string>("#059669");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -86,9 +91,25 @@ export default function CommunityPage() {
         setCustomPhotoUrl(getSavedCustomWallpaper());
         setWallpaperDimming(getSavedCustomDimming());
       };
+      const syncBubbleColor = (e?: any) => {
+        if (e?.detail) {
+          setBubbleColorState(e.detail.colorId);
+          if (e.detail.customHex) setCustomBubbleHex(e.detail.customHex);
+        } else {
+          setBubbleColorState(getSavedBubbleColor());
+          setCustomBubbleHex(getSavedCustomBubbleHex());
+        }
+      };
+
       syncWallpaper();
+      syncBubbleColor();
+
       window.addEventListener("chatwallpaperchange", syncWallpaper);
-      return () => window.removeEventListener("chatwallpaperchange", syncWallpaper);
+      window.addEventListener("chatbubblecolorchange", syncBubbleColor);
+      return () => {
+        window.removeEventListener("chatwallpaperchange", syncWallpaper);
+        window.removeEventListener("chatbubblecolorchange", syncBubbleColor);
+      };
     }
   }, []);
 
@@ -359,12 +380,10 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* Corps des Messages du Groupe avec Fond d'écran WhatsApp */}
+            {/* Corps des Messages du Groupe avec Fond d'écran */}
             <div
               style={getWallpaperContainerStyle(chatWallpaper, customPhotoUrl, wallpaperDimming)}
-              className={`flex-1 overflow-y-auto p-4 space-y-3.5 transition-all duration-300 ${
-                chatWallpaper !== "custom" ? chatWallpaper : ""
-              }`}
+              className="flex-1 overflow-y-auto p-4 space-y-3.5 transition-all duration-300"
             >
               {groupMessages.length === 0 ? (
                 <div className="text-center py-12 text-neutral-500 text-xs">
@@ -373,6 +392,7 @@ export default function CommunityPage() {
               ) : (
                 groupMessages.map((msg) => {
                   const isMe = msg.senderId === user?.id;
+                  const bubbleStyle = isMe ? getBubbleStyle(bubbleColor, customBubbleHex) : undefined;
                   return (
                     <div
                       key={msg.id}
@@ -384,9 +404,12 @@ export default function CommunityPage() {
                         </span>
                       )}
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                        style={bubbleStyle}
+                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all duration-300 ${
                           isMe
-                            ? "bg-[var(--app-accent,#25D366)] text-white rounded-br-none"
+                            ? !bubbleStyle
+                              ? "bg-[var(--app-accent,#25D366)] text-white rounded-br-none"
+                              : "rounded-br-none"
                             : "bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-[var(--app-foreground)] rounded-bl-none"
                         }`}
                       >

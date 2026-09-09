@@ -82,13 +82,13 @@ export default function SettingsPage() {
   const [showBlockedModal, setShowBlockedModal] = useState(false);
 
   // Préférences Discussions & Wallpapers
-  const [selectedWallpaper, setSelectedWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [selectedWallpaper, setSelectedWallpaper] = useState<string>("default");
   const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedWp = localStorage.getItem("chat_wallpaper");
-      if (savedWp) setSelectedWallpaper(savedWp);
+      if (savedWp && !savedWp.startsWith("wallpaper-")) setSelectedWallpaper(savedWp);
       const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
       if (savedFs) setChatFontSize(savedFs);
     }
@@ -571,8 +571,8 @@ export default function SettingsPage() {
                 <MessageSquare className="w-4 h-4" />
               </div>
               <div>
-                <div className="font-bold text-sm">Discussions & Arrière-plans</div>
-                <div className="text-[11px] text-neutral-400">Fond WhatsApp, photo personnalisée, taille police</div>
+                <div className="font-bold text-sm">Discussions & Apparence</div>
+                <div className="text-[11px] text-neutral-400">Couleur des bulles, fond personnalisé, taille police</div>
               </div>
             </div>
             {openSection === "chats" ? (

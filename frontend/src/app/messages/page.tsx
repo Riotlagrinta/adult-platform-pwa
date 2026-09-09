@@ -39,6 +39,9 @@ import {
   getSavedCustomWallpaper,
   getSavedCustomDimming,
   getWallpaperContainerStyle,
+  getSavedBubbleColor,
+  getSavedCustomBubbleHex,
+  getBubbleStyle,
 } from "@/lib/wallpaper";
 
 type Conversation = {
@@ -164,11 +167,13 @@ export default function MessagesPage() {
   // État des stories par utilisateur
   const [storiesByUserId, setStoriesByUserId] = useState<Record<string, StoryItem[]>>({});
 
-  // Paramètres de discussion WhatsApp & Wallpapers
-  const [chatWallpaper, setChatWallpaper] = useState<string>("wallpaper-doodle-dark");
+  // Paramètres de discussion & Wallpapers & Couleurs de bulles
+  const [chatWallpaper, setChatWallpaper] = useState<string>("default");
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [wallpaperDimming, setWallpaperDimming] = useState<number>(40);
   const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
+  const [bubbleColor, setBubbleColorState] = useState<string>("default");
+  const [customBubbleHex, setCustomBubbleHex] = useState<string>("#059669");
   const [showChatSettingsModal, setShowChatSettingsModal] = useState(false);
 
   useEffect(() => {
@@ -182,15 +187,27 @@ export default function MessagesPage() {
         const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
         if (savedFs) setChatFontSize(savedFs);
       };
+      const syncBubbleColor = (e?: any) => {
+        if (e?.detail) {
+          setBubbleColorState(e.detail.colorId);
+          if (e.detail.customHex) setCustomBubbleHex(e.detail.customHex);
+        } else {
+          setBubbleColorState(getSavedBubbleColor());
+          setCustomBubbleHex(getSavedCustomBubbleHex());
+        }
+      };
 
       syncWallpaper();
       syncFontSize();
+      syncBubbleColor();
 
       window.addEventListener("chatwallpaperchange", syncWallpaper);
       window.addEventListener("chatfontsizechange", syncFontSize);
+      window.addEventListener("chatbubblecolorchange", syncBubbleColor);
       return () => {
         window.removeEventListener("chatwallpaperchange", syncWallpaper);
         window.removeEventListener("chatfontsizechange", syncFontSize);
+        window.removeEventListener("chatbubblecolorchange", syncBubbleColor);
       };
     }
   }, []);
@@ -1261,13 +1278,11 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Corps des Messages avec Défilement Fluide et Fond d'écran WhatsApp */}
+            {/* Corps des Messages avec Défilement Fluide et Fond d'écran */}
             <div
               ref={messagesContainerRef}
               style={getWallpaperContainerStyle(chatWallpaper, customPhotoUrl, wallpaperDimming)}
               className={`flex-1 overflow-y-auto p-4 space-y-4 transition-all duration-300 ${
-                chatWallpaper !== "custom" ? chatWallpaper : ""
-              } ${
                 chatFontSize === "small" ? "text-xs" : chatFontSize === "large" ? "text-base" : "text-sm"
               }`}
             >
@@ -1357,6 +1372,8 @@ export default function MessagesPage() {
                   );
                 }
 
+                const bubbleStyle = isMe ? getBubbleStyle(bubbleColor, customBubbleHex) : undefined;
+
                 return (
                   <div
                     key={message.id}
@@ -1364,12 +1381,15 @@ export default function MessagesPage() {
                     className={`flex ${isMe ? "justify-end" : "justify-start"} transition-all duration-300 group`}
                   >
                     <div
+                      style={bubbleStyle}
                       className={`max-w-[85%] sm:max-w-[72%] rounded-3xl p-3.5 text-sm leading-relaxed shadow-sm space-y-2 transition-all duration-300 ${
                         isHighlighted ? "ring-4 ring-[var(--app-accent)] scale-[1.01]" : ""
                       } ${
                         isMe
-                          ? "bg-[var(--app-foreground)] text-[var(--app-background)]"
-                          : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)]"
+                          ? !bubbleStyle
+                            ? "bg-[var(--app-foreground)] text-[var(--app-background)] rounded-br-sm"
+                            : "rounded-br-sm"
+                          : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)] rounded-bl-sm"
                       }`}
                     >
                       {/* Encart de Citation style WhatsApp dans la bulle */}
@@ -1378,8 +1398,8 @@ export default function MessagesPage() {
                           onClick={() => scrollToQuotedMessage(message.replyTo!.id)}
                           className={`cursor-pointer rounded-2xl p-2.5 text-xs select-none transition hover:opacity-90 flex items-center justify-between gap-2 border-l-4 mb-2 ${
                             isMe
-                              ? "bg-black/25 text-neutral-100 border-l-[var(--app-accent)]"
-                              : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-l-[var(--app-accent)]"
+                              ? "bg-black/25 text-neutral-100 border-l-[var(--app-accent,#25D366)]"
+                              : "bg-[var(--app-surface-soft)] text-[var(--app-foreground)] border-l-[var(--app-accent,#25D366)]"
                           }`}
                         >
                           <div className="min-w-0 flex-1">

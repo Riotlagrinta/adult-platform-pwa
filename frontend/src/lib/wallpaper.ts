@@ -1,30 +1,35 @@
 "use client";
 
-export interface PredefinedWallpaper {
-  id: string;
-  name: string;
-  desc: string;
-  bg: string;
-}
-
-export const PREDEFINED_WALLPAPERS: PredefinedWallpaper[] = [
-  { id: "wallpaper-doodle-dark", name: "WhatsApp Dark", desc: "Doodles sombres", bg: "bg-[#0b141a]" },
-  { id: "wallpaper-doodle-light", name: "WhatsApp Clair", desc: "Doodles beiges", bg: "bg-[#efeae2]" },
-  { id: "wallpaper-obsidian", name: "Obsidienne VIP", desc: "Carbone & Onyx", bg: "bg-[#07080a]" },
-  { id: "wallpaper-emerald", name: "Émeraude Velvet", desc: "Vert WhatsApp", bg: "bg-[#061c16]" },
-  { id: "wallpaper-midnight", name: "Bleu Minuit", desc: "Dégradé saphir", bg: "bg-[#070b19]" },
-  { id: "wallpaper-sunset", name: "Sunset Rose", desc: "Rubis & Pourpre", bg: "bg-[#140711]" },
-  { id: "wallpaper-gold", name: "Or Champagne", desc: "Onyx & Or VIP", bg: "bg-[#121008]" },
-  { id: "wallpaper-solid", name: "Thème Uni", desc: "Fond dynamique", bg: "bg-[var(--app-background)]" },
-];
-
 export const WALLPAPER_STORAGE_KEY = "chat_wallpaper";
 export const CUSTOM_WALLPAPER_STORAGE_KEY = "chat_custom_wallpaper";
 export const CUSTOM_DIMMING_STORAGE_KEY = "chat_wallpaper_dimming";
+export const BUBBLE_COLOR_STORAGE_KEY = "chat_bubble_color";
+export const BUBBLE_CUSTOM_HEX_STORAGE_KEY = "chat_bubble_custom_hex";
+
+export interface BubbleColorPreset {
+  id: string;
+  name: string;
+  bgHex: string;
+  textHex: string;
+}
+
+export const BUBBLE_COLOR_PRESETS: BubbleColorPreset[] = [
+  { id: "default", name: "Par défaut", bgHex: "", textHex: "" },
+  { id: "whatsapp", name: "Vert WhatsApp", bgHex: "#059669", textHex: "#ffffff" },
+  { id: "blue", name: "Bleu Royal", bgHex: "#2563eb", textHex: "#ffffff" },
+  { id: "purple", name: "Violet VIP", bgHex: "#7c3aed", textHex: "#ffffff" },
+  { id: "pink", name: "Rose Rubis", bgHex: "#db2777", textHex: "#ffffff" },
+  { id: "orange", name: "Sunset Orange", bgHex: "#ea580c", textHex: "#ffffff" },
+  { id: "amber", name: "Or Champagne", bgHex: "#d97706", textHex: "#ffffff" },
+  { id: "cyan", name: "Cyan Océan", bgHex: "#0891b2", textHex: "#ffffff" },
+  { id: "red", name: "Rouge Passion", bgHex: "#dc2626", textHex: "#ffffff" },
+];
 
 export function getSavedWallpaper(): string {
-  if (typeof window === "undefined") return "wallpaper-doodle-dark";
-  return localStorage.getItem(WALLPAPER_STORAGE_KEY) || "wallpaper-doodle-dark";
+  if (typeof window === "undefined") return "default";
+  const saved = localStorage.getItem(WALLPAPER_STORAGE_KEY);
+  if (!saved || saved.startsWith("wallpaper-")) return "default";
+  return saved;
 }
 
 export function getSavedCustomWallpaper(): string | null {
@@ -57,7 +62,7 @@ export function setCustomDimming(dimming: number) {
 export function removeCustomWallpaper() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(CUSTOM_WALLPAPER_STORAGE_KEY);
-  setChatWallpaper("wallpaper-doodle-dark");
+  setChatWallpaper("default");
 }
 
 export async function processAndSaveCustomWallpaper(file: File): Promise<string> {
@@ -91,7 +96,7 @@ export async function processAndSaveCustomWallpaper(file: File): Promise<string>
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          return reject(new Error("Impossible d\x27initialiser le rendu graphique."));
+          return reject(new Error("Impossible d'initialiser le rendu graphique."));
         }
 
         ctx.drawImage(img, 0, 0, width, height);
@@ -102,10 +107,10 @@ export async function processAndSaveCustomWallpaper(file: File): Promise<string>
           setChatWallpaper("custom");
           resolve(dataUrl);
         } catch (err) {
-          reject(new Error("L\x27image est trop volumineuse pour être stockée en mémoire locale."));
+          reject(new Error("L'image est trop volumineuse pour être stockée en mémoire locale."));
         }
       };
-      img.onerror = () => reject(new Error("Échec du chargement de l\x27image."));
+      img.onerror = () => reject(new Error("Échec du chargement de l'image."));
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error("Échec de la lecture du fichier image."));
@@ -128,4 +133,64 @@ export function getWallpaperContainerStyle(
     };
   }
   return undefined;
+}
+
+// ── Gestion de la Couleur des Bulles de Message ──
+
+export function getSavedBubbleColor(): string {
+  if (typeof window === "undefined") return "default";
+  return localStorage.getItem(BUBBLE_COLOR_STORAGE_KEY) || "default";
+}
+
+export function getSavedCustomBubbleHex(): string {
+  if (typeof window === "undefined") return "#059669";
+  return localStorage.getItem(BUBBLE_CUSTOM_HEX_STORAGE_KEY) || "#059669";
+}
+
+export function setBubbleColor(colorId: string, customHex?: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(BUBBLE_COLOR_STORAGE_KEY, colorId);
+  if (customHex) {
+    localStorage.setItem(BUBBLE_CUSTOM_HEX_STORAGE_KEY, customHex);
+  }
+  window.dispatchEvent(
+    new CustomEvent("chatbubblecolorchange", {
+      detail: { colorId, customHex: customHex || getSavedCustomBubbleHex() },
+    })
+  );
+}
+
+function isColorLight(hex: string): boolean {
+  const cleanHex = hex.replace("#", "");
+  if (cleanHex.length !== 6) return false;
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 155;
+}
+
+export function getBubbleStyle(
+  colorId: string,
+  customHex?: string
+): React.CSSProperties | undefined {
+  if (colorId === "default") {
+    return undefined;
+  }
+  if (colorId === "custom") {
+    const hex = customHex || getSavedCustomBubbleHex();
+    const textHex = isColorLight(hex) ? "#000000" : "#ffffff";
+    return {
+      backgroundColor: hex,
+      color: textHex,
+      borderColor: "transparent",
+    };
+  }
+  const preset = BUBBLE_COLOR_PRESETS.find((p) => p.id === colorId);
+  if (!preset || !preset.bgHex) return undefined;
+  return {
+    backgroundColor: preset.bgHex,
+    color: preset.textHex,
+    borderColor: "transparent",
+  };
 }
