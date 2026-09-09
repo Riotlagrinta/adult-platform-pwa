@@ -29,6 +29,7 @@ import {
   Video,
 } from "lucide-react";
 import { useCall } from "@/context/CallContext";
+import { dismissActivePushNotifications } from "@/lib/push";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import AuthPanel from "@/components/AuthPanel";
@@ -471,6 +472,10 @@ export default function MessagesPage() {
         })
       );
 
+      if (selectedConvId) {
+        void dismissActivePushNotifications({ conversationId: selectedConvId });
+      }
+
       cancelReplying();
       setTimeout(() => scrollToBottom(true), 150);
     } catch (err: any) {
@@ -581,6 +586,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (selectedConvId) {
       void markConversationAsRead(selectedConvId);
+      void dismissActivePushNotifications({ conversationId: selectedConvId });
     }
   }, [markConversationAsRead, selectedConvId]);
 
@@ -954,6 +960,8 @@ export default function MessagesPage() {
         }),
       });
 
+      void dismissActivePushNotifications({ conversationId: selectedConversation.id });
+
       if (socket && activePartner) {
         socket.emit("typing:stop", {
           conversationId: selectedConversation.id,
@@ -990,6 +998,8 @@ export default function MessagesPage() {
           replyToId: replyingToMessage?.id || undefined,
         }),
       });
+
+      void dismissActivePushNotifications({ conversationId: selectedConversation.id });
 
       setReplyingToMessage(null);
       await loadConversations();

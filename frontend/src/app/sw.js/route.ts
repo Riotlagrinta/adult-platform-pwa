@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const swScript = `
-const CACHE_VERSION = "onlyadults-v4-push";
+const CACHE_VERSION = "onlyadults-v5-push";
 const STATIC_CACHE = \`\${CACHE_VERSION}-static\`;
 
 // Installation : Prise en charge immédiate
@@ -25,7 +25,7 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Réception des Notifications Web Push (Même quand l'application ou le téléphone est fermé)
+// Réception des Notifications Web Push
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -41,7 +41,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "Vous avez reçu un nouveau message.",
     icon: payload.icon || "/api/pwa-icon?v=2026",
-    badge: payload.badge || "/api/pwa-icon?v=2026",
+    badge: "/api/pwa-icon?v=2026",
     vibrate: [200, 100, 200],
     tag: payload.tag || (conversationId ? \`msg-\${conversationId}\` : \`notif-\${Date.now()}\`),
     renotify: true,
@@ -61,7 +61,7 @@ self.addEventListener("push", (event) => {
   );
 });
 
-// Clic sur une notification push : Ouvre ou met au premier plan la conversation/page ciblée
+// Clic sur une notification push : Fermer la notification et ouvrir/focaliser la conversation
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || "/";
@@ -85,6 +85,33 @@ self.addEventListener("notificationclick", (event) => {
       }
     })
   );
+});
+
+// Réception de commandes depuis l'application cliente (Fermeture immédiate après réponse ou lecture)
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "CLEAR_NOTIFICATIONS") {
+    const targetConvId = event.data.conversationId;
+    const targetTag = event.data.tag;
+
+    self.registration.getNotifications().then((notifications) => {
+      notifications.forEach((notif) => {
+        const nTag = notif.tag || "";
+        const nConvId = notif.data?.conversationId;
+        const matchConv = targetConvId && (nTag.includes(targetConvId) || nConvId === targetConvId);
+        const matchTag = targetTag && nTag === targetTag;
+
+        if (!targetConvId && !targetTag) {
+          notif.close();
+        } else if (matchConv || matchTag) {
+          notif.close();
+        }
+      });
+    });
+
+    if ("clearAppBadge" in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
 });
 
 // Interception des requêtes : Stratégie Network-First
@@ -133,8 +160,7 @@ export async function GET() {
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      "Pragma": "no-cache",
-      "Expires": "0",
+      "Service-Worker-Allowed": "/",
     },
   });
 }

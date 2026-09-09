@@ -134,3 +134,56 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Ferme et supprime les notifications push actives (barre Android / PWA)
+ * dès qu'une conversation est ouverte ou qu'un message y est répondu.
+ */
+export async function dismissActivePushNotifications(filter?: {
+  conversationId?: string;
+  tag?: string;
+}): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  // 1. Fermeture via les enregistrements Service Worker
+  if ("serviceWorker" in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        // Envoi d'un message direct au worker
+        if (reg.active) {
+          reg.active.postMessage({
+            type: "CLEAR_NOTIFICATIONS",
+            conversationId: filter?.conversationId,
+            tag: filter?.tag,
+          });
+        }
+        // Fermeture directe via l'API getNotifications
+        const notifs = await reg.getNotifications();
+        for (const n of notifs) {
+          const nTag = n.tag || "";
+          const nConvId = (n.data as any)?.conversationId;
+          const matchConv = filter?.conversationId && (nTag.includes(filter.conversationId) || nConvId === filter.conversationId);
+          const matchTag = filter?.tag && nTag === filter.tag;
+          if (!filter || matchConv || matchTag) {
+            n.close();
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erreur dismissActivePushNotifications:", err);
+    }
+  }
+
+  // 2. Nettoyage du badge de l'icône de l'application
+  if ("clearAppBadge" in navigator) {
+    try {
+      await (navigator as any).clearAppBadge();
+    } catch {}
+  }
+
+  // 3. Notifier l'application pour fermer les toasts in-app
+  window.dispatchEvent(
+    new CustomEvent("clear-active-notifications", { detail: filter })
+  );
+}

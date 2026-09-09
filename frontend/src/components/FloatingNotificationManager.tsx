@@ -5,6 +5,7 @@ import { MessageSquare, Bell, X, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { soundManager } from "@/lib/sound";
+import { dismissActivePushNotifications } from "@/lib/push";
 
 export type FloatingToast = {
   id: string;
@@ -40,12 +41,23 @@ export default function FloatingNotificationManager() {
         });
         notif.onclick = () => {
           window.focus();
+          try {
+            notif.close();
+          } catch {}
           if (newToast.conversationId) {
+            void dismissActivePushNotifications({ conversationId: newToast.conversationId });
             router.push("/messages");
           } else {
             router.push("/notifications");
           }
         };
+
+        // Auto-fermeture de la notification native après 5 secondes
+        setTimeout(() => {
+          try {
+            notif.close();
+          } catch {}
+        }, 5000);
       } catch {
         // Fallback Service Worker pour mobile / PWA
         if ("serviceWorker" in navigator) {
@@ -65,6 +77,20 @@ export default function FloatingNotificationManager() {
       setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
     }, 5000);
   }, [router]);
+
+  // Écoute de l'effacement immédiat des notifications actives
+  useEffect(() => {
+    const handleClear = (e: any) => {
+      const convId = e?.detail?.conversationId;
+      if (convId) {
+        setToasts((prev) => prev.filter((t) => t.conversationId !== convId));
+      } else {
+        setToasts([]);
+      }
+    };
+    window.addEventListener("clear-active-notifications", handleClear);
+    return () => window.removeEventListener("clear-active-notifications", handleClear);
+  }, []);
 
   // Demander la permission des notifications navigateur au premier clic utilisateur si par défaut
   useEffect(() => {
@@ -91,6 +117,7 @@ export default function FloatingNotificationManager() {
   const handleToastClick = (toast: FloatingToast) => {
     removeToast(toast.id);
     if (toast.conversationId) {
+      void dismissActivePushNotifications({ conversationId: toast.conversationId });
       router.push("/messages");
     } else {
       router.push("/notifications");

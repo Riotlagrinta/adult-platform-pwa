@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Phone,
   PhoneOff,
@@ -10,11 +10,13 @@ import {
   VideoOff,
   Volume2,
   VolumeX,
+  Headphones,
   Bell,
   X,
 } from "lucide-react";
 import { useCall } from "@/context/CallContext";
 import { toPublicUrl } from "@/lib/api";
+import { dismissActivePushNotifications } from "@/lib/push";
 
 export default function CallModal() {
   const {
@@ -38,76 +40,150 @@ export default function CallModal() {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const earpieceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speakerVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Attachement du flux local (caméra utilisateur)
+  // Nom de l'appareil Bluetooth / AirPods connecté si détecté
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState<string | null>(null);
+
+  // 1. Détection des périphériques Bluetooth / AirPods / Casques
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
+
+    const checkAudioDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const bt = devices.find(
+          (d) =>
+            d.kind === "audiooutput" &&
+            (d.label.toLowerCase().includes("bluetooth") ||
+              d.label.toLowerCase().includes("airpod") ||
+              d.label.toLowerCase().includes("buds") ||
+              d.label.toLowerCase().includes("headset") ||
+              d.label.toLowerCase().includes("casque") ||
+              d.label.toLowerCase().includes("écouteur"))
+        );
+        if (bt && bt.label) {
+          setBluetoothDeviceName(bt.label);
+        } else {
+          setBluetoothDeviceName(null);
+        }
+      } catch (e) {
+        console.warn("Échec détection périphériques audio:", e);
+      }
+    };
+
+    checkAudioDevices();
+    navigator.mediaDevices.addEventListener("devicechange", checkAudioDevices);
+    return () => {
+      navigator.mediaDevices.removeEventListener("devicechange", checkAudioDevices);
+    };
+  }, []);
+
+  // 2. Attachement du flux local (caméra utilisateur)
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream, callStatus, isVideo]);
 
-  // Attachement du flux distant (caméra / audio partenaire)
+  // 3. Routage Physique Audio Mobile (Haut-Parleur vs Écouteur vs AirPods)
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (!remoteStream) {
+      if (earpieceAudioRef.current) earpieceAudioRef.current.srcObject = null;
+      if (speakerVideoRef.current) speakerVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      return;
     }
-    if (remoteAudioRef.current && remoteStream) {
-      remoteAudioRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream, callStatus, isVideo]);
 
-  // Gestion du mode Haut-Parleur (volume et routage de sortie)
-  useEffect(() => {
-    const audioEl = remoteAudioRef.current;
-    const videoEl = remoteVideoRef.current;
-
-    const applySpeakerphone = async () => {
-      // 1. Contrôle du gain de volume
-      if (audioEl) {
-        audioEl.volume = isSpeakerOn ? 1.0 : 0.25;
-      }
-      if (videoEl) {
-        videoEl.volume = isSpeakerOn ? 1.0 : 0.25;
-      }
-
-      // 2. Si le navigateur supporte setSinkId (Chrome / Edge / Android)
-      const targetEl = isVideo ? videoEl : audioEl;
-      if (targetEl && typeof (targetEl as any).setSinkId === "function") {
-        try {
-          if (navigator.mediaDevices?.enumerateDevices) {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const outputs = devices.filter((d) => d.kind === "audiooutput");
-            if (outputs.length > 1) {
-              const speakerDevice = outputs.find((d) =>
-                d.label.toLowerCase().includes("speaker") ||
-                d.label.toLowerCase().includes("haut-parleur") ||
-                d.label.toLowerCase().includes("loudspeaker")
-              );
-              const earpieceDevice = outputs.find((d) =>
-                d.label.toLowerCase().includes("earpiece") ||
-                d.label.toLowerCase().includes("écouteur") ||
-                d.label.toLowerCase().includes("receiver")
-              );
-              const targetSink = isSpeakerOn
-                ? (speakerDevice?.deviceId || "default")
-                : (earpieceDevice?.deviceId || outputs[0].deviceId);
-
-              await (targetEl as any).setSinkId(targetSink);
-            }
+    if (isVideo) {
+      // En appel vidéo : affichage sur le remoteVideoRef
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        // Si haut-parleur désactivé, couper le son de la vidéo et router vers l'écouteur d'oreille
+        if (!isSpeakerOn) {
+          remoteVideoRef.current.muted = true;
+          if (earpieceAudioRef.current) {
+            earpieceAudioRef.current.srcObject = remoteStream;
+            earpieceAudioRef.current.muted = false;
           }
-        } catch (err) {
-          console.warn("setSinkId non disponible ou non autorisé:", err);
+        } else {
+          remoteVideoRef.current.muted = false;
+          if (earpieceAudioRef.current) {
+            earpieceAudioRef.current.srcObject = null;
+          }
         }
       }
-    };
+    } else {
+      // En appel audio pur :
+      if (isSpeakerOn) {
+        // En mode Haut-parleur : jouer sur l'élément vidéo caché force Android/iOS en mode Multimédia Haut-Parleur !
+        if (speakerVideoRef.current) {
+          speakerVideoRef.current.srcObject = remoteStream;
+          speakerVideoRef.current.muted = false;
+        }
+        if (earpieceAudioRef.current) {
+          earpieceAudioRef.current.srcObject = null;
+        }
+      } else {
+        // En mode Écouteur : jouer sur l'élément audio force Android/iOS en mode Téléphonie Écouteur d'oreille !
+        if (earpieceAudioRef.current) {
+          earpieceAudioRef.current.srcObject = remoteStream;
+          earpieceAudioRef.current.muted = false;
+        }
+        if (speakerVideoRef.current) {
+          speakerVideoRef.current.srcObject = null;
+        }
+      }
+    }
+  }, [remoteStream, isSpeakerOn, isVideo, callStatus]);
 
-    applySpeakerphone();
-  }, [isSpeakerOn, isVideo, remoteStream]);
+  // 4. Fermer les notifications push associées à l'appel dès qu'on décroche ou raccroche
+  useEffect(() => {
+    if (callStatus === "connected" || callStatus === "ended") {
+      if (partner?.id) {
+        void dismissActivePushNotifications({ tag: `call-${partner.id}` });
+      }
+    }
+  }, [callStatus, partner?.id]);
 
   if (callStatus === "idle") {
     return null;
   }
+
+  // 5. Gestionnaire de bascule audio avec support natif selectAudioOutput() (AirPods/Bluetooth)
+  const handleAudioRoutingClick = async () => {
+    // Si l'API W3C selectAudioOutput est disponible (Chromium Android / Edge / Chrome)
+    if (
+      typeof navigator !== "undefined" &&
+      "mediaDevices" in navigator &&
+      "selectAudioOutput" in navigator.mediaDevices
+    ) {
+      try {
+        const selected = await (navigator.mediaDevices as any).selectAudioOutput();
+        if (selected?.deviceId) {
+          const activeEl = isVideo ? remoteVideoRef.current : (isSpeakerOn ? speakerVideoRef.current : earpieceAudioRef.current);
+          if (activeEl && typeof (activeEl as any).setSinkId === "function") {
+            await (activeEl as any).setSinkId(selected.deviceId);
+          }
+          const isLoudspeaker =
+            selected.label.toLowerCase().includes("speaker") ||
+            selected.label.toLowerCase().includes("haut-parleur") ||
+            selected.label.toLowerCase().includes("loudspeaker");
+          if (isLoudspeaker !== isSpeakerOn) {
+            toggleSpeaker();
+          }
+          return;
+        }
+      } catch (err: any) {
+        // Si l'utilisateur annule le sélecteur, ne rien faire
+        if (err.name === "AbortError" || err.name === "NotAllowedError") return;
+      }
+    }
+
+    // Bascule classique Haut-parleur <-> Écouteur
+    toggleSpeaker();
+  };
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -120,13 +196,15 @@ export default function CallModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md animate-fadeIn select-none">
-      {/* Audio distant pour garantir le son en toutes circonstances */}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+      {/* Élément audio pour mode Écouteur d'oreille / Téléphonie discrète */}
+      <audio ref={earpieceAudioRef} autoPlay playsInline />
+
+      {/* Élément vidéo invisible forçant la sortie Haut-Parleur sur mobile en appel vocal */}
+      <video ref={speakerVideoRef} autoPlay playsInline className="hidden" />
 
       {/* CAS 1 : Appel Entrant (Incoming) */}
       {callStatus === "incoming" && (
         <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900 to-neutral-950 border border-neutral-800 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
-          {/* Avatar avec halo pulsant */}
           <div className="relative my-6">
             <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
             <span className="absolute -inset-3 rounded-full bg-emerald-500/10 animate-pulse" />
@@ -147,12 +225,11 @@ export default function CallModal() {
           </p>
 
           <p className="text-xs text-neutral-400 mt-4 px-4">
-            Connexion directe sécurisée P2P. Votre numéro reste strictement confidentiel.
+            Connexion directe chiffrée P2P. Votre numéro reste strictement confidentiel.
           </p>
 
           {/* Boutons Décrocher / Raccrocher */}
           <div className="flex items-center justify-center gap-8 mt-8 w-full">
-            {/* Bouton Refuser */}
             <button
               type="button"
               onClick={rejectCall}
@@ -164,7 +241,6 @@ export default function CallModal() {
               <span className="text-xs text-neutral-300 font-medium">Refuser</span>
             </button>
 
-            {/* Bouton Accepter */}
             <button
               type="button"
               onClick={acceptCall}
@@ -224,7 +300,7 @@ export default function CallModal() {
       {/* CAS 3 : Appel Connecté (Connected) */}
       {callStatus === "connected" && (
         <div className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-neutral-950 text-white">
-          {/* Header de l'appel : Statut et Durée */}
+          {/* Header de l'appel : Statut, Durée et Périphérique Audio */}
           <div className="absolute top-0 inset-x-0 z-30 p-4 pt-[calc(1rem+env(safe-area-inset-top))] flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 bg-neutral-800 flex items-center justify-center text-sm font-bold">
@@ -237,9 +313,17 @@ export default function CallModal() {
               </div>
               <div>
                 <h4 className="font-bold text-sm leading-none drop-shadow">{partner?.displayName}</h4>
-                <span className="text-xs text-emerald-400 font-mono font-medium drop-shadow">
-                  {formatDuration(callDuration)}
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-emerald-400 font-mono font-medium drop-shadow">
+                    {formatDuration(callDuration)}
+                  </span>
+                  {bluetoothDeviceName && (
+                    <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <Headphones className="w-3 h-3" />
+                      <span className="truncate max-w-[120px]">{bluetoothDeviceName}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -261,7 +345,6 @@ export default function CallModal() {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Si pas encore de vidéo distante ou caméra coupée par le partenaire */}
                 {(!remoteStream || remoteStream.getVideoTracks().length === 0) && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/90 backdrop-blur-sm">
                     <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neutral-700 bg-neutral-800 flex items-center justify-center text-2xl font-bold mb-3 shadow-xl">
@@ -316,6 +399,9 @@ export default function CallModal() {
                 <div className="text-center">
                   <h3 className="text-2xl font-black">{partner?.displayName}</h3>
                   <p className="text-emerald-400 text-sm font-mono mt-1">{formatDuration(callDuration)}</p>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {isSpeakerOn ? "📢 Haut-parleur actif" : "📱 Écouteur discret actif"}
+                  </p>
                 </div>
 
                 {/* Ondes sonores visuelles */}
@@ -336,7 +422,7 @@ export default function CallModal() {
             )}
           </div>
 
-          {/* Barre d'outils inférieure : Mute, Vidéo, Raccrocher */}
+          {/* Barre d'outils inférieure : Mute, Haut-Parleur, Vidéo, Raccrocher */}
           <div className="relative z-30 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-center justify-center gap-4 sm:gap-6">
             {/* Bouton Mute Micro */}
             <button
@@ -352,18 +438,28 @@ export default function CallModal() {
               {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
 
-            {/* Bouton Haut-Parleur (Speakerphone) */}
+            {/* Bouton Haut-Parleur / Sortie Audio (AirPods, Bluetooth, Haut-parleur) */}
             <button
               type="button"
-              onClick={toggleSpeaker}
-              className={`p-4 rounded-full transition active:scale-95 cursor-pointer ${
+              onClick={handleAudioRoutingClick}
+              className={`p-4 rounded-full transition active:scale-95 cursor-pointer flex items-center justify-center ${
                 isSpeakerOn
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/20"
-                  : "bg-white/10 hover:bg-white/20 text-white/60 border border-white/10"
+                  ? "bg-emerald-500/25 text-emerald-400 border border-emerald-500/50 shadow-lg shadow-emerald-500/30"
+                  : "bg-white/10 hover:bg-white/20 text-white/70 border border-white/10"
               }`}
-              title={isSpeakerOn ? "Haut-parleur activé (toucher pour écouteur)" : "Écouteur activé (toucher pour haut-parleur)"}
+              title={
+                isSpeakerOn
+                  ? "Haut-parleur actif (toucher pour écouteur ou Bluetooth)"
+                  : "Écouteur actif (toucher pour haut-parleur)"
+              }
             >
-              {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+              {bluetoothDeviceName ? (
+                <Headphones className="w-6 h-6 text-cyan-400" />
+              ) : isSpeakerOn ? (
+                <Volume2 className="w-6 h-6" />
+              ) : (
+                <VolumeX className="w-6 h-6" />
+              )}
             </button>
 
             {/* Bouton Couper/Activer la Caméra (disponible en mode vidéo) */}
