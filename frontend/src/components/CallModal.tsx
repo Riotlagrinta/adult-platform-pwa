@@ -9,6 +9,7 @@ import {
   Video,
   VideoOff,
   Volume2,
+  VolumeX,
   Bell,
   X,
 } from "lucide-react";
@@ -31,6 +32,8 @@ export default function CallModal() {
     endCall,
     toggleMute,
     toggleVideo,
+    isSpeakerOn,
+    toggleSpeaker,
   } = useCall();
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -53,6 +56,54 @@ export default function CallModal() {
       remoteAudioRef.current.srcObject = remoteStream;
     }
   }, [remoteStream, callStatus, isVideo]);
+
+  // Gestion du mode Haut-Parleur (volume et routage de sortie)
+  useEffect(() => {
+    const audioEl = remoteAudioRef.current;
+    const videoEl = remoteVideoRef.current;
+
+    const applySpeakerphone = async () => {
+      // 1. Contrôle du gain de volume
+      if (audioEl) {
+        audioEl.volume = isSpeakerOn ? 1.0 : 0.25;
+      }
+      if (videoEl) {
+        videoEl.volume = isSpeakerOn ? 1.0 : 0.25;
+      }
+
+      // 2. Si le navigateur supporte setSinkId (Chrome / Edge / Android)
+      const targetEl = isVideo ? videoEl : audioEl;
+      if (targetEl && typeof (targetEl as any).setSinkId === "function") {
+        try {
+          if (navigator.mediaDevices?.enumerateDevices) {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const outputs = devices.filter((d) => d.kind === "audiooutput");
+            if (outputs.length > 1) {
+              const speakerDevice = outputs.find((d) =>
+                d.label.toLowerCase().includes("speaker") ||
+                d.label.toLowerCase().includes("haut-parleur") ||
+                d.label.toLowerCase().includes("loudspeaker")
+              );
+              const earpieceDevice = outputs.find((d) =>
+                d.label.toLowerCase().includes("earpiece") ||
+                d.label.toLowerCase().includes("écouteur") ||
+                d.label.toLowerCase().includes("receiver")
+              );
+              const targetSink = isSpeakerOn
+                ? (speakerDevice?.deviceId || "default")
+                : (earpieceDevice?.deviceId || outputs[0].deviceId);
+
+              await (targetEl as any).setSinkId(targetSink);
+            }
+          }
+        } catch (err) {
+          console.warn("setSinkId non disponible ou non autorisé:", err);
+        }
+      }
+    };
+
+    applySpeakerphone();
+  }, [isSpeakerOn, isVideo, remoteStream]);
 
   if (callStatus === "idle") {
     return null;
@@ -299,6 +350,20 @@ export default function CallModal() {
               title={isMuted ? "Réactiver le micro" : "Couper le micro"}
             >
               {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+            </button>
+
+            {/* Bouton Haut-Parleur (Speakerphone) */}
+            <button
+              type="button"
+              onClick={toggleSpeaker}
+              className={`p-4 rounded-full transition active:scale-95 cursor-pointer ${
+                isSpeakerOn
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/20"
+                  : "bg-white/10 hover:bg-white/20 text-white/60 border border-white/10"
+              }`}
+              title={isSpeakerOn ? "Haut-parleur activé (toucher pour écouteur)" : "Écouteur activé (toucher pour haut-parleur)"}
+            >
+              {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
             </button>
 
             {/* Bouton Couper/Activer la Caméra (disponible en mode vidéo) */}

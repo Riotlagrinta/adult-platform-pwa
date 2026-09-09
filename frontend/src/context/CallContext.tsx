@@ -30,6 +30,8 @@ export interface CallContextType {
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
+  isSpeakerOn: boolean;
+  toggleSpeaker: () => void;
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -42,6 +44,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isVideo, setIsVideo] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
   const [endReason, setEndReason] = useState<string | null>(null);
 
@@ -108,6 +111,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setEndReason(null);
     setIsMuted(false);
     setIsVideoEnabled(true);
+    setIsSpeakerOn(true);
   }, []);
 
   // Affichage d'une fin d'appel propre avec raison sans jamais bloquer l'UI
@@ -362,6 +366,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── Contrôle Haut-Parleur (Speakerphone) ──────────────────────────────
+  const toggleSpeaker = () => {
+    setIsSpeakerOn((prev) => {
+      const next = !prev;
+      haptics.light();
+      return next;
+    });
+  };
+
   // ── Écoute des événements Socket.io Signaling ─────────────────────────
   useEffect(() => {
     if (!token) return;
@@ -489,6 +502,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         endCall,
         toggleMute,
         toggleVideo,
+        isSpeakerOn,
+        toggleSpeaker,
       }}
     >
       {children}
