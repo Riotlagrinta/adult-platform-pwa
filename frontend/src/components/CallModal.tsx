@@ -9,6 +9,8 @@ import {
   Video,
   VideoOff,
   Volume2,
+  Bell,
+  X,
 } from "lucide-react";
 import { useCall } from "@/context/CallContext";
 import { toPublicUrl } from "@/lib/api";
@@ -21,6 +23,7 @@ export default function CallModal() {
     isMuted,
     isVideoEnabled,
     callDuration,
+    endReason,
     localStream,
     remoteStream,
     acceptCall,
@@ -93,7 +96,7 @@ export default function CallModal() {
           </p>
 
           <p className="text-xs text-neutral-400 mt-4 px-4">
-            Connexion directe sécurisée de bout en bout. Votre numéro reste strictement privé.
+            Connexion directe sécurisée P2P. Votre numéro reste strictement confidentiel.
           </p>
 
           {/* Boutons Décrocher / Raccrocher */}
@@ -125,7 +128,7 @@ export default function CallModal() {
         </div>
       )}
 
-      {/* CAS 2 : Appel Sortant (Calling - en attente de réponse) */}
+      {/* CAS 2 : Appel Sortant (Calling - en cours de sonnerie) */}
       {callStatus === "calling" && (
         <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900 to-neutral-950 border border-neutral-800 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
           <div className="relative my-6">
@@ -142,10 +145,15 @@ export default function CallModal() {
           </div>
 
           <h3 className="text-xl font-black tracking-tight">{partner?.displayName ?? "Membre OnlyAdults"}</h3>
-          <p className="text-sm text-neutral-400 mt-1 flex items-center gap-1.5">
+          <p className="text-sm text-cyan-400 font-semibold mt-1 flex items-center gap-1.5 animate-pulse">
             {isVideo ? <Video className="w-4 h-4 text-cyan-400" /> : <Phone className="w-4 h-4 text-cyan-400" />}
             <span>Appel en cours... Sonnerie</span>
           </p>
+
+          <div className="mt-3 px-4 py-2 rounded-xl bg-neutral-800/60 border border-neutral-700/50 text-[11px] text-neutral-300 flex items-center gap-2">
+            <Bell className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+            <span>Notification envoyée à votre interlocuteur</span>
+          </div>
 
           <div className="mt-8">
             <button
@@ -324,13 +332,21 @@ export default function CallModal() {
 
       {/* CAS 4 : Fin d'appel (Ended) */}
       {callStatus === "ended" && (
-        <div className="w-full max-w-xs mx-4 bg-neutral-900 border border-neutral-800 text-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
+        <div className="relative w-full max-w-xs mx-4 bg-neutral-900 border border-neutral-800 text-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
+          <button
+            type="button"
+            onClick={endCall}
+            className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
+            title="Fermer"
+          >
+            <X className="w-4 h-4" />
+          </button>
           <div className="w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3">
             <PhoneOff className="w-7 h-7" />
           </div>
           <h4 className="font-bold text-base">Appel terminé</h4>
-          <p className="text-xs text-neutral-400 mt-1">
-            {callDuration > 0 ? `Durée : ${formatDuration(callDuration)}` : "L'appel a pris fin"}
+          <p className="text-xs text-neutral-300 mt-1.5 font-medium">
+            {endReason || (callDuration > 0 ? `Durée : ${formatDuration(callDuration)}` : "L'appel a pris fin")}
           </p>
         </div>
       )}

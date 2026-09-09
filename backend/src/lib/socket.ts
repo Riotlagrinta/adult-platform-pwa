@@ -5,6 +5,7 @@ import { prisma } from './prisma.js';
 import { normalizePair } from '../utils/conversation.js';
 import type { MediaInput } from './media.js';
 import { signUrlIfNeeded } from './storage-online.js';
+import { sendPushNotification } from './push.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -342,20 +343,13 @@ export function initSocket(httpServer: HttpServer) {
           return;
         }
 
-        // Vérifier si l'utilisateur est actuellement connecté
-        const online = isUserOnline(targetUserId);
-        if (!online) {
-          ack?.({ ok: false, error: 'L\'utilisateur est actuellement hors ligne' });
-          socket.emit('call:unavailable', { targetUserId, reason: 'offline' });
-          return;
-        }
-
         // Récupérer les informations de l'appelant pour l'affichage entrant
         const caller = await prisma.user.findUnique({
           where: { id: userId },
           select: { id: true, displayName: true, avatarUrl: true },
         });
 
+        // 1. Émettre l'appel entrant via Socket.io aux sessions actives du destinataire
         emitToUser(targetUserId, 'call:incoming', {
           callerId: userId,
           callerName: caller?.displayName || 'Utilisateur',
@@ -364,6 +358,46 @@ export function initSocket(httpServer: HttpServer) {
           conversationId,
         });
 
+        // 2. Envoyer systématiquement une notification Push (Web/PWA/Mobile même en arrière-plan)
+        const callType = isVideo ? 'vidéo' : 'vocal';
+        const callTitle = `📞 Appel ${callType} entrant`;
+        const callBody = `${caller?.displayName || 'Un membre'} vous appelle en direct...`;
+
+        sendPushNotification(targetUserId, {
+          title: callTitle,
+          body: callBody,
+          url: `/messages`,
+          tag: `call-${userId}`,
+          data: {
+            type: 'INCOMING_CALL',
+            callerId: userId,
+            callerName: caller?.displayName || 'Utilisateur',
+            callerAvatar: caller?.avatarUrl || null,
+            isVideo: Boolean(isVideo),
+          },
+        }).catch((err) => {
+          console.warn('[Push] Erreur notification appel:', err);
+        });
+
+        // 3. Enregistrer la notification dans l'historique utilisateur
+        prisma.notification.create({
+          data: {
+            userId: targetUserId,
+            type: 'INCOMING_CALL',
+            title: callTitle,
+            body: callBody,
+            data: {
+              callerId: userId,
+              callerName: caller?.displayName || 'Utilisateur',
+              isVideo: Boolean(isVideo),
+              conversationId,
+            },
+          },
+        }).then((notif) => {
+          emitToUser(targetUserId, 'notification:new', notif);
+        }).catch(() => {});
+
+        // L'appel sonne normalement pour l'appelant (jamais rejeté arbitrairement)
         ack?.({ ok: true });
       } catch (err) {
         console.error('[Socket.io] call:initiate error:', err);

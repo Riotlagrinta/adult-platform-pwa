@@ -21,6 +21,7 @@ export interface CallContextType {
   isMuted: boolean;
   isVideoEnabled: boolean;
   callDuration: number;
+  endReason: string | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   startCall: (target: CallPartner, isVideo?: boolean) => Promise<void>;
@@ -42,6 +43,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
+  const [endReason, setEndReason] = useState<string | null>(null);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -49,15 +51,74 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const partnerRef = useRef<CallPartner | null>(null);
-  const callDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const callStatusRef = useRef<CallStatus>("idle");
+  const isVideoRef = useRef(false);
 
-  // Synchronisation des refs
+  const callDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Synchronisation des refs pour éviter toute closure obsolète
   useEffect(() => {
     partnerRef.current = partner;
   }, [partner]);
 
+  useEffect(() => {
+    callStatusRef.current = callStatus;
+  }, [callStatus]);
+
+  useEffect(() => {
+    isVideoRef.current = isVideo;
+  }, [isVideo]);
+
+  // Nettoyage complet et retour à l'état inactif
   const cleanupCall = useCallback(() => {
     stopRingtone();
+
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current);
+      autoCloseTimeoutRef.current = null;
+    }
+
+    if (callDurationTimerRef.current) {
+      clearInterval(callDurationTimerRef.current);
+      callDurationTimerRef.current = null;
+    }
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCallStatus("idle");
+    setPartner(null);
+    setCallDuration(0);
+    setEndReason(null);
+    setIsMuted(false);
+    setIsVideoEnabled(true);
+  }, []);
+
+  // Affichage d'une fin d'appel propre avec raison sans jamais bloquer l'UI
+  const closeWithFeedback = useCallback((reason: string, playTone = true) => {
+    stopRingtone();
+
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
     if (callDurationTimerRef.current) {
       clearInterval(callDurationTimerRef.current);
       callDurationTimerRef.current = null;
@@ -74,19 +135,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       pcRef.current = null;
     }
 
-    setRemoteStream(null);
-    setCallStatus("idle");
-    setPartner(null);
-    setCallDuration(0);
-    setIsMuted(false);
-    setIsVideoEnabled(true);
-  }, []);
+    setEndReason(reason);
+    setCallStatus("ended");
+
+    if (playTone) {
+      playEndCallTone();
+    }
+
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current);
+    }
+    autoCloseTimeoutRef.current = setTimeout(() => {
+      cleanupCall();
+    }, 2000);
+  }, [cleanupCall]);
 
   // Décrocher et acquérir les flux micro / caméra
   const acquireMedia = async (video: boolean): Promise<MediaStream | null> => {
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        alert("Les appels audio/vidéo ne sont pas supportés sur ce navigateur.");
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
         return null;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -107,12 +174,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setLocalStream(stream);
       return stream;
     } catch (err: any) {
-      console.error("Erreur accès micro/caméra:", err);
-      alert(
-        video
-          ? "Impossible d'accéder à la caméra ou au micro. Veuillez autoriser les permissions."
-          : "Impossible d'accéder au microphone. Veuillez autoriser les permissions."
-      );
+      console.warn("Erreur accès micro/caméra:", err);
       return null;
     }
   };
@@ -155,8 +217,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") {
         stopRingtone();
+        if (ringingTimeoutRef.current) {
+          clearTimeout(ringingTimeoutRef.current);
+          ringingTimeoutRef.current = null;
+        }
         setCallStatus("connected");
-        // Démarrage du chronomètre
         if (!callDurationTimerRef.current) {
           callDurationTimerRef.current = setInterval(() => {
             setCallDuration((prev) => prev + 1);
@@ -167,8 +232,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         pc.connectionState === "failed" ||
         pc.connectionState === "closed"
       ) {
-        playEndCallTone();
-        cleanupCall();
+        closeWithFeedback("Connexion interrompue");
       }
     };
 
@@ -178,40 +242,62 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   // ── Démarrer un Appel Sortant ─────────────────────────────────────────
   const startCall = async (target: CallPartner, video = false) => {
     if (!token || !user) return;
+    if (callStatusRef.current !== "idle") return;
+
     haptics.medium();
     setIsVideo(video);
     setPartner(target);
     setCallStatus("calling");
+    setEndReason(null);
     playRingtone();
 
+    // Délai d'attente de sonnerie de 45 secondes (si l'interlocuteur ne décroche pas)
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+    }
+    ringingTimeoutRef.current = setTimeout(() => {
+      closeWithFeedback("Pas de réponse");
+    }, 45000);
+
+    // Initialisation des périphériques audio/vidéo
     const stream = await acquireMedia(video);
     if (!stream) {
-      cleanupCall();
+      closeWithFeedback(video ? "Accès à la caméra ou au microphone refusé." : "Accès au microphone refusé.");
       return;
     }
 
+    // Émission du signal d'appel
     const socket = getSocket(token);
-    socket.emit("call:initiate", {
-      targetUserId: target.id,
-      isVideo: video,
-    }, (res: { ok: boolean; error?: string }) => {
-      if (!res?.ok) {
-        alert(res?.error || "Impossible de joindre cet utilisateur.");
-        playEndCallTone();
-        cleanupCall();
+    socket.emit(
+      "call:initiate",
+      {
+        targetUserId: target.id,
+        isVideo: video,
+      },
+      (res: { ok: boolean; error?: string }) => {
+        if (!res?.ok) {
+          closeWithFeedback(res?.error || "Impossible d'établir la communication.");
+        }
       }
-    });
+    );
   };
 
   // ── Accepter un Appel Entrant ─────────────────────────────────────────
   const acceptCall = async () => {
     const currentPartner = partnerRef.current;
     if (!currentPartner || !token) return;
+
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
     haptics.success();
     stopRingtone();
 
-    const stream = await acquireMedia(isVideo);
+    const stream = await acquireMedia(isVideoRef.current);
     if (!stream) {
+      closeWithFeedback("Accès au microphone requis pour décrocher.");
       rejectCall();
       return;
     }
@@ -237,11 +323,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const socket = getSocket(token);
       socket.emit("call:reject", { callerId: currentPartner.id });
     }
-    playEndCallTone();
-    cleanupCall();
+    closeWithFeedback("Appel refusé");
   };
 
-  // ── Raccrocher / Mettre fin à l'Appel ──────────────────────────────────
+  // ── Raccrocher / Mettre fin à l'Appel (Annuler) ────────────────────────
   const endCall = () => {
     const currentPartner = partnerRef.current;
     if (currentPartner && token) {
@@ -249,7 +334,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const socket = getSocket(token);
       socket.emit("call:end", { targetUserId: currentPartner.id });
     }
-    playEndCallTone();
+    // Nettoyage immédiat sans blocage pour une réactivité instantanée
     cleanupCall();
   };
 
@@ -289,8 +374,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       callerAvatar?: string | null;
       isVideo: boolean;
     }) => {
-      // Si déjà en appel, ignorer ou occuper
-      if (callStatus !== "idle") {
+      // Si déjà en communication, renvoyer occupé
+      if (callStatusRef.current !== "idle") {
         socket.emit("call:reject", { callerId: data.callerId, reason: "busy" });
         return;
       }
@@ -300,7 +385,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         displayName: data.callerName,
         avatarUrl: data.callerAvatar,
       });
-      setIsVideo(data.isVideo);
+      setIsVideo(Boolean(data.isVideo));
       setCallStatus("incoming");
       playRingtone();
       haptics.heavy();
@@ -309,6 +394,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     // 2. L'appelé a accepté l'appel -> L'appelant génère l'offre WebRTC
     const handleCallAccepted = async (data: { recipientId: string }) => {
       stopRingtone();
+      if (ringingTimeoutRef.current) {
+        clearTimeout(ringingTimeoutRef.current);
+        ringingTimeoutRef.current = null;
+      }
       setCallStatus("connected");
 
       const pc = createPeerConnection(data.recipientId);
@@ -320,28 +409,24 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           signal: { sdp: pc.localDescription },
         });
       } catch (err) {
-        console.error("Erreur création offre WebRTC:", err);
+        console.warn("Erreur création offre WebRTC:", err);
       }
     };
 
     // 3. L'appel a été refusé
-    const handleCallRejected = () => {
-      alert("L'appel a été refusé ou l'utilisateur est occupé.");
-      playEndCallTone();
-      cleanupCall();
+    const handleCallRejected = (data: { reason?: string }) => {
+      const reasonText = data?.reason === "busy" ? "L'interlocuteur est déjà en ligne" : "L'appel a été refusé";
+      closeWithFeedback(reasonText);
     };
 
-    // 4. L'utilisateur est indisponible / hors ligne
+    // 4. L'utilisateur est indisponible
     const handleCallUnavailable = () => {
-      alert("L'utilisateur est actuellement indisponible ou hors ligne.");
-      playEndCallTone();
-      cleanupCall();
+      closeWithFeedback("L'interlocuteur est indisponible");
     };
 
     // 5. L'interlocuteur a raccroché
     const handleCallEnded = () => {
-      playEndCallTone();
-      cleanupCall();
+      closeWithFeedback("L'interlocuteur a raccroché");
     };
 
     // 6. Échange de signalisation WebRTC (Offer / Answer / ICE)
@@ -365,7 +450,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
         }
       } catch (err) {
-        console.error("Erreur signal WebRTC:", err);
+        console.warn("Erreur signal WebRTC:", err);
       }
     };
 
@@ -384,7 +469,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       socket.off("call:ended", handleCallEnded);
       socket.off("call:signal", handleCallSignal);
     };
-  }, [token, callStatus, isVideo, cleanupCall]);
+  }, [token, closeWithFeedback]);
 
   return (
     <CallContext.Provider
@@ -395,6 +480,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         isMuted,
         isVideoEnabled,
         callDuration,
+        endReason,
         localStream,
         remoteStream,
         startCall,
