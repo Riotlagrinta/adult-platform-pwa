@@ -319,6 +319,85 @@ export function initSocket(httpServer: HttpServer) {
       }
     });
 
+    // ── WebRTC Audio / Vidéo Call Signaling ────────────────────────────
+    socket.on('call:initiate', async (data: { targetUserId: string; isVideo?: boolean; conversationId?: string }, ack?: (res: { ok: boolean; error?: string }) => void) => {
+      try {
+        const { targetUserId, isVideo, conversationId } = data || {};
+        if (!targetUserId || targetUserId === userId) {
+          ack?.({ ok: false, error: 'Cible d\'appel invalide' });
+          return;
+        }
+
+        // Vérifier si un blocage existe
+        const isBlocked = await prisma.block.findFirst({
+          where: {
+            OR: [
+              { blockerId: userId, blockedId: targetUserId },
+              { blockerId: targetUserId, blockedId: userId },
+            ],
+          },
+        });
+        if (isBlocked) {
+          ack?.({ ok: false, error: 'Action impossible : communication bloquée.' });
+          return;
+        }
+
+        // Vérifier si l'utilisateur est actuellement connecté
+        const online = isUserOnline(targetUserId);
+        if (!online) {
+          ack?.({ ok: false, error: 'L\'utilisateur est actuellement hors ligne' });
+          socket.emit('call:unavailable', { targetUserId, reason: 'offline' });
+          return;
+        }
+
+        // Récupérer les informations de l'appelant pour l'affichage entrant
+        const caller = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, displayName: true, avatarUrl: true },
+        });
+
+        emitToUser(targetUserId, 'call:incoming', {
+          callerId: userId,
+          callerName: caller?.displayName || 'Utilisateur',
+          callerAvatar: caller?.avatarUrl || null,
+          isVideo: Boolean(isVideo),
+          conversationId,
+        });
+
+        ack?.({ ok: true });
+      } catch (err) {
+        console.error('[Socket.io] call:initiate error:', err);
+        ack?.({ ok: false, error: 'Erreur lors de l\'initialisation de l\'appel' });
+      }
+    });
+
+    socket.on('call:accept', (data: { callerId: string }) => {
+      if (data?.callerId) {
+        emitToUser(data.callerId, 'call:accepted', { recipientId: userId });
+      }
+    });
+
+    socket.on('call:reject', (data: { callerId: string; reason?: string }) => {
+      if (data?.callerId) {
+        emitToUser(data.callerId, 'call:rejected', { recipientId: userId, reason: data.reason || 'declined' });
+      }
+    });
+
+    socket.on('call:end', (data: { targetUserId: string }) => {
+      if (data?.targetUserId) {
+        emitToUser(data.targetUserId, 'call:ended', { fromUserId: userId });
+      }
+    });
+
+    socket.on('call:signal', (data: { targetUserId: string; signal: unknown }) => {
+      if (data?.targetUserId && data?.signal) {
+        emitToUser(data.targetUserId, 'call:signal', {
+          senderId: userId,
+          signal: data.signal,
+        });
+      }
+    });
+
     // ── Requête de statut de présence en temps réel ─────────────────────
     socket.on('presence:request', async (data: { targetUserId: string }, ack?: (response: { isOnline: boolean; lastSeenAt: string | null; isMutual: boolean }) => void) => {
       try {

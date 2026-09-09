@@ -8,6 +8,8 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PushNotificationBanner from "@/components/PushNotificationBanner";
 import IncidentNoticeModal from "@/components/IncidentNoticeModal";
 import FloatingNotificationManager from "@/components/FloatingNotificationManager";
+import { CallProvider } from "@/context/CallContext";
+import CallModal from "@/components/CallModal";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -68,13 +70,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--app-background)] text-[var(--app-foreground)] h-[100dvh] flex overflow-hidden`}
       >
         <AuthProvider>
-          <PWARegister />
-          <PWAInstallPrompt />
-          <PushNotificationBanner />
-          <IncidentNoticeModal />
-          <FloatingNotificationManager />
-          <Analytics />
-          <AppShell>{children}</AppShell>
+          <CallProvider>
+            <PWARegister />
+            <PWAInstallPrompt />
+            <PushNotificationBanner />
+            <IncidentNoticeModal />
+            <FloatingNotificationManager />
+            <CallModal />
+            <Analytics />
+            <AppShell>{children}</AppShell>
+          </CallProvider>
         </AuthProvider>
       </body>
     </html>

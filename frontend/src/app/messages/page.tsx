@@ -25,7 +25,10 @@ import {
   Mic,
   Trash2,
   Square,
+  Phone,
+  Video,
 } from "lucide-react";
+import { useCall } from "@/context/CallContext";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
 import AuthPanel from "@/components/AuthPanel";
@@ -139,6 +142,7 @@ function formatLastSeen(dateStr?: string | null): string {
 export default function MessagesPage() {
   const router = useRouter();
   const { token, user, ready, socket } = useAuth();
+  const { startCall } = useCall();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1277,6 +1281,44 @@ export default function MessagesPage() {
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Bouton Appel Audio WebRTC */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    startCall(
+                      {
+                        id: activePartner.id,
+                        displayName: activePartner.displayName,
+                        avatarUrl: activePartner.avatarUrl,
+                      },
+                      false,
+                    )
+                  }
+                  className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-emerald-500/15 text-emerald-500 hover:text-emerald-400 active:scale-95 transition shadow-sm"
+                  title="Lancer un appel vocal sécurisé"
+                >
+                  <Phone className="w-4 h-4" />
+                </button>
+
+                {/* Bouton Appel Vidéo WebRTC */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    startCall(
+                      {
+                        id: activePartner.id,
+                        displayName: activePartner.displayName,
+                        avatarUrl: activePartner.avatarUrl,
+                      },
+                      true,
+                    )
+                  }
+                  className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-cyan-500/15 text-cyan-500 hover:text-cyan-400 active:scale-95 transition shadow-sm"
+                  title="Lancer un appel vidéo sécurisé"
+                >
+                  <Video className="w-4 h-4" />
+                </button>
+
                 {/* Bouton Paramètres & Options de discussion WhatsApp */}
                 <button
                   onClick={() => setShowChatSettingsModal(true)}
