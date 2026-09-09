@@ -14,7 +14,7 @@ import {
 
 export default function ThemeSelector() {
   const [currentFamily, setCurrentFamily] = useState<ThemeFamily>("midnight");
-  const [currentMode, setCurrentMode] = useState<ThemeMode>("dark");
+  const [currentMode, setCurrentMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
     setCurrentFamily(resolveThemeFamily());

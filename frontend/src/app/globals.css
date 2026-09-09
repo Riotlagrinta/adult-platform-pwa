@@ -7,7 +7,6 @@
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. MIDNIGHT VELVET (Améthyste Sombre & Lilas Perlé) ── */
-:root,
 html.dark[data-theme="midnight"],
 html.dark:not([data-theme]) {
   --app-background: #09070f;
@@ -22,6 +21,7 @@ html.dark:not([data-theme]) {
   color-scheme: dark;
 }
 
+:root,
 html:not(.dark)[data-theme="midnight"],
 html:not(.dark):not([data-theme]) {
   --app-background: #f8f6fc;
@@ -302,53 +302,6 @@ input, textarea, [contenteditable="true"] {
 
 .animate-slideUp {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Variables utilitaires pour Safe Areas iOS */
-:root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-}
-
-/* ── ANIMATIONS DE CHARGEMENT ULTRA-FLUIDES ── */
-
-@keyframes shimmerWave {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.shimmer-skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--app-surface-soft) 0%,
-    color-mix(in srgb, var(--app-surface-soft) 70%, var(--app-foreground)) 50%,
-    var(--app-surface-soft) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmerWave 1.8s infinite ease-in-out;
-  will-change: background-position;
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.04);
-    opacity: 1;
-  }
-}
-
-.pulse-glow {
-  animation: pulseGlow 2s infinite ease-in-out;
-  will-change: transform, opacity;
 }
 
 .animate-fadeIn {

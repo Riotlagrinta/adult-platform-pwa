@@ -11,7 +11,7 @@ type ThemeToggleProps = {
 export default function ThemeToggle({ className }: ThemeToggleProps) {
   const [mode, setMode] = useState<ThemeMode>(() => {
     if (typeof document === "undefined") {
-      return "dark";
+      return "light";
     }
     return resolveThemeMode();
   });

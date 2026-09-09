@@ -113,13 +113,13 @@ export function resolveThemeFamily(): ThemeFamily {
 }
 
 export function resolveThemeMode(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const saved = window.localStorage.getItem(THEME_MODE_STORAGE_KEY) as ThemeMode | null;
   if (saved === "light" || saved === "dark") {
     return saved;
   }
-  // Par défaut en mode sombre pour une plateforme adulte
-  return "dark";
+  // Par défaut en mode clair
+  return "light";
 }
 
 export function applyTheme(family: ThemeFamily, mode: ThemeMode) {
