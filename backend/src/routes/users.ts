@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { signUrlIfNeeded } from '../lib/storage-online.js';
+import { isUserOnline, areMutualFollowers } from '../lib/socket.js';
 
 export const usersRouter = Router();
 
@@ -69,6 +70,7 @@ usersRouter.get('/:userId', requireAuth, async (req, res, next) => {
         bio: true,
         verificationStatus: true,
         profile: true,
+        lastSeenAt: true,
       },
     });
 
@@ -76,9 +78,15 @@ usersRouter.get('/:userId', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const isSelf = req.user!.id === userId;
+    const isMutual = isSelf || (await areMutualFollowers(req.user!.id, userId));
+
     const signedUser = {
       ...user,
       avatarUrl: await signUrlIfNeeded(user.avatarUrl),
+      isMutual,
+      isOnline: isMutual ? isUserOnline(userId) : null,
+      lastSeenAt: isMutual ? user.lastSeenAt : null,
     };
 
     res.json({ user: signedUser });

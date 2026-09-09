@@ -54,6 +54,7 @@ model User {
   bio                  String?
   avatarUrl            String?
   dateOfBirth          DateTime?
+  lastSeenAt           DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 

@@ -14,7 +14,10 @@ export function checkIsStandalone(): boolean {
       window.location.search.includes("standalone=true") ||
       window.location.search.includes("mode=pwa") ||
       window.location.search.includes("source=pwa") ||
-      localStorage.getItem("pwa_installed") === "true"
+      localStorage.getItem("pwa_installed") === "true" ||
+      Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
+      Boolean((window as any).Capacitor?.platform === "android") ||
+      Boolean((window as any).Capacitor?.platform === "ios")
     );
   } catch {
     return false;

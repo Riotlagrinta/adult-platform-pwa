@@ -4,6 +4,11 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireStaff } from '../middleware/auth.js';
 import { createNotification } from '../lib/notifications.js';
 import { signTextUrls } from '../lib/storage-online.js';
+import {
+  sendVerificationRequestReceivedEmail,
+  sendVerificationApprovedEmail,
+  sendVerificationRejectedEmail,
+} from '../lib/mailer.js';
 
 export const verificationRouter = Router();
 
@@ -37,6 +42,16 @@ verificationRouter.post('/request', requireAuth, async (req, res, next) => {
       where: { id: req.user!.id },
       data: { verificationStatus: 'PENDING_REVIEW' },
     });
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { email: true, displayName: true },
+    });
+    if (user?.email) {
+      sendVerificationRequestReceivedEmail(user.email, user.displayName, data.documentType).catch((err) => {
+        console.error('[Verification] Error sending confirmation email:', err);
+      });
+    }
 
     res.status(201).json({
       request: {
@@ -126,6 +141,23 @@ verificationRouter.post('/:id/review', requireAuth, requireStaff, async (req, re
         status: data.status,
       },
     });
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: request.userId },
+      select: { email: true, displayName: true },
+    });
+
+    if (targetUser?.email) {
+      if (data.status === 'APPROVED') {
+        sendVerificationApprovedEmail(targetUser.email, targetUser.displayName).catch((err) => {
+          console.error('[Verification] Error sending approval email:', err);
+        });
+      } else if (data.status === 'REJECTED') {
+        sendVerificationRejectedEmail(targetUser.email, targetUser.displayName, data.rejectionNote).catch((err) => {
+          console.error('[Verification] Error sending rejection email:', err);
+        });
+      }
+    }
 
     await prisma.adminAction.create({
       data: {

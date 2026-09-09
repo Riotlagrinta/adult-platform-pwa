@@ -22,6 +22,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { apiRequest, toPublicUrl } from "@/lib/api";
 import { soundManager } from "@/lib/sound";
+import {
+  getSavedWallpaper,
+  getSavedCustomWallpaper,
+  getSavedCustomDimming,
+  getWallpaperContainerStyle,
+} from "@/lib/wallpaper";
 
 type GroupItem = {
   id: string;
@@ -70,11 +76,19 @@ export default function CommunityPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [chatWallpaper, setChatWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
+  const [wallpaperDimming, setWallpaperDimming] = useState<number>(40);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedWp = localStorage.getItem("chat_wallpaper");
-      if (savedWp) setChatWallpaper(savedWp);
+      const syncWallpaper = () => {
+        setChatWallpaper(getSavedWallpaper());
+        setCustomPhotoUrl(getSavedCustomWallpaper());
+        setWallpaperDimming(getSavedCustomDimming());
+      };
+      syncWallpaper();
+      window.addEventListener("chatwallpaperchange", syncWallpaper);
+      return () => window.removeEventListener("chatwallpaperchange", syncWallpaper);
     }
   }, []);
 
@@ -346,7 +360,12 @@ export default function CommunityPage() {
             </div>
 
             {/* Corps des Messages du Groupe avec Fond d'écran WhatsApp */}
-            <div className={`flex-1 overflow-y-auto p-4 space-y-3.5 transition-colors duration-300 ${chatWallpaper}`}>
+            <div
+              style={getWallpaperContainerStyle(chatWallpaper, customPhotoUrl, wallpaperDimming)}
+              className={`flex-1 overflow-y-auto p-4 space-y-3.5 transition-all duration-300 ${
+                chatWallpaper !== "custom" ? chatWallpaper : ""
+              }`}
+            >
               {groupMessages.length === 0 ? (
                 <div className="text-center py-12 text-neutral-500 text-xs">
                   Aucun message pour l&apos;instant dans ce groupe. Envoyez le premier message ! 👋

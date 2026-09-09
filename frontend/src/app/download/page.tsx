@@ -21,8 +21,10 @@ import {
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import { haptics } from "@/lib/haptics";
+import { useIsStandalone } from "@/lib/use-standalone";
 
 export default function DownloadPage() {
+  const isStandalone = useIsStandalone();
   const [activeTab, setActiveTab] = useState<"android" | "ios">("android");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -87,6 +89,41 @@ export default function DownloadPage() {
 
       {/* Main Content */}
       <main className="max-w-3xl w-full mx-auto my-8 space-y-8 animate-fadeIn">
+        {/* Bannière Détection App Déjà Installée */}
+        {isStandalone && (
+          <div className="p-6 rounded-3xl border border-emerald-500/30 bg-emerald-950/20 text-center space-y-4 shadow-lg animate-fadeIn">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-emerald-400 tracking-tight">
+                Application Déjà Active sur cet Appareil
+              </h2>
+              <p className="text-xs text-neutral-300 max-w-md mx-auto leading-relaxed">
+                Vous utilisez actuellement la version autonome OnlyAdults (PWA / APK). Toutes les fonctionnalités natives, les notifications et le plein écran sont opérationnels.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/"
+                onClick={() => haptics.medium()}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-xs hover:opacity-90 transition shadow-sm flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4 text-[var(--app-accent)]" />
+                <span>Retourner au Flux Principal</span>
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => haptics.light()}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-soft)] font-bold text-xs transition flex items-center justify-center gap-2"
+              >
+                <Smartphone className="w-4 h-4 text-purple-400" />
+                <span>Personnaliser l&apos;icône &amp; Thème</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Hero Section */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--app-surface-soft)] border border-[var(--app-border)] text-xs font-black text-[var(--app-accent)] shadow-sm">

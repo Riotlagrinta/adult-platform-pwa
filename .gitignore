@@ -40,3 +40,5 @@ android/local.properties
 **/captures/
 .externalNativeBuild/
 .cxx/
+.idea/
+**/.idea/

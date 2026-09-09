@@ -33,6 +33,13 @@ import { parseSticker, encodeSticker, Sticker } from "@/lib/stickers";
 import StickerPicker from "@/components/StickerPicker";
 import StoryTray, { StoryGroup, StoryItem } from "@/components/StoryTray";
 import VoicePlayer from "@/components/VoicePlayer";
+import ChatWallpaperSelector from "@/components/ChatWallpaperSelector";
+import {
+  getSavedWallpaper,
+  getSavedCustomWallpaper,
+  getSavedCustomDimming,
+  getWallpaperContainerStyle,
+} from "@/lib/wallpaper";
 
 type Conversation = {
   id: string;
@@ -80,7 +87,50 @@ type UserLookup = {
     country?: string | null;
     headline?: string | null;
   } | null;
+  isMutual?: boolean;
+  isOnline?: boolean | null;
+  lastSeenAt?: string | null;
 };
+
+function formatLastSeen(dateStr?: string | null): string {
+  if (!dateStr) return "Hors ligne";
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = Math.max(0, now.getTime() - date.getTime());
+    const diffMinutes = Math.floor(diffMs / 60000);
+
+    if (diffMinutes < 1) return "Vu(e) à l'instant";
+    if (diffMinutes < 60) return `Vu(e) il y a ${diffMinutes} min`;
+
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
+
+    const timeStr = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+    if (isToday) {
+      return `Vu(e) aujourd'hui à ${timeStr}`;
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
+
+    if (isYesterday) {
+      return `Vu(e) hier à ${timeStr}`;
+    }
+
+    const dateStrShort = date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+    return `Vu(e) le ${dateStrShort} à ${timeStr}`;
+  } catch {
+    return "Hors ligne";
+  }
+}
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -116,15 +166,32 @@ export default function MessagesPage() {
 
   // Paramètres de discussion WhatsApp & Wallpapers
   const [chatWallpaper, setChatWallpaper] = useState<string>("wallpaper-doodle-dark");
+  const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
+  const [wallpaperDimming, setWallpaperDimming] = useState<number>(40);
   const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
   const [showChatSettingsModal, setShowChatSettingsModal] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedWp = localStorage.getItem("chat_wallpaper");
-      if (savedWp) setChatWallpaper(savedWp);
-      const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
-      if (savedFs) setChatFontSize(savedFs);
+      const syncWallpaper = () => {
+        setChatWallpaper(getSavedWallpaper());
+        setCustomPhotoUrl(getSavedCustomWallpaper());
+        setWallpaperDimming(getSavedCustomDimming());
+      };
+      const syncFontSize = () => {
+        const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
+        if (savedFs) setChatFontSize(savedFs);
+      };
+
+      syncWallpaper();
+      syncFontSize();
+
+      window.addEventListener("chatwallpaperchange", syncWallpaper);
+      window.addEventListener("chatfontsizechange", syncFontSize);
+      return () => {
+        window.removeEventListener("chatwallpaperchange", syncWallpaper);
+        window.removeEventListener("chatfontsizechange", syncFontSize);
+      };
     }
   }, []);
 
@@ -537,14 +604,58 @@ export default function MessagesPage() {
       });
     };
 
+    const handleUserOnline = (data: { userId: string }) => {
+      setUsersById((prev) => {
+        const u = prev[data.userId];
+        if (!u) return prev;
+        return {
+          ...prev,
+          [data.userId]: { ...u, isOnline: true, isMutual: true },
+        };
+      });
+    };
+
+    const handleUserOffline = (data: { userId: string; lastSeenAt?: string }) => {
+      setUsersById((prev) => {
+        const u = prev[data.userId];
+        if (!u) return prev;
+        return {
+          ...prev,
+          [data.userId]: { ...u, isOnline: false, lastSeenAt: data.lastSeenAt || new Date().toISOString() },
+        };
+      });
+    };
+
+    const handlePresenceUpdate = (data: { userId: string; isOnline: boolean; lastSeenAt: string | null; isMutual: boolean }) => {
+      setUsersById((prev) => {
+        const u = prev[data.userId];
+        if (!u) return prev;
+        return {
+          ...prev,
+          [data.userId]: {
+            ...u,
+            isOnline: data.isOnline,
+            lastSeenAt: data.lastSeenAt,
+            isMutual: data.isMutual,
+          },
+        };
+      });
+    };
+
     socket.on("message:new", handleNewMessage);
     socket.on("typing:update", handleTypingUpdate);
     socket.on("message:deleted", handleMessageDeleted);
+    socket.on("user:online", handleUserOnline);
+    socket.on("user:offline", handleUserOffline);
+    socket.on("presence:update", handlePresenceUpdate);
 
     return () => {
       socket.off("message:new", handleNewMessage);
       socket.off("typing:update", handleTypingUpdate);
       socket.off("message:deleted", handleMessageDeleted);
+      socket.off("user:online", handleUserOnline);
+      socket.off("user:offline", handleUserOffline);
+      socket.off("presence:update", handlePresenceUpdate);
     };
   }, [socket, selectedConvId, user?.id, markConversationAsRead, scrollToBottom]);
 
@@ -735,6 +846,12 @@ export default function MessagesPage() {
     const partnerId = selectedConversation.userAId === user.id ? selectedConversation.userBId : selectedConversation.userAId;
     return usersById[partnerId] ?? null;
   }, [selectedConversation, user, usersById]);
+
+  useEffect(() => {
+    if (socket && activePartner?.id) {
+      socket.emit("presence:request", { targetUserId: activePartner.id });
+    }
+  }, [socket, activePartner?.id]);
 
   const openConversation = async (partnerId: string) => {
     if (!token) {
@@ -1009,6 +1126,12 @@ export default function MessagesPage() {
                       (partner?.displayName ?? "??").slice(0, 2).toUpperCase()
                     )}
                   </div>
+                  {partner?.isMutual && partner?.isOnline && (
+                    <span
+                      className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--app-surface)] shadow-sm"
+                      title="En ligne"
+                    />
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -1086,6 +1209,12 @@ export default function MessagesPage() {
                           activePartner.displayName.slice(0, 2).toUpperCase()
                         )}
                       </div>
+                      {activePartner.isMutual && activePartner.isOnline && (
+                        <span
+                          className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--app-surface)] shadow-sm"
+                          title="En ligne"
+                        />
+                      )}
                     </div>
                   );
                 })()}
@@ -1097,10 +1226,25 @@ export default function MessagesPage() {
                       <span className="text-[10px] text-green-500 font-medium animate-pulse">(écrit...)</span>
                     )}
                   </h4>
-                  <span className="text-[11px] text-neutral-500 flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                    <span>Discussion chiffrée</span>
-                  </span>
+                  {isPartnerTyping ? (
+                    <span className="text-[11px] text-emerald-500 font-bold animate-pulse">en train d&apos;écrire...</span>
+                  ) : activePartner.isMutual ? (
+                    activePartner.isOnline ? (
+                      <span className="text-[11px] text-emerald-500 font-black flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>En ligne</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-neutral-400 font-medium">
+                        {formatLastSeen(activePartner.lastSeenAt)}
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[11px] text-neutral-500 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                      <span>Discussion chiffrée</span>
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -1120,7 +1264,10 @@ export default function MessagesPage() {
             {/* Corps des Messages avec Défilement Fluide et Fond d'écran WhatsApp */}
             <div
               ref={messagesContainerRef}
-              className={`flex-1 overflow-y-auto p-4 space-y-4 transition-colors duration-300 ${chatWallpaper} ${
+              style={getWallpaperContainerStyle(chatWallpaper, customPhotoUrl, wallpaperDimming)}
+              className={`flex-1 overflow-y-auto p-4 space-y-4 transition-all duration-300 ${
+                chatWallpaper !== "custom" ? chatWallpaper : ""
+              } ${
                 chatFontSize === "small" ? "text-xs" : chatFontSize === "large" ? "text-base" : "text-sm"
               }`}
             >
@@ -1744,81 +1891,8 @@ export default function MessagesPage() {
 
             {/* Contenu Déroulant */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* 1. Sélection du Fond d'écran */}
-              <div>
-                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2.5 flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5 text-neutral-400" />
-                  Fond d&apos;écran de la discussion
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {[
-                    { id: "wallpaper-doodle-dark", name: "WhatsApp Dark", desc: "Doodles sombres", bg: "bg-[#0b141a]" },
-                    { id: "wallpaper-doodle-light", name: "WhatsApp Clair", desc: "Doodles beiges", bg: "bg-[#efeae2]" },
-                    { id: "wallpaper-obsidian", name: "Obsidienne VIP", desc: "Carbone & Onyx", bg: "bg-[#07080a]" },
-                    { id: "wallpaper-emerald", name: "Émeraude Velvet", desc: "Vert WhatsApp", bg: "bg-[#061c16]" },
-                    { id: "wallpaper-midnight", name: "Bleu Minuit", desc: "Dégradé saphir", bg: "bg-[#070b19]" },
-                    { id: "wallpaper-sunset", name: "Sunset Rose", desc: "Rubis & Pourpre", bg: "bg-[#140711]" },
-                    { id: "wallpaper-gold", name: "Or Champagne", desc: "Onyx & Or VIP", bg: "bg-[#121008]" },
-                    { id: "wallpaper-solid", name: "Thème Uni", desc: "Fond dynamique", bg: "bg-[var(--app-background)]" },
-                  ].map((wp) => {
-                    const isSelected = chatWallpaper === wp.id;
-                    return (
-                      <button
-                        key={wp.id}
-                        type="button"
-                        onClick={() => {
-                          setChatWallpaper(wp.id);
-                          localStorage.setItem("chat_wallpaper", wp.id);
-                        }}
-                        className={`p-3 rounded-2xl border text-left transition relative overflow-hidden flex flex-col justify-between h-20 ${
-                          isSelected
-                            ? "border-[var(--app-accent,#25D366)] ring-2 ring-[var(--app-accent,#25D366)]/30"
-                            : "border-[var(--app-border)] hover:border-neutral-400"
-                        } ${wp.bg}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`text-[11px] font-bold ${wp.id === "wallpaper-doodle-light" ? "text-neutral-900" : "text-white"}`}>
-                            {wp.name}
-                          </span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-[var(--app-accent,#25D366)] flex-shrink-0" />
-                          )}
-                        </div>
-                        <span className={`text-[9px] ${wp.id === "wallpaper-doodle-light" ? "text-neutral-600" : "text-neutral-400"}`}>
-                          {wp.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Taille de police des bulles */}
-              <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between">
-                <div>
-                  <div className="font-bold">Taille de police</div>
-                  <div className="text-[11px] text-neutral-400">Lisibilité des messages</div>
-                </div>
-                <div className="flex items-center gap-1 bg-[var(--app-surface-raised)] p-1 rounded-xl border border-[var(--app-border)]">
-                  {(["small", "medium", "large"] as const).map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => {
-                        setChatFontSize(size);
-                        localStorage.setItem("chat_font_size", size);
-                      }}
-                      className={`px-3 py-1.5 rounded-lg font-bold text-[10px] transition ${
-                        chatFontSize === size
-                          ? "bg-[var(--app-accent,#25D366)] text-white"
-                          : "text-neutral-400 hover:text-[var(--app-foreground)]"
-                      }`}
-                    >
-                      {size === "small" ? "Petite" : size === "medium" ? "Moyenne" : "Grande"}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* 1. Personnalisation du Fond d'écran & Texte */}
+              <ChatWallpaperSelector />
 
               {/* 3. Sécurité & Chiffrement E2E */}
               <div className="p-3.5 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] space-y-1.5">

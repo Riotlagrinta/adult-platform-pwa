@@ -53,6 +53,50 @@ export function getOnlineCount(): number {
   return onlineUsers.size;
 }
 
+/**
+ * Vérifie si deux utilisateurs sont abonnés mutuellement (suivi réciproque)
+ */
+export async function areMutualFollowers(userAId: string, userBId: string): Promise<boolean> {
+  if (!userAId || !userBId || userAId === userBId) return false;
+  try {
+    const [aFollowsB, bFollowsA] = await Promise.all([
+      prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: userAId, followingId: userBId } },
+      }),
+      prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: userBId, followingId: userAId } },
+      }),
+    ]);
+    return Boolean(aFollowsB && bFollowsA);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Récupère tous les IDs d'utilisateurs qui sont abonnés mutuellement avec userId
+ */
+export async function getMutualFollowerIds(userId: string): Promise<string[]> {
+  try {
+    const mutuals = await prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        following: {
+          following: {
+            some: {
+              followingId: userId,
+            },
+          },
+        },
+      },
+      select: { followingId: true },
+    });
+    return mutuals.map((m) => m.followingId);
+  } catch {
+    return [];
+  }
+}
+
 // ── Initialisation ─────────────────────────────────────────────────────────
 
 export function initSocket(httpServer: HttpServer) {
@@ -98,9 +142,16 @@ export function initSocket(httpServer: HttpServer) {
     }
     onlineUsers.get(userId)!.add(socket.id);
 
-    // Broadcast online status (only on first socket for this user)
+    // Broadcast online status UNIQUEMENT aux abonnés mutuels
     if (onlineUsers.get(userId)!.size === 1) {
-      socket.broadcast.emit('user:online', { userId });
+      getMutualFollowerIds(userId).then((mutualIds) => {
+        for (const mutualId of mutualIds) {
+          emitToUser(mutualId, 'user:online', {
+            userId,
+            isOnline: true,
+          });
+        }
+      }).catch(console.error);
     }
 
     console.log(`[Socket.io] ${userId} connected (socket: ${socket.id}, joined room user:${userId})`);
@@ -268,14 +319,61 @@ export function initSocket(httpServer: HttpServer) {
       }
     });
 
+    // ── Requête de statut de présence en temps réel ─────────────────────
+    socket.on('presence:request', async (data: { targetUserId: string }, ack?: (response: { isOnline: boolean; lastSeenAt: string | null; isMutual: boolean }) => void) => {
+      try {
+        const { targetUserId } = data || {};
+        if (!targetUserId) return;
+
+        const isMutual = await areMutualFollowers(userId, targetUserId);
+        if (!isMutual) {
+          const res = { isOnline: false, lastSeenAt: null, isMutual: false };
+          ack?.(res);
+          socket.emit('presence:update', { userId: targetUserId, ...res });
+          return;
+        }
+
+        const online = isUserOnline(targetUserId);
+        const targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { lastSeenAt: true },
+        });
+
+        const res = {
+          isOnline: online,
+          lastSeenAt: targetUser?.lastSeenAt?.toISOString() ?? null,
+          isMutual: true,
+        };
+        ack?.(res);
+        socket.emit('presence:update', { userId: targetUserId, ...res });
+      } catch (err) {
+        console.error('[Socket.io] presence:request error:', err);
+      }
+    });
+
     // ── Disconnect ──────────────────────────────────────────────────────
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const userSockets = onlineUsers.get(userId);
       if (userSockets) {
         userSockets.delete(socket.id);
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
-          socket.broadcast.emit('user:offline', { userId });
+          const now = new Date();
+          // Sauvegarder la dernière date de connexion en BDD
+          await prisma.user.update({
+            where: { id: userId },
+            data: { lastSeenAt: now },
+          }).catch(() => {});
+
+          // Notifier UNIQUEMENT les abonnés mutuels
+          const mutualIds = await getMutualFollowerIds(userId).catch(() => []);
+          for (const mutualId of mutualIds) {
+            emitToUser(mutualId, 'user:offline', {
+              userId,
+              isOnline: false,
+              lastSeenAt: now.toISOString(),
+            });
+          }
         }
       }
       console.log(`[Socket.io] ${userId} disconnected (socket: ${socket.id})`);

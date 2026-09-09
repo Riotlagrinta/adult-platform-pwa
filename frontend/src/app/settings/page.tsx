@@ -32,6 +32,8 @@ import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
 import ThemeSelector from "@/components/ThemeSelector";
 import PwaIconSelector from "@/components/PwaIconSelector";
+import ChatWallpaperSelector from "@/components/ChatWallpaperSelector";
+import HelpSupportModal from "@/components/HelpSupportModal";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import { useIsStandalone } from "@/lib/use-standalone";
 import { apiRequest, toPublicUrl } from "@/lib/api";
@@ -91,6 +93,9 @@ export default function SettingsPage() {
       if (savedFs) setChatFontSize(savedFs);
     }
   }, []);
+
+  // Modale d'Aide & Information
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Accordéons de réglages
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -566,8 +571,8 @@ export default function SettingsPage() {
                 <MessageSquare className="w-4 h-4" />
               </div>
               <div>
-                <div className="font-bold text-sm">Discussions & Fonds d&apos;écran</div>
-                <div className="text-[11px] text-neutral-400">Arrière-plans WhatsApp, taille police, médias</div>
+                <div className="font-bold text-sm">Discussions & Arrière-plans</div>
+                <div className="text-[11px] text-neutral-400">Fond WhatsApp, photo personnalisée, taille police</div>
               </div>
             </div>
             {openSection === "chats" ? (
@@ -579,76 +584,7 @@ export default function SettingsPage() {
 
           {openSection === "chats" && (
             <div className="p-4 bg-[var(--app-surface-raised)] space-y-4 animate-fadeIn text-xs">
-              <div>
-                <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2">
-                  Fond d&apos;écran des discussions
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {[
-                    { id: "wallpaper-doodle-dark", name: "WhatsApp Dark", desc: "Doodles sombres", bg: "bg-[#0b141a]" },
-                    { id: "wallpaper-doodle-light", name: "WhatsApp Clair", desc: "Doodles beiges", bg: "bg-[#efeae2]" },
-                    { id: "wallpaper-obsidian", name: "Obsidienne VIP", desc: "Carbone & Onyx", bg: "bg-[#07080a]" },
-                    { id: "wallpaper-emerald", name: "Émeraude Velvet", desc: "Vert WhatsApp", bg: "bg-[#061c16]" },
-                    { id: "wallpaper-midnight", name: "Bleu Minuit", desc: "Dégradé saphir", bg: "bg-[#070b19]" },
-                    { id: "wallpaper-sunset", name: "Sunset Rose", desc: "Rubis & Pourpre", bg: "bg-[#140711]" },
-                    { id: "wallpaper-gold", name: "Or Champagne", desc: "Onyx & Or VIP", bg: "bg-[#121008]" },
-                    { id: "wallpaper-solid", name: "Thème Uni", desc: "Fond dynamique", bg: "bg-[var(--app-background)]" },
-                  ].map((wp) => {
-                    const isSelected = selectedWallpaper === wp.id;
-                    return (
-                      <button
-                        key={wp.id}
-                        onClick={() => {
-                          setSelectedWallpaper(wp.id);
-                          localStorage.setItem("chat_wallpaper", wp.id);
-                        }}
-                        className={`p-3 rounded-2xl border text-left transition relative overflow-hidden flex flex-col justify-between h-20 ${
-                          isSelected
-                            ? "border-[var(--app-accent,#25D366)] ring-2 ring-[var(--app-accent,#25D366)]/30"
-                            : "border-[var(--app-border)] hover:border-neutral-400"
-                        } ${wp.bg}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`text-[11px] font-bold ${wp.id === "wallpaper-doodle-light" ? "text-neutral-900" : "text-white"}`}>
-                            {wp.name}
-                          </span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-[var(--app-accent,#25D366)] flex-shrink-0" />
-                          )}
-                        </div>
-                        <span className={`text-[9px] ${wp.id === "wallpaper-doodle-light" ? "text-neutral-600" : "text-neutral-400"}`}>
-                          {wp.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between">
-                <div>
-                  <div className="font-bold">Taille de police du chat</div>
-                  <div className="text-[11px] text-neutral-400">Ajuster la lisibilité des bulles</div>
-                </div>
-                <div className="flex items-center gap-1 bg-[var(--app-surface)] p-1 rounded-xl border border-[var(--app-border)]">
-                  {(["small", "medium", "large"] as const).map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => {
-                        setChatFontSize(size);
-                        localStorage.setItem("chat_font_size", size);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition ${
-                        chatFontSize === size
-                          ? "bg-[var(--app-accent,#25D366)] text-white"
-                          : "text-neutral-400 hover:text-[var(--app-foreground)]"
-                      }`}
-                    >
-                      {size === "small" ? "Petite" : size === "medium" ? "Moyenne" : "Grande"}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <ChatWallpaperSelector />
             </div>
           )}
 
@@ -725,26 +661,28 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* SECTION E : APPLICATION MOBILE (APK ANDROID & IOS) */}
-          <div
-            onClick={() => router.push("/download")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-500 flex items-center justify-center">
-                <Download className="w-4 h-4" />
+          {/* SECTION E : APPLICATION MOBILE (MASQUÉE DANS L'APK ET PWA INSTALLÉE) */}
+          {!isStandalone && (
+            <div
+              onClick={() => router.push("/download")}
+              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-500 flex items-center justify-center">
+                  <Download className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Application Mobile (Android & iPhone)</div>
+                  <div className="text-[11px] text-neutral-400">Télécharger l&apos;APK Android ou installer sur iOS</div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-sm">Application Mobile (Android & iPhone)</div>
-                <div className="text-[11px] text-neutral-400">Télécharger l&apos;APK Android ou installer sur iOS</div>
-              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400" />
             </div>
-            <ChevronRight className="w-4 h-4 text-neutral-400" />
-          </div>
+          )}
 
-          {/* SECTION F : AIDE & SUPPORT */}
+          {/* SECTION F : AIDE & SUPPORT INTERACTIF */}
           <div
-            onClick={() => alert("💬 Support OnlyAdults : Pour toute assistance, écrivez à contact@onlyadults.club")}
+            onClick={() => setShowHelpModal(true)}
             className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
           >
             <div className="flex items-center gap-3.5">
@@ -753,12 +691,19 @@ export default function SettingsPage() {
               </div>
               <div>
                 <div className="font-bold text-sm">Aide & Informations</div>
-                <div className="text-[11px] text-neutral-400">Règlement du club, version OnlyAdults 2026</div>
+                <div className="text-[11px] text-neutral-400">FAQ, assistance 24/7 et règles 18+ du club</div>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-neutral-400" />
           </div>
         </section>
+
+        {/* ─── MODALE D'AIDE & FAQ ─── */}
+        <HelpSupportModal
+          isOpen={showHelpModal}
+          onClose={() => setShowHelpModal(false)}
+          userEmail={me?.email || user?.email}
+        />
 
         {/* ─── 3. BOUTON DE DÉCONNEXION WHATSAPP-STYLE ─── */}
         <button
