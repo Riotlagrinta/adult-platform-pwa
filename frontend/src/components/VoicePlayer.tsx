@@ -73,6 +73,8 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     return bars;
   }, [url]);
 
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
   // Réinitialiser en cas de changement d'URL
   useEffect(() => {
     setCurrentTime(0);
@@ -89,6 +91,11 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   useEffect(() => {
     return () => {
       if (globalPlayingAudio === audioRef.current) {
+        try {
+          globalPlayingAudio?.pause();
+        } catch (e) {
+          console.warn("Audio cleanup pause error:", e);
+        }
         globalPlayingAudio = null;
         globalStopCallback = null;
       }
@@ -96,8 +103,13 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   }, []);
 
   const stopPlayback = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
+    const audio = audioRef.current;
+    if (audio) {
+      try {
+        audio.pause();
+      } catch (e) {
+        console.warn("Pause error:", e);
+      }
     }
     setIsPlaying(false);
     setIsLoading(false);
@@ -111,46 +123,63 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     setHasError(false);
     setErrorMessage(null);
 
-    if (isPlaying) {
+    // Vérification directe sur l'élément audio HTML5 (source de vérité matérielle)
+    const isActuallyPlaying = !audio.paused && !audio.ended;
+
+    if (isActuallyPlaying || isPlaying || isLoading) {
       haptics.light();
-      audio.pause();
+      try {
+        audio.pause();
+      } catch (err) {
+        console.warn("Pause attempt error:", err);
+      }
       setIsPlaying(false);
       setIsLoading(false);
-    } else {
-      haptics.light();
-      // Mettre en pause tout autre audio en cours de lecture
-      if (globalPlayingAudio && globalPlayingAudio !== audio) {
-        globalPlayingAudio.pause();
-        if (globalStopCallback) {
-          globalStopCallback();
-        }
+      if (globalPlayingAudio === audio) {
+        globalPlayingAudio = null;
+        globalStopCallback = null;
       }
+      return;
+    }
 
-      globalPlayingAudio = audio;
-      globalStopCallback = () => {
-        setIsPlaying(false);
-        setIsLoading(false);
-      };
-
+    // Sinon, démarrer la lecture
+    haptics.light();
+    if (globalPlayingAudio && globalPlayingAudio !== audio) {
       try {
-        setIsLoading(true);
-        audio.playbackRate = playbackRate;
-        if (audio.error || audio.readyState === 0 || !audio.currentSrc) {
-          audio.load();
-        }
-        await audio.play();
-        setIsPlaying(true);
-        setIsLoading(false);
-      } catch (err: any) {
-        console.error("Audio playback error:", err);
-        // Ne pas afficher d'erreur si la lecture a simplement été annulée par une pause volontaire
-        if (err?.name !== "AbortError") {
-          setHasError(true);
-          setErrorMessage("Impossible de lire ce message vocal");
-        }
-        setIsPlaying(false);
-        setIsLoading(false);
+        globalPlayingAudio.pause();
+      } catch (e) {
+        console.warn("Pause previous audio error:", e);
       }
+      if (globalStopCallback) {
+        globalStopCallback();
+      }
+    }
+
+    globalPlayingAudio = audio;
+    globalStopCallback = () => {
+      setIsPlaying(false);
+      setIsLoading(false);
+    };
+
+    try {
+      setIsLoading(true);
+      audio.playbackRate = playbackRate;
+      if (audio.error || audio.readyState === 0 || !audio.currentSrc) {
+        audio.load();
+      }
+      const promise = audio.play();
+      playPromiseRef.current = promise;
+      await promise;
+      setIsPlaying(true);
+      setIsLoading(false);
+    } catch (err: any) {
+      console.error("Audio playback error:", err);
+      if (err?.name !== "AbortError") {
+        setHasError(true);
+        setErrorMessage("Impossible de lire ce message vocal");
+      }
+      setIsPlaying(false);
+      setIsLoading(false);
     }
   };
 
@@ -243,12 +272,23 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         src={resolvedUrl}
         preload="metadata"
         playsInline
+        onPlay={() => {
+          setIsPlaying(true);
+          setIsLoading(false);
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          setIsLoading(false);
+        }}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
         onError={handleError}
         onWaiting={() => setIsLoading(true)}
-        onPlaying={() => setIsLoading(false)}
+        onPlaying={() => {
+          setIsPlaying(true);
+          setIsLoading(false);
+        }}
       />
 
       {/* Bouton Lecture / Pause / Retry */}
@@ -262,13 +302,19 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
             ? "bg-[color-mix(in_srgb,var(--app-foreground)_18%,transparent)] hover:bg-[color-mix(in_srgb,var(--app-foreground)_28%,transparent)] text-current"
             : "bg-[var(--app-accent,#25D366)] text-white hover:brightness-110"
         }`}
-        title={hasError ? "Réessayer la lecture" : isPlaying ? "Mettre en pause" : "Écouter le message vocal"}
+        title={
+          hasError
+            ? "Réessayer la lecture"
+            : isPlaying || (audioRef.current && !audioRef.current.paused)
+            ? "Arrêter la lecture"
+            : "Écouter le message vocal"
+        }
       >
-        {isLoading ? (
+        {isLoading && audioRef.current?.paused ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : hasError ? (
           <RefreshCw className="w-4 h-4" />
-        ) : isPlaying ? (
+        ) : isPlaying || (audioRef.current && !audioRef.current.paused) ? (
           <Pause className="w-4 h-4 fill-current" />
         ) : (
           <Play className="w-4 h-4 fill-current ml-0.5" />

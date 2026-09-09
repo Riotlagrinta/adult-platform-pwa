@@ -24,6 +24,7 @@ import {
   User,
   Mic,
   Trash2,
+  Square,
 } from "lucide-react";
 import { ConversationListSkeleton, GlobalPulseLoader } from "@/components/SkeletonLoader";
 import { useAuth } from "@/components/AuthProvider";
@@ -357,33 +358,43 @@ export default function MessagesPage() {
     const recordedDuration = Math.max(1, voiceDuration);
     const recorder = mediaRecorderRef.current;
 
-    // Attendre la fin d'émission de tous les chunks lors du stop
+    // Attendre la fin d'émission de tous les chunks lors du stop avec timeout de secours
     const stopPromise = new Promise<Blob[]>((resolve) => {
-      recorder.onstop = () => {
+      let isResolved = false;
+      const safeResolve = () => {
+        if (isResolved) return;
+        isResolved = true;
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
+          try {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+          } catch (err) {
+            console.warn("Track stop error:", err);
+          }
           streamRef.current = null;
         }
         resolve([...audioChunksRef.current]);
       };
+
+      recorder.onstop = () => {
+        safeResolve();
+      };
+
+      // Garde-fou 800ms pour garantir que l'interface ne reste JAMAIS bloquée
+      const fallbackTimer = setTimeout(() => {
+        safeResolve();
+      }, 800);
 
       if (recorder.state !== "inactive") {
         try {
           recorder.stop();
         } catch (e) {
           console.warn("Recorder stop error:", e);
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-          }
-          resolve([...audioChunksRef.current]);
+          clearTimeout(fallbackTimer);
+          safeResolve();
         }
       } else {
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
-        resolve([...audioChunksRef.current]);
+        clearTimeout(fallbackTimer);
+        safeResolve();
       }
     });
 
@@ -1678,6 +1689,7 @@ export default function MessagesPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={cancelVoiceRecording}
                     className="p-2 rounded-full hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition flex-shrink-0"
                     title="Annuler l'enregistrement"
@@ -1686,12 +1698,20 @@ export default function MessagesPage() {
                   </button>
 
                   <button
+                    type="button"
                     onClick={finishAndSendVoiceRecording}
                     disabled={isSending}
-                    className="p-2 bg-[var(--app-accent,#25D366)] text-white rounded-full hover:brightness-110 shadow-md transition flex items-center justify-center flex-shrink-0"
-                    title="Envoyer le message vocal"
+                    className="px-3.5 py-1.5 bg-[var(--app-accent,#25D366)] text-white rounded-full hover:brightness-110 shadow-md transition flex items-center gap-1.5 font-bold text-xs flex-shrink-0 active:scale-95 disabled:opacity-50"
+                    title="Arrêter l'enregistrement et envoyer"
                   >
-                    {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {isSending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Square className="w-3 h-3 fill-current" />
+                        <span>Arrêter</span>
+                      </>
+                    )}
                   </button>
                 </div>
               ) : (
