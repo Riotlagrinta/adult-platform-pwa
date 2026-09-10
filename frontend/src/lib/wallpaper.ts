@@ -129,7 +129,9 @@ export function getWallpaperContainerStyle(
       backgroundImage: `linear-gradient(rgba(0, 0, 0, ${alpha}), rgba(0, 0, 0, ${alpha})), url("${customDataUrl}")`,
       backgroundSize: "cover",
       backgroundPosition: "center",
-      backgroundAttachment: "fixed",
+      // "fixed" est notoirement défaillant sur Safari iOS (l'image de fond peut simplement ne
+      // jamais s'afficher). "local" fait défiler le fond avec le contenu, ce qui suffit ici.
+      backgroundAttachment: "local",
     };
   }
   return undefined;

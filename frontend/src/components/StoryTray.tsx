@@ -48,6 +48,10 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [, setProgress] = useState(0);
+  const [isStoryPaused, setIsStoryPaused] = useState(false);
+  const isStoryPausedRef = useRef(false);
+  const [storyMediaLoaded, setStoryMediaLoaded] = useState(false);
+  const storyVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // États pour le Studio de Création de Story
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -232,6 +236,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
     const increment = (intervalTime / totalDuration) * 100;
 
     progressTimerRef.current = setInterval(() => {
+      if (isStoryPausedRef.current) return;
       setProgress((prev) => {
         if (prev >= 100) {
           nextStory();
@@ -245,6 +250,23 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
   }, [activeGroupIndex, activeStoryIndex, nextStory]);
+
+  // Réinitialiser pause/chargement à chaque changement de story, et garder la ref synchro
+  useEffect(() => {
+    setIsStoryPaused(false);
+    setStoryMediaLoaded(false);
+  }, [activeGroupIndex, activeStoryIndex]);
+
+  useEffect(() => {
+    isStoryPausedRef.current = isStoryPaused;
+    const video = storyVideoRef.current;
+    if (!video) return;
+    if (isStoryPaused) {
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  }, [isStoryPaused]);
 
   if (!user) return null;
 
@@ -462,7 +484,13 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
 
       {/* ── VISIONNEUSE DE STORIES PLEIN ÉCRAN ── */}
       {activeGroupIndex !== null && activeGroup && activeStory && (
-        <div className="fixed inset-0 bg-black z-[100] flex flex-col justify-between select-none animate-fadeIn">
+        <div
+          className="fixed inset-0 bg-black z-[100] flex flex-col justify-between select-none animate-fadeIn"
+          onPointerDown={() => setIsStoryPaused(true)}
+          onPointerUp={() => setIsStoryPaused(false)}
+          onPointerLeave={() => setIsStoryPaused(false)}
+          onPointerCancel={() => setIsStoryPaused(false)}
+        >
           {/* Barres de progression en haut */}
           <div className="absolute top-4 inset-x-4 z-50 flex gap-1.5">
             {activeGroup.items.map((_, idx) => (
@@ -473,6 +501,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                     className="h-full bg-white story-progress-bar"
                     style={{
                       ["--story-duration" as any]: "5s",
+                      animationPlayState: isStoryPaused ? "paused" : "running",
                     }}
                   />
                 ) : (
@@ -526,22 +555,47 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
           <div className="absolute inset-y-0 right-0 w-1/4 z-30 cursor-pointer" onClick={nextStory} />
 
           {/* Contenu de la story (Image ou Vidéo) */}
-          <div className="flex-1 w-full h-full flex items-center justify-center bg-neutral-950 relative">
+          <div className="flex-1 w-full h-full flex items-center justify-center bg-neutral-950 relative overflow-hidden">
+            {/* Aperçu flouté pendant le chargement du média */}
+            {!storyMediaLoaded && (
+              <div className="absolute inset-0 shimmer-skeleton" />
+            )}
             {activeStory.mimeType.startsWith("video/") ? (
               <video
+                ref={storyVideoRef}
+                key={activeStory.id}
                 src={toPublicUrl(activeStory.mediaUrl) ?? undefined}
-                className="w-full max-h-screen object-contain"
+                className={`w-full max-h-screen object-contain transition-all duration-500 ${
+                  storyMediaLoaded ? "opacity-100 blur-none scale-100" : "opacity-0 blur-2xl scale-105"
+                }`}
                 autoPlay
                 playsInline
                 muted={false}
+                onLoadedData={() => setStoryMediaLoaded(true)}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
+                key={activeStory.id}
                 src={toPublicUrl(activeStory.mediaUrl) ?? undefined}
                 alt="story content"
-                className="w-full max-h-screen object-contain"
+                className={`w-full max-h-screen object-contain transition-all duration-500 ${
+                  storyMediaLoaded ? "opacity-100 blur-none scale-100" : "opacity-0 blur-2xl scale-105"
+                }`}
+                onLoad={() => setStoryMediaLoaded(true)}
               />
+            )}
+
+            {/* Icône pause visible pendant l'appui long */}
+            {isStoryPaused && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-fadeIn">
+                <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center">
+                  <div className="flex gap-1.5">
+                    <span className="w-1.5 h-7 bg-white rounded-full" />
+                    <span className="w-1.5 h-7 bg-white rounded-full" />
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Légende éventuelle (Caption) */}
