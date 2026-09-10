@@ -12,11 +12,16 @@ type VoicePlayerProps = {
 };
 
 // Global audio singleton to ensure only ONE voice note plays at any time across the entire application
-let globalPlayingAudio: HTMLAudioElement | null = null;
+let globalPlayingAudio: HTMLVideoElement | null = null;
 let globalStopCallback: (() => void) | null = null;
 
 export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: VoicePlayerProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Élément <video> caché plutôt que <audio> : sur iOS Safari, une fois qu'un appel WebRTC
+  // (getUserMedia) a eu lieu dans la page, l'audio session bascule en mode "PlayAndRecord" et
+  // route silencieusement tout <audio> vers l'écouteur d'oreille à très faible volume. Un
+  // <video> force la sortie sur le haut-parleur/le routage média normal — même astuce déjà
+  // utilisée pour l'appel (voir CallModal.tsx / speakerVideoRef).
+  const audioRef = useRef<HTMLVideoElement | null>(null);
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -250,11 +255,12 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
 
   return (
     <div className={`flex items-center gap-2.5 py-1 select-none min-w-[220px] sm:min-w-[270px] max-w-full ${isMe ? "text-inherit" : "text-inherit"}`}>
-      <audio
+      <video
         ref={audioRef}
         src={resolvedUrl}
         preload="metadata"
         playsInline
+        className="hidden"
         onPlay={() => {
           setIsPlaying(true);
           setIsLoading(false);
