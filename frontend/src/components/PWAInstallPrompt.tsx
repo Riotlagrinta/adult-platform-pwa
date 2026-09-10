@@ -114,12 +114,12 @@ export default function PWAInstallPrompt() {
   const iconConfig = getPwaIconById(getSavedPwaIconId());
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-[400px] z-50 animate-[slideUp_0.4s_ease-out_forwards] select-none">
+    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-[400px] z-50 animate-scaleUp select-none">
       <div className="relative overflow-hidden rounded-[28px] border border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl text-[var(--app-foreground)] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col gap-4">
         {/* Bouton de fermeture */}
         <button
           onClick={handleDismiss}
-          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] hover:rotate-90 transition-transform duration-200"
           title="Fermer"
         >
           <X className="h-4 w-4" />

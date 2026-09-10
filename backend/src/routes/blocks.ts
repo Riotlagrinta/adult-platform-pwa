@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireApproved } from '../middleware/approved.js';
+// Bloquer/débloquer est une action de sécurité : reste disponible même avant validation du compte.
 
 export const blocksRouter = Router();
 

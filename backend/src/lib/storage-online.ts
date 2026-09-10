@@ -184,6 +184,13 @@ export async function signUrlIfNeeded(url: string | null | undefined): Promise<s
   const key = extractStorageKey(url);
   if (!key) return url;
 
+  // Les avatars sont publics : pas besoin de presigner (coûteux et jamais utilisé par le CDN),
+  // on peut les servir directement via le CDN Cloudflare quand il est configuré.
+  if (key.startsWith('avatars/')) {
+    const { bucketName, endpoint, cdnUrl } = getS3Config();
+    return `${cdnUrl || endpoint}/${bucketName}/${key}`;
+  }
+
   try {
     // Generate secure presigned URL valid for 1 hour (3600 seconds)
     return await getPresignedUrl(key, 3600);
@@ -205,7 +212,8 @@ export async function signTextUrls(text: string | null | undefined): Promise<str
 
   let signedText = text;
   for (const match of matches) {
-    const rawUrl = match[0];
+    // Le regex glouton peut avaler la ponctuation qui suit l'URL dans une phrase (. , ; : ) ])
+    const rawUrl = match[0].replace(/[.,;:!?)\]]+$/, '');
     const signedUrl = await signUrlIfNeeded(rawUrl);
     if (signedUrl) {
       signedText = signedText.replace(rawUrl, signedUrl);

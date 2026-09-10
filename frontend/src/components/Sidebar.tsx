@@ -47,7 +47,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-[280px] border-r border-[var(--app-border)] bg-[var(--app-surface)] select-none z-30">
+    <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-[280px] border-r border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] backdrop-blur-xl shadow-[4px_0_24px_-16px_rgba(0,0,0,0.25)] select-none z-30">
       {/* Header zone */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between gap-2">
         <Link href="/">
@@ -66,12 +66,15 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center justify-between px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-200 group ${
+              className={`relative flex items-center justify-between px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-200 group ${
                 isActive
-                  ? "bg-[var(--app-accent,#25D366)]/10 text-[var(--app-accent,#25D366)] font-bold"
-                  : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                  ? "bg-[var(--app-accent,#25D366)]/10 text-[var(--app-accent,#25D366)] font-bold shadow-[0_6px_16px_-10px_var(--app-accent,#25D366)]"
+                  : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:-translate-y-0.5"
               }`}
             >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-[var(--app-accent,#25D366)]" />
+              )}
               <div className="flex items-center gap-3.5">
                 <Icon
                   className={`h-[20px] w-[20px] transition-all ${
@@ -98,7 +101,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
         {user && (
           <Link
             href="/settings"
-            className="px-4 py-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] flex items-center gap-3 transition cursor-pointer group"
+            className="card-3d px-4 py-3 rounded-2xl bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] flex items-center gap-3 transition cursor-pointer group"
             title="Accéder aux Paramètres & Profil"
           >
             <div className="w-10 h-10 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center font-black text-sm flex-shrink-0 group-hover:scale-105 transition">

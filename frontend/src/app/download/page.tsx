@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Download,
   ShieldCheck,
   RefreshCw,
   Zap,
@@ -27,7 +26,6 @@ export default function DownloadPage() {
   const isStandalone = useIsStandalone();
   const [activeTab, setActiveTab] = useState<"android" | "ios">("android");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     // Auto-detect OS
@@ -37,10 +35,6 @@ export default function DownloadPage() {
         setActiveTab("ios");
       } else {
         setActiveTab("android");
-      }
-
-      if (window.matchMedia("(display-mode: standalone)").matches) {
-        setIsInstalled(true);
       }
     }
 
@@ -59,7 +53,6 @@ export default function DownloadPage() {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === "accepted") {
-        setIsInstalled(true);
         haptics.success();
       }
       setDeferredPrompt(null);
@@ -91,7 +84,7 @@ export default function DownloadPage() {
       <main className="max-w-3xl w-full mx-auto my-8 space-y-8 animate-fadeIn">
         {/* Bannière Détection App Déjà Installée */}
         {isStandalone && (
-          <div className="p-6 rounded-3xl border border-emerald-500/30 bg-emerald-950/20 text-center space-y-4 shadow-lg animate-fadeIn">
+          <div className="card-3d p-6 rounded-3xl border border-emerald-500/30 bg-emerald-950/20 text-center space-y-4 shadow-lg animate-fadeIn">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-7 h-7" />
             </div>
@@ -107,7 +100,7 @@ export default function DownloadPage() {
               <Link
                 href="/"
                 onClick={() => haptics.medium()}
-                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-xs hover:opacity-90 transition shadow-sm flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-xs hover:opacity-90 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 shadow-sm flex items-center justify-center gap-2"
               >
                 <Zap className="w-4 h-4 text-[var(--app-accent)]" />
                 <span>Retourner au Flux Principal</span>
@@ -115,7 +108,7 @@ export default function DownloadPage() {
               <Link
                 href="/settings"
                 onClick={() => haptics.light()}
-                className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-soft)] font-bold text-xs transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-soft)] hover:-translate-y-0.5 hover:shadow-md font-bold text-xs transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <Smartphone className="w-4 h-4 text-purple-400" />
                 <span>Personnaliser l&apos;icône &amp; Thème</span>
@@ -177,7 +170,7 @@ export default function DownloadPage() {
         {activeTab === "android" && (
           <div className="space-y-6 animate-fadeIn">
             {/* Boutons Actions Android */}
-            <div className="p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg flex flex-col items-center text-center space-y-4">
+            <div className="card-3d p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg flex flex-col items-center text-center space-y-4">
               <div className="space-y-1">
                 <h2 className="text-lg font-black tracking-tight">
                   Package Android Officiel (.apk)
@@ -192,7 +185,7 @@ export default function DownloadPage() {
                   href="/OnlyAdults.apk"
                   download="OnlyAdults.apk"
                   onClick={() => haptics.medium()}
-                  className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm hover:opacity-90 transition shadow-md flex items-center justify-center gap-3 group"
+                  className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm hover:opacity-90 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 shadow-md flex items-center justify-center gap-3 group"
                 >
                   <FileDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
                   <span>Télécharger l'APK Android (Debug/Release)</span>
@@ -200,7 +193,7 @@ export default function DownloadPage() {
 
                 <button
                   onClick={handleNativeInstall}
-                  className="w-full sm:w-auto px-6 py-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] hover:bg-neutral-800 font-bold text-xs transition flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] hover:bg-[var(--app-surface-raised)] hover:-translate-y-0.5 hover:shadow-md font-bold text-xs transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <Smartphone className="w-4 h-4 text-[var(--app-accent)]" />
                   <span>Installer en PWA (Sans fichier)</span>
@@ -214,7 +207,7 @@ export default function DownloadPage() {
             </div>
 
             {/* Guide Android 3 étapes */}
-            <div className="p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface-raised,#18181b)] space-y-4 shadow-sm">
+            <div className="card-3d p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] space-y-4 shadow-sm">
               <h3 className="text-xs font-black uppercase tracking-wider text-[var(--app-foreground)] flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-[var(--app-accent)]" />
                 Comment installer le fichier APK sur Android :
@@ -259,7 +252,7 @@ export default function DownloadPage() {
         {activeTab === "ios" && (
           <div className="space-y-6 animate-fadeIn">
             {/* Guide iOS PWA */}
-            <div className="p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg space-y-6">
+            <div className="card-3d p-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg space-y-6">
               <div className="text-center space-y-1">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-black">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -275,7 +268,7 @@ export default function DownloadPage() {
 
               {/* Étapes illustrées iOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                <div className="p-5 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)] space-y-3 flex flex-col justify-between">
+                <div className="card-3d p-5 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)] space-y-3 flex flex-col justify-between">
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-xl bg-blue-500 text-white font-black text-xs flex items-center justify-center shadow-md">
                       1
@@ -291,7 +284,7 @@ export default function DownloadPage() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)] space-y-3 flex flex-col justify-between">
+                <div className="card-3d p-5 rounded-2xl bg-[var(--app-surface-soft)] border border-[var(--app-border)] space-y-3 flex flex-col justify-between">
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-xl bg-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-md">
                       2
@@ -322,7 +315,7 @@ export default function DownloadPage() {
                     href="/downloads/OnlyAdults.ipa"
                     download="OnlyAdults.ipa"
                     onClick={() => haptics.medium()}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 hover:-translate-y-0.5 hover:shadow-lg text-white font-bold text-xs transition-all duration-200 shadow-sm"
                   >
                     <FileDown className="w-4 h-4" />
                     <span>Télécharger OnlyAdults.ipa (.ipa · 3.8 Mo)</span>
@@ -335,7 +328,7 @@ export default function DownloadPage() {
 
         {/* 4 Avantages Clés */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
+          <div className="card-3d p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
             <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
               <RefreshCw className="w-5 h-5" />
             </div>
@@ -345,7 +338,7 @@ export default function DownloadPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
+          <div className="card-3d p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
               <Zap className="w-5 h-5" />
             </div>
@@ -355,7 +348,7 @@ export default function DownloadPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
+          <div className="card-3d p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
             <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
               <Bell className="w-5 h-5" />
             </div>
@@ -365,7 +358,7 @@ export default function DownloadPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
+          <div className="card-3d p-5 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] space-y-2 shadow-sm">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>

@@ -130,14 +130,14 @@ export default function NotificationsPage() {
 
   const iconForType = (type: string) => {
     if (type.includes("like")) return <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />;
-    if (type.includes("comment") || type.includes("message")) return <MessageCircle className="w-3.5 h-3.5 text-black dark:text-white" />;
-    if (type.includes("follow")) return <UserPlus className="w-3.5 h-3.5 text-black dark:text-white" />;
-    if (type.includes("tip")) return <DollarSign className="w-3.5 h-3.5 text-green-500" />;
-    return <Bell className="w-3.5 h-3.5 text-black dark:text-white" />;
+    if (type.includes("comment") || type.includes("message")) return <MessageCircle className="w-3.5 h-3.5 text-[var(--app-foreground)]" />;
+    if (type.includes("follow")) return <UserPlus className="w-3.5 h-3.5 text-[var(--app-accent)]" />;
+    if (type.includes("tip")) return <DollarSign className="w-3.5 h-3.5 text-emerald-500" />;
+    return <Bell className="w-3.5 h-3.5 text-[var(--app-foreground)]" />;
   };
 
   if (!ready) {
-    return <div className="p-6 text-sm text-neutral-500">Chargement...</div>;
+    return <div className="p-6 text-sm text-[var(--app-muted)]">Chargement...</div>;
   }
 
   if (!token) {
@@ -152,64 +152,79 @@ export default function NotificationsPage() {
     <div className="bg-[var(--app-background)] min-h-screen p-4 pt-[calc(1rem+env(safe-area-inset-top))] md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-6">
       <div className="flex items-center justify-between border-b border-[var(--app-border)] pb-4">
         <div className="flex items-center gap-3">
-          <Bell className="h-6 w-6 text-black dark:text-white" />
+          <div className="p-2 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-[var(--app-foreground)] shadow-sm">
+            <Bell className="h-5 w-5" />
+          </div>
           <div>
             <h2 className="font-black text-xl tracking-tight uppercase">Notifications</h2>
-            <p className="text-xs text-neutral-500">Activité en direct sur votre compte.</p>
+            <p className="text-xs text-[var(--app-muted)]">Activité en direct sur votre compte.</p>
           </div>
         </div>
         {notifications.some((item) => !item.readAt) && (
           <button
             onClick={markAllRead}
-            className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)] transition flex items-center gap-1.5"
+            className="text-xs font-bold px-3.5 py-2 rounded-full bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)] hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200 flex items-center gap-1.5"
           >
-            <CheckCheck className="w-3.5 h-3.5" />
+            <CheckCheck className="w-3.5 h-3.5 text-[var(--app-accent)]" />
             <span>Tout marquer comme lu</span>
           </button>
         )}
       </div>
 
-      {loading && notifications.length === 0 && <div className="text-sm text-neutral-500">Chargement...</div>}
+      {loading && notifications.length === 0 && (
+        <div className="text-sm text-[var(--app-muted)] animate-pulse">Chargement des notifications...</div>
+      )}
 
-      <div className="divide-y divide-[var(--app-border)] select-none">
+      <div className="space-y-2.5 select-none">
         {notifications.length === 0 ? (
-          <div className="text-center py-20 text-neutral-500 text-sm">Aucune notification pour le moment.</div>
+          <div className="text-center py-20 text-[var(--app-muted)] text-sm">
+            Aucune notification pour le moment.
+          </div>
         ) : (
-          notifications.map((notif) => (
+          notifications.map((notif, index) => (
             <div
               key={notif.id}
               onClick={() => handleNotificationClick(notif)}
-              className={`flex items-start justify-between gap-3 p-4 hover:bg-[var(--app-surface-soft)] transition cursor-pointer ${
-                notif.readAt ? "" : "bg-[var(--app-surface-raised)] border-l-2 border-l-[var(--app-foreground)]"
+              style={{ animationDelay: `${Math.min(index * 40, 300)}ms` }}
+              className={`card-3d animate-slideUp flex items-start justify-between gap-3 p-4 rounded-2xl border border-[var(--app-border)] hover:bg-[var(--app-surface-soft)] transition-all duration-200 cursor-pointer relative ${
+                notif.readAt
+                  ? "bg-[var(--app-surface)]"
+                  : "bg-[var(--app-surface-raised)] border-l-4 border-l-[var(--app-accent)]"
               }`}
             >
               <div className="flex gap-3 min-w-0">
                 <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm">
+                  <div className="w-10 h-10 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm shadow-sm">
                     OA
                   </div>
-                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-[var(--app-background)] flex items-center justify-center bg-[var(--app-surface)] shadow-sm">
+                  <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-[var(--app-surface)] flex items-center justify-center bg-[var(--app-surface)] shadow-sm ${!notif.readAt ? "pulse-glow" : ""}`}>
                     {iconForType(notif.type)}
                   </span>
                 </div>
 
                 <div className="text-xs min-w-0">
-                  <p className="text-neutral-800 dark:text-neutral-200">
+                  <p className="text-[var(--app-foreground)]">
                     <span className="font-bold">{notif.title}</span>
                     <span> {notif.body}</span>
                   </p>
-                  <span className="text-[10px] text-neutral-400 block mt-1">
+                  <span className="text-[10px] text-[var(--app-muted)] block mt-1">
                     {new Date(notif.createdAt).toLocaleString("fr-FR")}
                   </span>
                 </div>
               </div>
-              <button
-                onClick={(e) => deleteNotification(notif.id, e)}
-                className="text-neutral-400 hover:text-red-500 p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 transition flex-shrink-0"
-                title="Supprimer"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {!notif.readAt && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--app-accent)] pulse-glow" title="Non lue" />
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => deleteNotification(notif.id, e)}
+                  className="text-[var(--app-muted)] hover:text-red-500 p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] transition-colors flex-shrink-0"
+                  title="Supprimer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))
         )}

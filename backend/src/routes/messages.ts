@@ -139,7 +139,7 @@ messageRouter.post('/conversations/:conversationId/read', requireAuth, async (re
   }
 });
 
-messageRouter.post('/conversations/:userId', requireAuth, async (req, res, next) => {
+messageRouter.post('/conversations/:userId', requireAuth, requireApproved, async (req, res, next) => {
   try {
     const { userId: otherUserId } = conversationParamsSchema.parse(req.params);
     const blockerId = req.user!.id;
@@ -174,7 +174,7 @@ messageRouter.post('/conversations/:userId', requireAuth, async (req, res, next)
   }
 });
 
-messageRouter.post('/conversations/:conversationId/messages', requireAuth, async (req, res, next) => {
+messageRouter.post('/conversations/:conversationId/messages', requireAuth, requireApproved, async (req, res, next) => {
   try {
     const { conversationId } = messageParamsSchema.parse(req.params);
     const schema = z.object({

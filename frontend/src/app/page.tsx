@@ -42,6 +42,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [mode, setMode] = useState<"following" | "discover">("following");
+  const [justLikedId, setJustLikedId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Charger les comptes suivis
@@ -107,12 +108,22 @@ export default function Home() {
     void loadFollowing();
   };
 
+  // Petit rebond visuel sur le bouton "Message" au clic (l'app n'a pas de concept de "like").
+  const handleMessageBounce = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setJustLikedId(id);
+    setTimeout(() => {
+      setJustLikedId((curr) => (curr === id ? null : curr));
+    }, 300);
+    router.push(`/messages`);
+  };
+
   const displayedMembers = mode === "discover" || searchQuery.trim() ? searchResults : followingMembers;
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--app-background)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] selection:bg-[var(--app-accent)]/20">
       {/* Mobile Top Bar – WhatsApp style */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl z-20">
+      <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-[var(--app-border)] sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl z-20">
         <Logo size="sm" showText={true} />
         <div className="flex items-center gap-2">
           {!isStandalone && (
@@ -218,7 +229,7 @@ export default function Home() {
             </div>
 
             {/* Onglets de filtre (Mes Suivis / Découvrir) */}
-            <div className="flex items-center gap-2 p-1 rounded-[28px] bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-xs font-bold shadow-sm">
+            <div className="flex items-center gap-2 p-1 rounded-[28px] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl border border-[var(--app-border)] text-xs font-bold shadow-sm">
               <button
                 onClick={() => {
                   setMode("following");
@@ -258,7 +269,7 @@ export default function Home() {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 placeholder="Rechercher parmi les membres..."
-                className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-[24px] text-sm bg-[var(--app-surface)] outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-2 focus:ring-[var(--app-accent,#25D366)]/15 transition-all duration-300 ease-out shadow-sm"
+                className="w-full pl-10 pr-10 py-3 border border-[var(--app-border)] rounded-[24px] text-sm bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl outline-none focus:border-[var(--app-accent,#25D366)] focus:ring-2 focus:ring-[var(--app-accent,#25D366)]/15 transition-all duration-300 ease-out shadow-sm"
               />
               {loadingMembers ? (
                 <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />
@@ -281,7 +292,7 @@ export default function Home() {
                   <span>Chargement...</span>
                 </div>
               ) : displayedMembers.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-[32px] border border-[var(--app-border)] p-6 space-y-3 shadow-sm">
+                <div className="text-center py-12 text-neutral-500 text-sm bg-[var(--app-surface)] rounded-[32px] border border-[var(--app-border)] p-6 space-y-3 shadow-sm card-3d">
                   <Users className="w-10 h-10 mx-auto text-neutral-300 dark:text-neutral-700" />
                   <div className="font-bold">
                     {mode === "following" ? "Vous ne suivez aucun compte" : "Aucun membre trouvé"}
@@ -297,27 +308,27 @@ export default function Home() {
                         setMode("discover");
                         void searchCommunity("");
                       }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition-all duration-300 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                  >
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition-all duration-300 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                    >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Découvrir la communauté</span>
                     </button>
                   ) : (
                     <button
                       onClick={handleClearSearch}
-                    className="text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline transition-all duration-300 ease-out"
-                  >
-                    Retour aux abonnements
-                  </button>
-                )}
-              </div>
+                      className="text-xs font-bold text-[var(--app-accent,#25D366)] hover:underline transition-all duration-300 ease-out"
+                    >
+                      Retour aux abonnements
+                    </button>
+                  )}
+                </div>
               ) : (
                 displayedMembers.map((member, index) => (
                   <div
                     key={member.id}
                     onClick={() => router.push(`/profile/${member.id}`)}
-                    className="flex items-center justify-between p-3.5 rounded-[28px] border border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-accent,#25D366)]/50 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-300 ease-out group shadow-sm hover:shadow-md hover:-translate-y-0.5 animate-fadeIn"
-                    style={{ animationDelay: `${index * 45}ms` }}
+                    className="card-3d flex items-center justify-between p-3.5 rounded-[28px] border border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-accent,#25D366)]/50 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-all duration-300 ease-out group shadow-sm animate-slideUp"
+                    style={{ animationDelay: `${Math.min(index * 40, 300)}ms` }}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden shadow-sm ring-1 ring-black/5">
@@ -349,16 +360,18 @@ export default function Home() {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/messages`);
-                      }}
-                      className="p-2.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-accent,#25D366)]/15 text-[var(--app-foreground)] hover:text-[var(--app-accent,#25D366)] transition-all duration-300 ease-out flex-shrink-0 border border-[var(--app-border)] hover:-translate-y-0.5"
-                      title="Envoyer un message privé"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleMessageBounce(member.id, e)}
+                        className={`p-2.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-accent,#25D366)]/15 text-[var(--app-foreground)] hover:text-[var(--app-accent,#25D366)] transition-all duration-300 ease-out flex-shrink-0 border border-[var(--app-border)] hover:-translate-y-0.5 ${
+                          justLikedId === member.id ? "like-pop text-[var(--app-accent,#25D366)]" : ""
+                        }`}
+                        title="Envoyer un message privé"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

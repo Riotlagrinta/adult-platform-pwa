@@ -90,7 +90,7 @@ filesRouter.post('/avatar', requireAuth, avatarUpload.single('file'), async (req
   }
 });
 
-filesRouter.post('/media', requireAuth, mediaUpload.single('file'), async (req, res, next) => {
+filesRouter.post('/media', requireAuth, requireApproved, mediaUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -114,9 +114,11 @@ filesRouter.post('/media', requireAuth, mediaUpload.single('file'), async (req, 
       }
     }
 
+    const signedUrl = await signUrlIfNeeded(url);
+
     res.status(201).json({
       file: {
-        url,
+        url: signedUrl || url,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
@@ -151,9 +153,12 @@ filesRouter.post('/verification', requireAuth, verificationUpload.single('file')
       }
     }
 
+    // Les justificatifs d'identité sont sensibles : ne jamais renvoyer l'URL brute non signée.
+    const signedUrl = await signUrlIfNeeded(url);
+
     res.status(201).json({
       file: {
-        url,
+        url: signedUrl || url,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,

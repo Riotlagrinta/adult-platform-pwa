@@ -60,6 +60,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const callDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const disconnectGraceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Détache proprement les handlers d'une RTCPeerConnection avant de la fermer : sinon
+  // pc.close() déclenche lui-même onconnectionstatechange("closed") de façon asynchrone,
+  // ce qui relance closeWithFeedback juste après une fin d'appel déjà traitée.
+  const closePeerConnection = useCallback((pc: RTCPeerConnection | null) => {
+    if (!pc) return;
+    pc.onconnectionstatechange = null;
+    pc.ontrack = null;
+    pc.onicecandidate = null;
+    pc.close();
+  }, []);
 
   // Synchronisation des refs pour éviter toute closure obsolète
   useEffect(() => {
@@ -88,6 +100,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       autoCloseTimeoutRef.current = null;
     }
 
+    if (disconnectGraceTimeoutRef.current) {
+      clearTimeout(disconnectGraceTimeoutRef.current);
+      disconnectGraceTimeoutRef.current = null;
+    }
+
     if (callDurationTimerRef.current) {
       clearInterval(callDurationTimerRef.current);
       callDurationTimerRef.current = null;
@@ -98,10 +115,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       localStreamRef.current = null;
     }
 
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+    closePeerConnection(pcRef.current);
+    pcRef.current = null;
 
     setLocalStream(null);
     setRemoteStream(null);
@@ -112,7 +127,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIsMuted(false);
     setIsVideoEnabled(true);
     setIsSpeakerOn(true);
-  }, []);
+  }, [closePeerConnection]);
 
   // Affichage d'une fin d'appel propre avec raison sans jamais bloquer l'UI
   const closeWithFeedback = useCallback((reason: string, playTone = true) => {
@@ -128,16 +143,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       callDurationTimerRef.current = null;
     }
 
+    if (disconnectGraceTimeoutRef.current) {
+      clearTimeout(disconnectGraceTimeoutRef.current);
+      disconnectGraceTimeoutRef.current = null;
+    }
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
       setLocalStream(null);
     }
 
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+    closePeerConnection(pcRef.current);
+    pcRef.current = null;
 
     setEndReason(reason);
     setCallStatus("ended");
@@ -152,7 +170,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     autoCloseTimeoutRef.current = setTimeout(() => {
       cleanupCall();
     }, 2000);
-  }, [cleanupCall]);
+  }, [cleanupCall, closePeerConnection]);
 
   // Décrocher et acquérir les flux micro / caméra
   const acquireMedia = async (video: boolean): Promise<MediaStream | null> => {
@@ -225,18 +243,34 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           clearTimeout(ringingTimeoutRef.current);
           ringingTimeoutRef.current = null;
         }
+        // La connexion a récupéré : annuler tout raccroché différé programmé pendant le "disconnected"
+        if (disconnectGraceTimeoutRef.current) {
+          clearTimeout(disconnectGraceTimeoutRef.current);
+          disconnectGraceTimeoutRef.current = null;
+        }
         setCallStatus("connected");
         if (!callDurationTimerRef.current) {
           callDurationTimerRef.current = setInterval(() => {
             setCallDuration((prev) => prev + 1);
           }, 1000);
         }
-      } else if (
-        pc.connectionState === "disconnected" ||
-        pc.connectionState === "failed" ||
-        pc.connectionState === "closed"
-      ) {
+      } else if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+        if (disconnectGraceTimeoutRef.current) {
+          clearTimeout(disconnectGraceTimeoutRef.current);
+          disconnectGraceTimeoutRef.current = null;
+        }
         closeWithFeedback("Connexion interrompue");
+      } else if (pc.connectionState === "disconnected") {
+        // "disconnected" est souvent transitoire (handoff réseau, NAT rebinding) : on laisse
+        // une chance de récupération avant de raccrocher pour de bon.
+        if (!disconnectGraceTimeoutRef.current) {
+          disconnectGraceTimeoutRef.current = setTimeout(() => {
+            disconnectGraceTimeoutRef.current = null;
+            if (pcRef.current === pc && pc.connectionState === "disconnected") {
+              closeWithFeedback("Connexion interrompue");
+            }
+          }, 6000);
+        }
       }
     };
 
@@ -247,6 +281,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const startCall = async (target: CallPartner, video = false) => {
     if (!token || !user) return;
     if (callStatusRef.current !== "idle") return;
+    // Verrouillage synchrone immédiat : callStatusRef n'est resynchronisé qu'un rendu plus
+    // tard via useEffect([callStatus]), ce qui laissait une fenêtre où un double-tap rapide
+    // déclenchait deux getUserMedia()/call:initiate en parallèle.
+    callStatusRef.current = "calling";
 
     haptics.medium();
     setIsVideo(video);
@@ -300,9 +338,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     stopRingtone();
 
     const stream = await acquireMedia(isVideoRef.current);
+
+    // L'appelant a pu raccrocher pendant que la permission micro/caméra était en attente :
+    // sans ce contrôle, on repartait avec un `currentPartner` obsolète et on ressuscitait
+    // un appel déjà terminé (micro ouvert pour rien, UI bloquée sur "connecté").
+    if (callStatusRef.current !== "incoming" || partnerRef.current?.id !== currentPartner.id) {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (localStreamRef.current === stream) {
+        localStreamRef.current = null;
+        setLocalStream(null);
+      }
+      return;
+    }
+
     if (!stream) {
+      // Notifier l'appelant sans repasser par rejectCall() (qui referait un closeWithFeedback
+      // et écraserait ce message par "Appel refusé").
+      const socket = getSocket(token);
+      socket.emit("call:reject", { callerId: currentPartner.id, reason: "media-denied" });
       closeWithFeedback("Accès au microphone requis pour décrocher.");
-      rejectCall();
       return;
     }
 

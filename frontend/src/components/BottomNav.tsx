@@ -83,7 +83,13 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
               }}
               className="flex flex-col items-center justify-center gap-0.5 w-full h-full relative transition-all duration-200"
             >
-              <div className="relative">
+              <div
+                className={`relative flex items-center justify-center rounded-2xl transition-all duration-200 ${
+                  isActive
+                    ? "w-9 h-9 -translate-y-1 bg-[color-mix(in_srgb,var(--app-accent,#25D366)_16%,transparent)] shadow-[0_6px_14px_-4px_rgba(37,211,102,0.5)]"
+                    : "w-9 h-9"
+                }`}
+              >
                 <Icon
                   className={`h-[22px] w-[22px] transition-all duration-200 ${
                     isActive

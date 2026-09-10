@@ -83,7 +83,20 @@ groupsRouter.get('/', requireAuth, async (req, res, next) => {
       orderBy: { updatedAt: 'desc' },
     });
 
-    res.json({ groups });
+    const signedGroups = await Promise.all(
+      groups.map(async (g) => ({
+        ...g,
+        creator: { ...g.creator, avatarUrl: await signUrlIfNeeded(g.creator.avatarUrl) },
+        members: await Promise.all(
+          g.members.map(async (m) => ({ ...m, user: { ...m.user, avatarUrl: await signUrlIfNeeded(m.user.avatarUrl) } }))
+        ),
+        messages: await Promise.all(
+          g.messages.map(async (msg) => ({ ...msg, mediaUrl: await signUrlIfNeeded(msg.mediaUrl) }))
+        ),
+      }))
+    );
+
+    res.json({ groups: signedGroups });
   } catch (error) {
     next(error);
   }
@@ -117,7 +130,28 @@ groupsRouter.get('/:id', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'Groupe non trouvé' });
     }
 
-    res.json({ group });
+    // Anti-IDOR : seuls les membres (ou le créateur) peuvent lire le contenu du groupe
+    const isMember = group.creatorId === req.user!.id || group.members.some((m) => m.userId === req.user!.id);
+    if (!isMember) {
+      return res.status(403).json({ error: 'Vous n\'êtes pas membre de ce groupe.' });
+    }
+
+    const signedGroup = {
+      ...group,
+      creator: { ...group.creator, avatarUrl: await signUrlIfNeeded(group.creator.avatarUrl) },
+      members: await Promise.all(
+        group.members.map(async (m) => ({ ...m, user: { ...m.user, avatarUrl: await signUrlIfNeeded(m.user.avatarUrl) } }))
+      ),
+      messages: await Promise.all(
+        group.messages.map(async (msg) => ({
+          ...msg,
+          mediaUrl: await signUrlIfNeeded(msg.mediaUrl),
+          sender: { ...msg.sender, avatarUrl: await signUrlIfNeeded(msg.sender.avatarUrl) },
+        }))
+      ),
+    };
+
+    res.json({ group: signedGroup });
   } catch (error) {
     next(error);
   }
@@ -149,10 +183,8 @@ groupsRouter.post('/:id/messages', requireAuth, async (req, res, next) => {
     });
 
     if (!membership) {
-      // Auto-join si pas encore membre
-      await prisma.groupMember.create({
-        data: { groupId, userId: req.user!.id, role: 'MEMBER' },
-      });
+      // Anti-IDOR : on ne rejoint plus automatiquement, il faut passer par /join
+      return res.status(403).json({ error: 'Vous n\'êtes pas membre de ce groupe.' });
     }
 
     const message = await prisma.groupMessage.create({
@@ -174,6 +206,12 @@ groupsRouter.post('/:id/messages', requireAuth, async (req, res, next) => {
       data: { updatedAt: new Date() },
     });
 
+    const signedMessage = {
+      ...message,
+      mediaUrl: await signUrlIfNeeded(message.mediaUrl),
+      sender: { ...message.sender, avatarUrl: await signUrlIfNeeded(message.sender.avatarUrl) },
+    };
+
     // Émettre à tous les membres
     const allMembers = await prisma.groupMember.findMany({
       where: { groupId },
@@ -181,10 +219,10 @@ groupsRouter.post('/:id/messages', requireAuth, async (req, res, next) => {
     });
 
     allMembers.forEach((m) => {
-      emitToUser(m.userId, 'group:message:new', { groupId, message });
+      emitToUser(m.userId, 'group:message:new', { groupId, message: signedMessage });
     });
 
-    res.status(201).json({ message });
+    res.status(201).json({ message: signedMessage });
   } catch (error) {
     next(error);
   }

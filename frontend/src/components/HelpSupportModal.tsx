@@ -126,7 +126,7 @@ export default function HelpSupportModal({ isOpen, onClose, userEmail }: HelpSup
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn select-none">
-      <div className="w-full max-w-2xl bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="w-full max-w-2xl bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-scaleUp">
         {/* Header de la modale */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--app-border)] bg-[var(--app-surface-raised)]">
           <div className="flex items-center gap-3">
@@ -145,7 +145,7 @@ export default function HelpSupportModal({ isOpen, onClose, userEmail }: HelpSup
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] hover:bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full bg-[var(--app-surface-soft)] hover:bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center hover:rotate-90 transition-transform duration-200"
           >
             <X className="w-4 h-4" />
           </button>

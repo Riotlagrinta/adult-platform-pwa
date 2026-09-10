@@ -6,7 +6,7 @@
  * afin d'empêcher la mise en veille au bout de 15 minutes d'inactivité.
  * 
  * Déclencheur Cron recommandé dans Cloudflare :
- * cron = "star/10 * * * *" (toutes les 10 minutes)
+ * cron = "*/10 * * * *" (toutes les 10 minutes)
  */
 
 // URL de votre API Render
@@ -45,10 +45,17 @@ async function pingBackend() {
     const isOk = res.ok;
     let data = null;
 
+    // res.json() consomme le corps de la réponse : s'il échoue (réponse non-JSON, ex. page
+    // d'erreur HTML pendant un cold start), on ne peut plus relire le même Response avec
+    // res.text() ("body already used"). On clone donc avant de tenter le parsing JSON.
     try {
-      data = await res.json();
+      data = await res.clone().json();
     } catch {
-      data = await res.text();
+      try {
+        data = await res.text();
+      } catch {
+        data = null;
+      }
     }
 
     console.log(`[KeepAlive] Ping Render (${res.status}) en ${elapsedMs}ms`);

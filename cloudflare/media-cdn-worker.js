@@ -58,13 +58,16 @@ export default {
 
     const b2Url = `${B2_CONFIG.originEndpoint}/${targetPath}${url.search}`;
 
-    // 3. Vérification du cache Cloudflare Edge
+    // 3. Vérification du cache Cloudflare Edge (uniquement pour GET : une requête HEAD
+    // n'a pas de corps et ne doit jamais être lue depuis, ni écrite dans, le cache GET,
+    // sous peine de mettre en cache une réponse à corps vide pour tous les futurs GET).
     const cacheKey = new Request(b2Url, { method: "GET" });
     const cache = caches.default;
     const hasRange = request.headers.has("Range");
+    const isCacheableMethod = request.method === "GET";
 
     // Si la requête ne demande pas un segment Range partiel, tenter le cache
-    if (!hasRange) {
+    if (isCacheableMethod && !hasRange) {
       let cachedResponse = await cache.match(cacheKey);
       if (cachedResponse) {
         const headers = new Headers(cachedResponse.headers);
@@ -120,7 +123,7 @@ export default {
       });
 
       // Enregistrer dans le cache Cloudflare en tâche de fond pour les réponses complètes (200)
-      if (b2Response.status === 200 && !hasRange) {
+      if (isCacheableMethod && b2Response.status === 200 && !hasRange) {
         ctx.waitUntil(cache.put(cacheKey, clientResponse.clone()));
       }
 

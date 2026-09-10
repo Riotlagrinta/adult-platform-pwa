@@ -19,6 +19,22 @@ interface AuthenticatedSocket extends Socket {
 /** Map userId → Set of active socket IDs (multi-tab support) */
 const onlineUsers = new Map<string, Set<string>>();
 
+/** Appels en cours de sonnerie : userId appelé → userId appelant */
+const pendingCalls = new Map<string, string>();
+/** Appels acceptés : userId → userId de l'interlocuteur actuel */
+const activeCalls = new Map<string, string>();
+
+/** Nettoie toute trace d'un appel (sonnant ou actif) impliquant userId */
+function clearCallState(userId: string) {
+  pendingCalls.delete(userId);
+  for (const [callee, caller] of pendingCalls) {
+    if (caller === userId) pendingCalls.delete(callee);
+  }
+  const partner = activeCalls.get(userId);
+  activeCalls.delete(userId);
+  if (partner) activeCalls.delete(partner);
+}
+
 let io: Server | null = null;
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -26,16 +42,11 @@ let io: Server | null = null;
 /** Emit an event to all sockets of a specific user */
 export function emitToUser(userId: string, event: string, data: unknown) {
   if (!io) return;
-  // 1. Room-based broadcast (fiabilité maximale multi-onglets / reconnexion)
+  // Chaque socket rejoint déjà la room `user:${userId}` à la connexion (voir plus bas) :
+  // un seul broadcast sur cette room suffit à atteindre toutes ses sessions/onglets.
+  // Émettre en plus vers chaque socket.id dupliquait chaque événement (messages,
+  // notifications, appels entrants reçus deux fois).
   io.to(`user:${userId}`).emit(event, data);
-
-  // 2. Sécurité additionnelle : émettre aussi aux sockets individuels
-  const sockets = onlineUsers.get(userId);
-  if (sockets && sockets.size > 0) {
-    for (const socketId of sockets) {
-      io.to(socketId).emit(event, data);
-    }
-  }
 }
 
 /** Check whether a user has any active socket */
@@ -397,6 +408,9 @@ export function initSocket(httpServer: HttpServer) {
           emitToUser(targetUserId, 'notification:new', notif);
         }).catch(() => {});
 
+        // Enregistrer l'appel en attente pour pouvoir valider accept/reject/end/signal ensuite
+        pendingCalls.set(targetUserId, userId);
+
         // L'appel sonne normalement pour l'appelant (jamais rejeté arbitrairement)
         ack?.({ ok: true });
       } catch (err) {
@@ -405,26 +419,36 @@ export function initSocket(httpServer: HttpServer) {
       }
     });
 
+    // Un appel n'existe que si `pendingCalls`/`activeCalls` le confirme : évite qu'un
+    // utilisateur quelconque raccroche ou injecte du signal WebRTC dans l'appel d'un autre.
     socket.on('call:accept', (data: { callerId: string }) => {
-      if (data?.callerId) {
+      if (data?.callerId && pendingCalls.get(userId) === data.callerId) {
+        pendingCalls.delete(userId);
+        activeCalls.set(userId, data.callerId);
+        activeCalls.set(data.callerId, userId);
         emitToUser(data.callerId, 'call:accepted', { recipientId: userId });
       }
     });
 
     socket.on('call:reject', (data: { callerId: string; reason?: string }) => {
-      if (data?.callerId) {
+      if (data?.callerId && pendingCalls.get(userId) === data.callerId) {
+        pendingCalls.delete(userId);
         emitToUser(data.callerId, 'call:rejected', { recipientId: userId, reason: data.reason || 'declined' });
       }
     });
 
     socket.on('call:end', (data: { targetUserId: string }) => {
-      if (data?.targetUserId) {
+      const isPending = pendingCalls.get(data?.targetUserId) === userId || pendingCalls.get(userId) === data?.targetUserId;
+      const isActive = activeCalls.get(userId) === data?.targetUserId;
+      if (data?.targetUserId && (isPending || isActive)) {
+        clearCallState(userId);
         emitToUser(data.targetUserId, 'call:ended', { fromUserId: userId });
       }
     });
 
     socket.on('call:signal', (data: { targetUserId: string; signal: unknown }) => {
-      if (data?.targetUserId && data?.signal) {
+      const inCallTogether = activeCalls.get(userId) === data?.targetUserId || pendingCalls.get(userId) === data?.targetUserId || pendingCalls.get(data?.targetUserId) === userId;
+      if (data?.targetUserId && data?.signal && inCallTogether) {
         emitToUser(data.targetUserId, 'call:signal', {
           senderId: userId,
           signal: data.signal,
@@ -471,6 +495,14 @@ export function initSocket(httpServer: HttpServer) {
         userSockets.delete(socket.id);
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
+
+          // Terminer proprement tout appel en cours si c'était la dernière session active
+          const activePartner = activeCalls.get(userId);
+          const pendingCaller = pendingCalls.get(userId);
+          clearCallState(userId);
+          if (activePartner) emitToUser(activePartner, 'call:ended', { fromUserId: userId });
+          if (pendingCaller) emitToUser(pendingCaller, 'call:rejected', { recipientId: userId, reason: 'offline' });
+
           const now = new Date();
           // Sauvegarder la dernière date de connexion en BDD
           await prisma.user.update({

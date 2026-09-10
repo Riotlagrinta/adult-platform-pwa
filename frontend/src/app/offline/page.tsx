@@ -12,8 +12,8 @@ export default function OfflinePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--app-background)] text-[var(--app-foreground)] flex flex-col items-center justify-center p-6 text-center select-none">
-      <div className="max-w-md w-full bg-[var(--app-surface)] border border-[var(--app-border)] rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-6">
+    <div className="min-h-screen bg-[var(--app-background)] text-[var(--app-foreground)] flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
+      <div className="card-3d max-w-md w-full bg-[var(--app-surface)] border border-[var(--app-border)] rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-6">
         <div className="w-20 h-20 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center animate-pulse">
           <WifiOff className="w-10 h-10" />
         </div>
@@ -28,7 +28,7 @@ export default function OfflinePage() {
         <div className="flex flex-col w-full gap-3 pt-2">
           <button
             onClick={handleReload}
-            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm tracking-tight hover:opacity-90 active:scale-[0.98] transition shadow-lg"
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[var(--app-foreground)] text-[var(--app-background)] font-black text-sm tracking-tight hover:opacity-90 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98] transition-all duration-200 shadow-md"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Réessayer</span>
@@ -36,7 +36,7 @@ export default function OfflinePage() {
 
           <Link
             href="/"
-            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[var(--app-surface-soft)] text-neutral-300 font-bold text-sm tracking-tight hover:bg-neutral-800 active:scale-[0.98] transition"
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[var(--app-surface-soft)] hover:bg-[var(--app-surface-raised)] text-[var(--app-foreground)] font-bold text-sm tracking-tight hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Retour à l'accueil</span>

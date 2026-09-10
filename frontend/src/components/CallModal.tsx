@@ -204,8 +204,8 @@ export default function CallModal() {
 
       {/* CAS 1 : Appel Entrant (Incoming) */}
       {callStatus === "incoming" && (
-        <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900 to-neutral-950 border border-neutral-800 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
-          <div className="relative my-6">
+        <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900/85 to-neutral-950/85 backdrop-blur-xl border border-white/10 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
+          <div className="relative my-6 avatar-3d">
             <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
             <span className="absolute -inset-3 rounded-full bg-emerald-500/10 animate-pulse" />
             <div className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-emerald-500 shadow-xl bg-neutral-800 flex items-center justify-center text-2xl font-bold">
@@ -235,7 +235,7 @@ export default function CallModal() {
               onClick={rejectCall}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-16 h-16 rounded-full bg-rose-600 group-hover:bg-rose-700 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-rose-600/30">
+              <div className="w-16 h-16 rounded-full bg-rose-600 group-hover:bg-rose-700 group-hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-rose-600/30">
                 <PhoneOff className="w-7 h-7 text-white" />
               </div>
               <span className="text-xs text-neutral-300 font-medium">Refuser</span>
@@ -246,7 +246,7 @@ export default function CallModal() {
               onClick={acceptCall}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-16 h-16 rounded-full bg-emerald-500 group-hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-500/40 animate-bounce">
+              <div className="w-16 h-16 rounded-full bg-emerald-500 group-hover:bg-emerald-600 group-hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-500/40 animate-bounce">
                 <Phone className="w-7 h-7 text-white" />
               </div>
               <span className="text-xs text-emerald-400 font-bold">Décrocher</span>
@@ -257,8 +257,8 @@ export default function CallModal() {
 
       {/* CAS 2 : Appel Sortant (Calling - en cours de sonnerie) */}
       {callStatus === "calling" && (
-        <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900 to-neutral-950 border border-neutral-800 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
-          <div className="relative my-6">
+        <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-neutral-900/85 to-neutral-950/85 backdrop-blur-xl border border-white/10 text-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
+          <div className="relative my-6 avatar-3d">
             <span className="absolute inset-0 rounded-full bg-cyan-500/20 animate-ping" />
             <span className="absolute -inset-4 rounded-full bg-cyan-500/10 animate-pulse" />
             <div className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-cyan-500 shadow-xl bg-neutral-800 flex items-center justify-center text-2xl font-bold">
@@ -383,7 +383,7 @@ export default function CallModal() {
             ) : (
               /* Interface Appel Audio pur */
               <div className="flex flex-col items-center justify-center gap-6 p-6">
-                <div className="relative">
+                <div className="relative avatar-3d">
                   <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
                   <span className="absolute -inset-6 rounded-full bg-emerald-500/10 animate-pulse" />
                   <div className="relative w-36 h-36 rounded-full overflow-hidden border-4 border-emerald-500 shadow-2xl bg-neutral-800 flex items-center justify-center text-4xl font-bold">
@@ -423,7 +423,7 @@ export default function CallModal() {
           </div>
 
           {/* Barre d'outils inférieure : Mute, Haut-Parleur, Vidéo, Raccrocher */}
-          <div className="relative z-30 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-center justify-center gap-4 sm:gap-6">
+          <div className="relative z-30 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/50 to-transparent backdrop-blur-md flex items-center justify-center gap-4 sm:gap-6">
             {/* Bouton Mute Micro */}
             <button
               type="button"
@@ -493,7 +493,7 @@ export default function CallModal() {
 
       {/* CAS 4 : Fin d'appel (Ended) */}
       {callStatus === "ended" && (
-        <div className="relative w-full max-w-xs mx-4 bg-neutral-900 border border-neutral-800 text-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
+        <div className="relative w-full max-w-xs mx-4 bg-neutral-900/85 backdrop-blur-xl border border-white/10 text-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center animate-scaleUp">
           <button
             type="button"
             onClick={endCall}

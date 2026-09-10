@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Settings,
-  User,
   Camera,
   Edit3,
   Share2,
@@ -20,13 +19,9 @@ import {
   ChevronRight,
   ChevronDown,
   Loader2,
-  Users,
-  ShieldAlert,
-  Sparkles,
   Volume2,
   MessageSquare,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import { useAuth } from "@/components/AuthProvider";
@@ -61,7 +56,6 @@ export default function SettingsPage() {
   const isStandalone = useIsStandalone();
 
   const [me, setMe] = useState<MyUser | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Formulaire d'édition de profil
@@ -79,20 +73,6 @@ export default function SettingsPage() {
 
   // Blocages & Confidentialité
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
-  const [showBlockedModal, setShowBlockedModal] = useState(false);
-
-  // Préférences Discussions & Wallpapers
-  const [selectedWallpaper, setSelectedWallpaper] = useState<string>("default");
-  const [chatFontSize, setChatFontSize] = useState<"small" | "medium" | "large">("medium");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedWp = localStorage.getItem("chat_wallpaper");
-      if (savedWp && !savedWp.startsWith("wallpaper-")) setSelectedWallpaper(savedWp);
-      const savedFs = localStorage.getItem("chat_font_size") as "small" | "medium" | "large";
-      if (savedFs) setChatFontSize(savedFs);
-    }
-  }, []);
 
   // Modale d'Aide & Information
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -106,7 +86,6 @@ export default function SettingsPage() {
 
   const loadFullProfile = useCallback(async () => {
     if (!token) return;
-    setLoadingProfile(true);
     try {
       const mePayload = await apiRequest<{ user: MyUser }>("/auth/me", { token });
       const followersPayload = await apiRequest<{ followers: any[] }>("/social/followers", { token });
@@ -123,8 +102,6 @@ export default function SettingsPage() {
       setBlockedUsers(blocksPayload.blocked || []);
     } catch (err) {
       console.error("Erreur de chargement du profil:", err);
-    } finally {
-      setLoadingProfile(false);
     }
   }, [token]);
 
@@ -223,7 +200,7 @@ export default function SettingsPage() {
   return (
     <div className="bg-[var(--app-background)] min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--app-foreground)] select-none">
       {/* ─── HEADER TYPE WHATSAPP (Barre supérieure) ─── */}
-      <header className="sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_96%,transparent)] backdrop-blur-xl border-b border-[var(--app-border)] px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex items-center justify-between">
+      <header className="sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl border-b border-[var(--app-border)] px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center">
             <Settings className="w-4 h-4" />
@@ -232,7 +209,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleCopyLink}
-          className="p-2 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+          className="p-2 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition-colors duration-200"
           title="Partager mon lien de profil"
         >
           <Share2 className="w-4 h-4" />
@@ -291,7 +268,7 @@ export default function SettingsPage() {
             {/* Bouton d'édition rapide */}
             <button
               onClick={() => setIsEditingProfile((prev) => !prev)}
-              className="p-2.5 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] hover:bg-[var(--app-surface-soft)] transition text-[var(--app-foreground)] flex-shrink-0 shadow-sm"
+              className="p-2.5 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] hover:bg-[var(--app-surface-soft)] transition-colors duration-200 text-[var(--app-foreground)] flex-shrink-0 shadow-sm"
               title="Modifier mes informations"
             >
               <Edit3 className="w-4 h-4 text-[var(--app-accent,#25D366)]" />
@@ -311,7 +288,7 @@ export default function SettingsPage() {
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-sm outline-none focus:border-[var(--app-accent,#25D366)]"
+                    className="w-full px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-sm outline-none focus:border-[var(--app-accent,#25D366)] transition-colors"
                     placeholder="Votre nom ou pseudonyme"
                   />
                 </div>
@@ -320,7 +297,7 @@ export default function SettingsPage() {
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-sm outline-none focus:border-[var(--app-accent,#25D366)] min-h-[70px]"
+                    className="w-full px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-sm outline-none focus:border-[var(--app-accent,#25D366)] min-h-[70px] transition-colors"
                     placeholder="Votre bio ou statut WhatsApp..."
                   />
                 </div>
@@ -331,7 +308,7 @@ export default function SettingsPage() {
                       type="text"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-3 py-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs outline-none focus:border-[var(--app-accent,#25D366)]"
+                      className="w-full px-3 py-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs outline-none focus:border-[var(--app-accent,#25D366)] transition-colors"
                       placeholder="Paris, Lyon..."
                     />
                   </div>
@@ -341,7 +318,7 @@ export default function SettingsPage() {
                       type="text"
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
-                      className="w-full px-3 py-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs outline-none focus:border-[var(--app-accent,#25D366)]"
+                      className="w-full px-3 py-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs outline-none focus:border-[var(--app-accent,#25D366)] transition-colors"
                       placeholder="Profession, passion..."
                     />
                   </div>
@@ -373,7 +350,7 @@ export default function SettingsPage() {
                       setIsEditingProfile(false);
                       setAvatarFile(null);
                     }}
-                    className="px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs font-bold hover:bg-[var(--app-surface-soft)] transition"
+                    className="px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-xs font-bold hover:bg-[var(--app-surface-soft)] transition-colors duration-200"
                   >
                     Annuler
                   </button>
@@ -386,7 +363,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pt-3 border-t border-[var(--app-border)] text-xs">
             <button
               onClick={() => setShowRelations((v) => !v)}
-              className="flex items-center gap-4 hover:opacity-80 transition"
+              className="flex items-center gap-4 hover:opacity-80 transition-opacity"
             >
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-[var(--app-foreground)]">{followers.length}</span>
@@ -419,7 +396,7 @@ export default function SettingsPage() {
                     <div
                       key={`${u.id}-${idx}`}
                       onClick={() => router.push(`/profile/${u.id}`)}
-                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
                     >
                       <div className="w-7 h-7 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-[10px]">
                         {u.displayName.slice(0, 2).toUpperCase()}
@@ -439,7 +416,7 @@ export default function SettingsPage() {
         <section className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] overflow-hidden shadow-sm divide-y divide-[var(--app-border)]">
           <div
             onClick={() => toggleSection("account")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
@@ -472,7 +449,7 @@ export default function SettingsPage() {
           {/* SECTION B : CONFIDENTIALITÉ */}
           <div
             onClick={() => toggleSection("privacy")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center">
@@ -519,7 +496,7 @@ export default function SettingsPage() {
                         <span className="font-bold truncate">{b.displayName}</span>
                         <button
                           onClick={() => handleUnblock(b.id)}
-                          className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold text-[10px] transition"
+                          className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold text-[10px] transition-colors"
                         >
                           Débloquer
                         </button>
@@ -534,7 +511,7 @@ export default function SettingsPage() {
           {/* SECTION C : APPARENCE & ICÔNES DE CAMOUFLAGE */}
           <div
             onClick={() => toggleSection("appearance")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
@@ -564,7 +541,7 @@ export default function SettingsPage() {
           {/* SECTION D : DISCUSSIONS & FONDS D'ÉCRAN */}
           <div
             onClick={() => toggleSection("chats")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
@@ -591,7 +568,7 @@ export default function SettingsPage() {
           {/* SECTION E : NOTIFICATIONS & SONS */}
           <div
             onClick={() => toggleSection("notifications")}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-orange-500/15 text-orange-500 flex items-center justify-center">
@@ -637,7 +614,7 @@ export default function SettingsPage() {
                       alert("Votre navigateur ne supporte pas les notifications système.");
                     }
                   }}
-                  className="px-3 py-1.5 rounded-full bg-[var(--app-accent,#25D366)] text-white font-bold text-[10px] hover:opacity-90 transition shadow-sm"
+                  className="px-3.5 py-1.5 rounded-full bg-[var(--app-accent,#25D366)] text-white font-bold text-[10px] hover:opacity-90 transition shadow-sm"
                 >
                   Activer
                 </button>
@@ -653,7 +630,7 @@ export default function SettingsPage() {
                 </div>
                 <button
                   onClick={handleTestSound}
-                  className="px-3 py-1.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] border border-[var(--app-border)] font-bold text-[10px] transition"
+                  className="px-3.5 py-1.5 rounded-full bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] border border-[var(--app-border)] font-bold text-[10px] transition-colors"
                 >
                   Tester le son
                 </button>
@@ -665,7 +642,7 @@ export default function SettingsPage() {
           {!isStandalone && (
             <div
               onClick={() => router.push("/download")}
-              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+              className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
             >
               <div className="flex items-center gap-3.5">
                 <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-500 flex items-center justify-center">
@@ -683,7 +660,7 @@ export default function SettingsPage() {
           {/* SECTION F : AIDE & SUPPORT INTERACTIF */}
           <div
             onClick={() => setShowHelpModal(true)}
-            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition"
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-2xl bg-neutral-500/15 text-neutral-400 flex items-center justify-center">
@@ -708,7 +685,7 @@ export default function SettingsPage() {
         {/* ─── 3. BOUTON DE DÉCONNEXION WHATSAPP-STYLE ─── */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 dark:bg-red-950/25 dark:text-red-400 py-3.5 rounded-2xl font-black text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition shadow-sm border border-red-200 dark:border-red-900/30"
+          className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 dark:bg-red-950/25 dark:text-red-400 py-3.5 rounded-2xl font-black text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors duration-200 shadow-sm border border-red-200 dark:border-red-900/30"
         >
           <LogOut className="w-4 h-4" />
           <span>Se déconnecter d&apos;OnlyAdults</span>

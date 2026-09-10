@@ -90,7 +90,7 @@ export default function StickerPicker({ onSelectSticker, onClose, token }: Stick
   });
 
   return (
-    <div className="bg-[var(--app-surface)] border border-[var(--app-border)] rounded-3xl shadow-2xl overflow-hidden flex flex-col w-full max-w-sm sm:max-w-md h-80 animate-slideUp select-none">
+    <div className="bg-[var(--app-surface)] border border-[var(--app-border)] rounded-3xl shadow-2xl overflow-hidden flex flex-col w-full max-w-sm sm:max-w-md h-80 animate-scaleUp select-none">
       {/* Header avec Barre de Recherche & Fermeture */}
       <div className="p-2.5 border-b border-[var(--app-border)] flex items-center gap-2 bg-[var(--app-surface-raised)]">
         <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-xs">
@@ -110,7 +110,7 @@ export default function StickerPicker({ onSelectSticker, onClose, token }: Stick
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-white transition"
+          className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-white hover:rotate-90 transition-transform duration-200"
           title="Fermer"
         >
           <X className="w-4 h-4" />

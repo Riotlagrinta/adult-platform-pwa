@@ -463,9 +463,12 @@ export default function MessagesPage() {
         prev.map((c) => {
           if (c.id === selectedConvId) {
             const exists = c.messages.some((m) => m.id === res.message.id);
+            // Convention du composant : messages[0] est le plus récent (voir le tri par
+            // createdAt desc et le .reverse() à l'affichage) — il faut donc préfixer, pas
+            // ajouter à la fin, sinon le vocal envoyé apparaît en haut de la conversation.
             return {
               ...c,
-              messages: exists ? c.messages : [...c.messages, res.message],
+              messages: exists ? c.messages : [res.message, ...c.messages],
             };
           }
           return c;
@@ -1135,12 +1138,15 @@ export default function MessagesPage() {
               <div
                 key={conversation.id}
                 onClick={() => setSelectedConvId(conversation.id)}
-                className={`flex items-center gap-3 rounded-[1.65rem] p-3.5 cursor-pointer border transition-all duration-200 ${
+                className={`relative flex items-center gap-3 rounded-[1.65rem] p-3.5 cursor-pointer border transition-all duration-200 group ${
                   selectedConvId === conversation.id
-                    ? "bg-[var(--app-surface-raised)] border-[var(--app-border)] shadow-sm"
-                    : "border-transparent hover:bg-[var(--app-surface-soft)] hover:border-[var(--app-border)]"
+                    ? "bg-[var(--app-surface-raised)] border-[var(--app-border)] shadow-[0_8px_20px_-8px_rgba(0,0,0,0.25)] -translate-y-0.5"
+                    : "border-transparent hover:bg-[var(--app-surface-soft)] hover:border-[var(--app-border)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-10px_rgba(0,0,0,0.3)]"
                 }`}
               >
+                {selectedConvId === conversation.id && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[var(--app-accent,#25D366)]" />
+                )}
                 {/* Avatar avec cercle dégradé Story Instagram / WhatsApp si story active */}
                 <div
                   onClick={(e) => {
@@ -1156,7 +1162,7 @@ export default function MessagesPage() {
                   }`}
                   title={hasStory ? "Voir la story active de ce membre" : ""}
                 >
-                  <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-[var(--app-surface)]">
+                  <div className="w-12 h-12 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-[var(--app-surface)] transition-transform duration-200 group-hover:scale-105">
                     {partner?.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1189,7 +1195,7 @@ export default function MessagesPage() {
                         {lastMessage ? new Date(lastMessage.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}
                       </span>
                       {conversation.unreadCount > 0 && (
-                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--app-accent)] text-white text-[10px] leading-5 text-center font-black shadow-sm">
+                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--app-accent)] text-white text-[10px] leading-5 text-center font-black shadow-[0_2px_10px_-2px_var(--app-accent,#25D366)]">
                           {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                         </span>
                       )}
@@ -1212,7 +1218,7 @@ export default function MessagesPage() {
         {selectedConversation && activePartner ? (
           <>
             {/* Header de Discussion WhatsApp */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-4 md:p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex-shrink-0">
+            <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-4 md:p-4 border-b border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl shadow-[0_4px_16px_-8px_rgba(0,0,0,0.15)] flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => setSelectedConvId(null)}
@@ -1441,18 +1447,18 @@ export default function MessagesPage() {
                   <div
                     key={message.id}
                     id={`msg-${message.id}`}
-                    className={`flex ${isMe ? "justify-end" : "justify-start"} transition-all duration-300 group`}
+                    className={`flex ${isMe ? "justify-end" : "justify-start"} animate-slideUp transition-all duration-300 group`}
                   >
                     <div
                       style={bubbleStyle}
-                      className={`max-w-[85%] sm:max-w-[72%] rounded-3xl p-3.5 text-sm leading-relaxed shadow-sm space-y-2 transition-all duration-300 ${
+                      className={`relative overflow-hidden max-w-[85%] sm:max-w-[72%] rounded-3xl p-3.5 text-sm leading-relaxed space-y-2 transition-all duration-300 ${
                         isHighlighted ? "ring-4 ring-[var(--app-accent)] scale-[1.01]" : ""
                       } ${
                         isMe
                           ? !bubbleStyle
-                            ? "bg-[var(--app-foreground)] text-[var(--app-background)] rounded-br-sm"
-                            : "rounded-br-sm"
-                          : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)] rounded-bl-sm"
+                            ? "bg-[var(--app-foreground)] text-[var(--app-background)] rounded-br-sm shadow-[0_6px_16px_-6px_rgba(0,0,0,0.35)] before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/15 before:to-transparent before:pointer-events-none"
+                            : "rounded-br-sm shadow-[0_6px_16px_-6px_rgba(0,0,0,0.35)]"
+                          : "bg-[var(--app-surface)] text-[var(--app-foreground)] border border-[var(--app-border)] rounded-bl-sm shadow-sm"
                       }`}
                     >
                       {/* Encart de Citation style WhatsApp dans la bulle */}
@@ -1717,7 +1723,7 @@ export default function MessagesPage() {
             )}
 
             {/* Barre de Saisie et Boutons d'Action (Compacte & Optimisée Clavier Mobile) */}
-            <div className="p-2 sm:p-3 border-t border-[var(--app-border)] bg-[var(--app-surface)] pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-3 flex-shrink-0">
+            <div className="p-2 sm:p-3 border-t border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-3 flex-shrink-0">
               {isRecordingVoice ? (
                 /* UI d'enregistrement vocal direct (1m30 max) */
                 <div className="flex items-center gap-2 w-full animate-fadeIn bg-[var(--app-surface-raised)] px-3 py-2 rounded-full border border-red-500/30">
@@ -1821,7 +1827,7 @@ export default function MessagesPage() {
                         ? "Légende de la photo..."
                         : "Message privé..."
                     }
-                    className="flex-1 min-w-0 px-4 py-2 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent focus:border-[var(--app-border)]"
+                    className="flex-1 min-w-0 px-4 py-2.5 bg-[var(--app-surface-raised)] rounded-full text-sm outline-none border border-transparent shadow-inner transition-shadow focus:border-[var(--app-accent,#25D366)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--app-accent,#25D366)_18%,transparent)]"
                   />
 
                   {/* Bouton Micro WhatsApp si champ vide, sinon bouton Envoi classique */}
@@ -1830,7 +1836,7 @@ export default function MessagesPage() {
                       type="button"
                       onClick={startVoiceRecording}
                       disabled={isSending}
-                      className="p-2.5 bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] text-[var(--app-foreground)] rounded-full transition flex-shrink-0 flex items-center justify-center border border-[var(--app-border)] active:scale-95 shadow-sm"
+                      className="p-2.5 bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] hover:-translate-y-0.5 text-[var(--app-foreground)] rounded-full transition flex-shrink-0 flex items-center justify-center border border-[var(--app-border)] active:scale-95 shadow-sm"
                       title="Enregistrer un message vocal (1m30 max)"
                     >
                       <Mic className="h-4 w-4 text-[var(--app-accent,#25D366)]" />
@@ -1840,7 +1846,7 @@ export default function MessagesPage() {
                       type="button"
                       onClick={sendMessage}
                       disabled={isSending || (!inputText.trim() && !mediaFile)}
-                      className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 disabled:opacity-40 transition flex-shrink-0 flex items-center justify-center"
+                      className="p-2.5 bg-[var(--app-foreground)] text-[var(--app-background)] rounded-full hover:opacity-85 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none transition flex-shrink-0 flex items-center justify-center"
                       title="Envoyer"
                     >
                       {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

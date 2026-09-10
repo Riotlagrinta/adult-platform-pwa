@@ -15,7 +15,10 @@ export function errorHandler(
   }
 
   if (err instanceof Error) {
-    return res.status(500).json({ error: err.message || 'Erreur interne du serveur' });
+    // Ne jamais renvoyer err.message au client : il peut contenir des détails internes
+    // (chemins serveur, requêtes Prisma, erreurs AWS/S3...). Il reste loggé côté serveur ci-dessus.
+    const message = process.env.NODE_ENV === 'production' ? 'Erreur interne du serveur' : err.message;
+    return res.status(500).json({ error: message || 'Erreur interne du serveur' });
   }
 
   res.status(500).json({ error: 'Erreur interne du serveur' });

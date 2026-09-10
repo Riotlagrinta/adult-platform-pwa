@@ -4,23 +4,15 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Users,
   Plus,
-  MessageSquare,
-  Sparkles,
   Send,
-  ChevronRight,
   ChevronLeft,
   X,
   Loader2,
   Check,
-  ShieldCheck,
-  Info,
-  Smile,
   Hash,
 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { apiRequest, toPublicUrl } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { soundManager } from "@/lib/sound";
 import {
   getSavedWallpaper,
@@ -61,7 +53,6 @@ type ContactUser = {
 };
 
 export default function CommunityPage() {
-  const router = useRouter();
   const { token, user, ready, socket } = useAuth();
 
   const [groups, setGroups] = useState<GroupItem[]>([]);
@@ -272,7 +263,7 @@ export default function CommunityPage() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-95 hover:-translate-y-0.5 hover:shadow-md shadow-sm transition-all duration-200"
             title="Créer un groupe de discussion"
           >
             <Plus className="w-4 h-4" />
@@ -298,7 +289,7 @@ export default function CommunityPage() {
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-90 transition shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[var(--app-accent,#25D366)] text-white text-xs font-bold hover:opacity-95 hover:-translate-y-0.5 hover:shadow-md shadow-sm transition-all duration-200"
               >
                 <Plus className="w-4 h-4" />
                 <span>Créer mon premier groupe</span>
@@ -312,7 +303,7 @@ export default function CommunityPage() {
                 <div
                   key={group.id}
                   onClick={() => loadGroupDetails(group.id)}
-                  className={`flex items-center gap-3.5 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition ${
+                  className={`card-3d flex items-center gap-3.5 p-4 cursor-pointer hover:bg-[var(--app-surface-soft)] transition-all duration-200 ${
                     isSelected ? "bg-[var(--app-surface-raised)] border-l-4 border-l-[var(--app-accent,#25D366)]" : ""
                   }`}
                 >
@@ -444,7 +435,7 @@ export default function CommunityPage() {
                 <button
                   type="submit"
                   disabled={!messageText.trim() || sending}
-                  className="w-11 h-11 rounded-full bg-[var(--app-accent,#25D366)] text-white flex items-center justify-center hover:opacity-90 active:scale-95 transition shadow-md disabled:opacity-40"
+                  className="w-11 h-11 rounded-full bg-[var(--app-accent,#25D366)] text-white flex items-center justify-center hover:opacity-95 hover:-translate-y-0.5 hover:shadow-md shadow-sm active:scale-95 transition-all duration-200 disabled:opacity-40"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -465,7 +456,7 @@ export default function CommunityPage() {
       {/* ── MODAL CRÉATION DE GROUPE ── */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-scaleUp">
             <div className="flex items-center justify-between border-b border-[var(--app-border)] pb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
@@ -473,7 +464,7 @@ export default function CommunityPage() {
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition"
+                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] hover:rotate-90 transition-transform duration-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -551,7 +542,7 @@ export default function CommunityPage() {
               <button
                 onClick={handleCreateGroup}
                 disabled={!newGroupName.trim() || creatingGroup}
-                className="flex-1 py-3 rounded-2xl bg-[var(--app-accent,#25D366)] hover:opacity-90 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-1 py-3 rounded-2xl bg-[var(--app-accent,#25D366)] hover:opacity-95 hover:-translate-y-0.5 hover:shadow-md shadow-sm text-white font-bold text-xs transition-all duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {creatingGroup ? (
                   <>

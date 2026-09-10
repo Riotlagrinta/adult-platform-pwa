@@ -49,15 +49,17 @@ export function useIsStandalone(): boolean {
     mqFullscreen.addEventListener?.("change", handler);
     mqMinimal.addEventListener?.("change", handler);
 
-    window.addEventListener("appinstalled", () => {
+    const handleInstalled = () => {
       markAsInstalled();
       setIsStandalone(true);
-    });
+    };
+    window.addEventListener("appinstalled", handleInstalled);
 
     return () => {
       mqStandalone.removeEventListener?.("change", handler);
       mqFullscreen.removeEventListener?.("change", handler);
       mqMinimal.removeEventListener?.("change", handler);
+      window.removeEventListener("appinstalled", handleInstalled);
     };
   }, []);
 

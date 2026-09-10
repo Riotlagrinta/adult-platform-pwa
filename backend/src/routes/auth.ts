@@ -69,7 +69,8 @@ authRouter.post('/register', async (req, res, next) => {
         displayName: normalizedDisplayName,
         dateOfBirth: dob,
         role,
-        verificationStatus: 'APPROVED',
+        // Statut par défaut du schéma (DRAFT) : la vérification d'identité doit être
+        // complétée et validée par un modérateur avant que le compte soit APPROVED.
         profile: { create: {} },
       },
       select: {

@@ -47,7 +47,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [, setProgress] = useState(0);
 
   // États pour le Studio de Création de Story
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -282,7 +282,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
                 <div
                   className={`${avatarRingSize} rounded-full p-[2.5px] flex items-center justify-center transition-transform duration-300 ease-out hover:scale-[1.03] ${
                     hasStories
-                      ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
+                      ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 pulse-glow"
                       : "border border-[var(--app-border)] bg-[var(--app-surface-raised)]"
                   }`}
                 >
@@ -327,8 +327,8 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
 
       {/* ── STUDIO DE CRÉATION DE STORY (Prévisualisation + Durée + Visibilité) ── */}
       {selectedFile && previewUrl && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[110] flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[110] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-[var(--app-surface)] border border-[var(--app-border)] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-scaleUp">
             {/* Header du Studio */}
             <div className="px-5 py-4 border-b border-[var(--app-border)] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
               </div>
               <button
                 onClick={closeStudio}
-                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] transition-all duration-300 ease-out"
+                className="p-1.5 rounded-full hover:bg-[var(--app-surface-soft)] text-neutral-400 hover:text-[var(--app-foreground)] hover:rotate-90 transition-transform duration-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -462,22 +462,27 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
 
       {/* ── VISIONNEUSE DE STORIES PLEIN ÉCRAN ── */}
       {activeGroupIndex !== null && activeGroup && activeStory && (
-        <div className="fixed inset-0 bg-black z-[100] flex flex-col justify-between select-none">
+        <div className="fixed inset-0 bg-black z-[100] flex flex-col justify-between select-none animate-fadeIn">
           {/* Barres de progression en haut */}
           <div className="absolute top-4 inset-x-4 z-50 flex gap-1.5">
             {activeGroup.items.map((_, idx) => (
               <div key={idx} className="flex-1 h-1 bg-neutral-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-white transition-all duration-75"
-                  style={{
-                    width:
-                      idx === activeStoryIndex
-                        ? `${progress}%`
-                        : idx < activeStoryIndex
-                        ? "100%"
-                        : "0%",
-                  }}
-                />
+                {idx === activeStoryIndex ? (
+                  <div
+                    key={`story-progress-${activeGroupIndex}-${activeStoryIndex}`}
+                    className="h-full bg-white story-progress-bar"
+                    style={{
+                      ["--story-duration" as any]: "5s",
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="h-full bg-white"
+                    style={{
+                      width: idx < activeStoryIndex ? "100%" : "0%",
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -510,7 +515,7 @@ export default function StoryTray({ onStoriesLoaded, compact }: StoryTrayProps =
             </div>
             <button
               onClick={closeStories}
-              className="p-1.5 rounded-full bg-black/40 border border-neutral-800/40 backdrop-blur-md text-white hover:bg-neutral-900 transition flex items-center justify-center"
+              className="p-1.5 rounded-full bg-black/40 border border-neutral-800/40 backdrop-blur-md text-white hover:bg-neutral-900 hover:rotate-90 transition-transform duration-200 flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>

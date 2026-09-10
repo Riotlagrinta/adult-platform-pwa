@@ -147,8 +147,33 @@ body::before {
   z-index: -1;
   background-image:
     radial-gradient(circle at top left, color-mix(in srgb, var(--app-accent) 12%, transparent), transparent 40%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 8%, transparent), transparent 35%);
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--app-accent) 8%, transparent), transparent 35%),
+    radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--app-accent) 6%, transparent), transparent 45%);
   will-change: transform;
+}
+
+/* Scrollbar fine et cohérente avec le thème actif, sur toute l'application */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--app-foreground) 20%, transparent) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--app-foreground) 18%, transparent);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--app-foreground) 32%, transparent);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 button,
@@ -167,6 +192,34 @@ button:active,
 a:active,
 [role="button"]:active {
   transform: translateY(1px) scale(0.99);
+}
+
+/* Légère élévation 3D au survol (souris uniquement, jamais sur tactile où :hover colle) */
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: translateY(0.5px) scale(0.99);
+    filter: brightness(0.98);
+  }
+}
+
+/* Carte élévée réutilisable : à poser sur n'importe quel bloc pour un effet de profondeur cohérent */
+.card-3d {
+  transition: transform 250ms ease-out, box-shadow 250ms ease-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-3d:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 32px -14px rgba(0, 0, 0, 0.35);
+  }
 }
 
 button:focus-visible,
@@ -222,7 +275,11 @@ input, textarea, [contenteditable="true"] {
   .pulse-glow,
   .animate-slideDown,
   .animate-slideUp,
-  .animate-fadeIn {
+  .animate-fadeIn,
+  .animate-scaleUp,
+  .avatar-3d,
+  .like-pop,
+  .story-progress-bar {
     animation: none !important;
   }
 }
@@ -304,6 +361,77 @@ input, textarea, [contenteditable="true"] {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.25s ease-out forwards;
 }
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── LÉGÈRE PROFONDEUR 3D (avatars d'appel) ── */
+@keyframes float3d {
+  0%, 100% {
+    transform: perspective(700px) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+  50% {
+    transform: perspective(700px) rotateX(3deg) rotateY(-4deg) translateY(-4px);
+  }
+}
+
+.avatar-3d {
+  transform-style: preserve-3d;
+  animation: float3d 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── MICRO-INTERACTIONS & STORIES ── */
+@keyframes likePop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.like-pop {
+  animation: likePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes storyProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.story-progress-bar {
+  animation: storyProgress var(--story-duration, 5s) linear forwards;
+}
+

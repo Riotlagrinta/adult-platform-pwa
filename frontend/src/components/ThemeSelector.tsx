@@ -91,7 +91,7 @@ export default function ThemeSelector() {
               key={t.id}
               type="button"
               onClick={() => handleSelectFamily(t.id)}
-              className={`group relative p-4 rounded-3xl border transition-all text-left flex flex-col justify-between overflow-hidden shadow-sm ${
+              className={`card-3d group relative p-4 rounded-3xl border transition-all text-left flex flex-col justify-between overflow-hidden shadow-sm ${
                 isSelected
                   ? "border-[var(--app-foreground)] bg-[var(--app-surface-raised)] ring-2 ring-[var(--app-foreground)]/20 scale-[1.01]"
                   : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-neutral-500 hover:bg-[var(--app-surface-soft)]"

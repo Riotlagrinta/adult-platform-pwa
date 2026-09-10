@@ -50,7 +50,7 @@ export default function IncidentNoticeModal() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
       {/* Container principal avec halo lumineux */}
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-amber-500/30 bg-neutral-950/95 p-6 sm:p-8 text-neutral-100 shadow-[0_0_60px_rgba(245,158,11,0.18)] transition-all duration-300">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-amber-500/30 bg-neutral-950/95 p-6 sm:p-8 text-neutral-100 shadow-[0_0_60px_rgba(245,158,11,0.18)] transition-all duration-300 animate-scaleUp">
         {/* Cercles de flou décoratifs en arrière-plan */}
         <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-amber-500/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-rose-500/15 blur-3xl" />
@@ -58,7 +58,7 @@ export default function IncidentNoticeModal() {
         {/* Bouton de fermeture discret en haut à droite */}
         <button
           onClick={handleDismiss}
-          className="absolute top-4 right-4 rounded-full p-2 text-neutral-400 hover:bg-neutral-800/80 hover:text-white transition cursor-pointer"
+          className="absolute top-4 right-4 rounded-full p-2 text-neutral-400 hover:bg-neutral-800/80 hover:text-white hover:rotate-90 transition-transform duration-200 cursor-pointer"
           aria-label="Fermer"
         >
           <X className="h-5 w-5" />

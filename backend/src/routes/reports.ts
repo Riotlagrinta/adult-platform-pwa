@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireApproved } from '../middleware/approved.js';
+// Signaler un abus est une action de sécurité : reste disponible même avant validation du compte.
 import { requireStaff } from '../middleware/auth.js';
 
 export const reportRouter = Router();
@@ -94,6 +94,20 @@ reportRouter.post('/:reportId/resolve', requireAuth, requireStaff, async (req, r
         data: { verificationStatus: 'SUSPENDED' },
       });
     } else if (action === 'DELETE_USER' && report.targetUserId) {
+      // Transférer la propriété des groupes créés par cet utilisateur plutôt que de les
+      // laisser être supprimés en cascade (ce qui détruirait l'historique des autres membres).
+      const createdGroups = await prisma.group.findMany({
+        where: { creatorId: report.targetUserId },
+        include: { members: { where: { userId: { not: report.targetUserId } } } },
+      });
+      for (const group of createdGroups) {
+        const newOwner = group.members.find((m) => m.role === 'ADMIN') || group.members[0];
+        if (newOwner) {
+          await prisma.group.update({ where: { id: group.id }, data: { creatorId: newOwner.userId } });
+        }
+        // Sinon (aucun autre membre), le groupe sera supprimé en cascade avec l'utilisateur — sans impact.
+      }
+
       await prisma.user.delete({
         where: { id: report.targetUserId },
       });

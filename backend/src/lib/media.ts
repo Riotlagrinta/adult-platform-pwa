@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from './prisma.js';
 import { uploadRoot } from './storage.js';
+import { isS3Enabled, deleteFromS3, extractStorageKey } from './storage-online.js';
 
 export type MediaInput = {
   kind: 'IMAGE' | 'VIDEO' | 'AUDIO';
@@ -32,12 +33,17 @@ export function resolveUploadPath(url: string) {
 
 export async function deleteMediaFile(url: string) {
   const absolutePath = resolveUploadPath(url);
-  if (!absolutePath) {
-    return;
+  if (absolutePath && fs.existsSync(absolutePath)) {
+    fs.unlinkSync(absolutePath);
   }
 
-  if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath);
+  // Le fichier peut aussi (ou uniquement) exister sur le stockage S3/B2 : sans ça,
+  // les médias éphémères supprimés en base restaient stockés indéfiniment sur Backblaze.
+  if (isS3Enabled()) {
+    const key = extractStorageKey(url);
+    if (key) {
+      await deleteFromS3(key);
+    }
   }
 }
 

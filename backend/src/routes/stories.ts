@@ -30,7 +30,7 @@ const deleteStoryParamsSchema = z.object({
 });
 
 // Créer une story avec réglage de durée (6h, 12h, 24h, 48h) et de visibilité
-storiesRouter.post('/', requireAuth, storyUpload.single('file'), async (req, res, next) => {
+storiesRouter.post('/', requireAuth, requireApproved, storyUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {

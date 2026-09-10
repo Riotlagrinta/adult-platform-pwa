@@ -77,7 +77,7 @@ export default function PushNotificationBanner() {
       <div className="relative overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_95%,transparent)] backdrop-blur-xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)] flex items-start gap-3.5">
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 p-1 rounded-full text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)] transition"
+          className="absolute top-3 right-3 p-1 rounded-full text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-soft)] hover:rotate-90 transition-transform duration-200"
           title="Fermer"
         >
           <X className="w-4 h-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Play, Pause, RefreshCw, Mic, Loader2 } from "lucide-react";
 import { toPublicUrl } from "@/lib/api";
 import { haptics } from "@/lib/haptics";
@@ -27,7 +27,6 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
   });
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const resolvedUrl = useMemo(() => {
     if (!url) return "";
@@ -81,7 +80,6 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     setIsPlaying(false);
     setIsLoading(false);
     setHasError(false);
-    setErrorMessage(null);
     if (durationSeconds && isFinite(durationSeconds) && durationSeconds > 0) {
       setTotalDuration(durationSeconds);
     }
@@ -89,8 +87,9 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
 
   // Cleanup singleton au démontage
   useEffect(() => {
+    const audio = audioRef.current;
     return () => {
-      if (globalPlayingAudio === audioRef.current) {
+      if (globalPlayingAudio === audio) {
         try {
           globalPlayingAudio?.pause();
         } catch (e) {
@@ -102,26 +101,12 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     };
   }, []);
 
-  const stopPlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      try {
-        audio.pause();
-      } catch (e) {
-        console.warn("Pause error:", e);
-      }
-    }
-    setIsPlaying(false);
-    setIsLoading(false);
-  }, []);
-
   const togglePlayPause = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     const audio = audioRef.current;
     if (!audio || !resolvedUrl) return;
 
     setHasError(false);
-    setErrorMessage(null);
 
     // Vérification directe sur l'élément audio HTML5 (source de vérité matérielle)
     const isActuallyPlaying = !audio.paused && !audio.ended;
@@ -176,7 +161,6 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
       console.error("Audio playback error:", err);
       if (err?.name !== "AbortError") {
         setHasError(true);
-        setErrorMessage("Impossible de lire ce message vocal");
       }
       setIsPlaying(false);
       setIsLoading(false);
@@ -214,13 +198,12 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
     }
   };
 
-  const handleError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+  const handleError = () => {
     const audio = audioRef.current;
     console.warn("Erreur de chargement audio:", resolvedUrl, audio?.error);
     // Marquer l'erreur seulement si l'audio était en tentative de lecture
     if (isPlaying || isLoading) {
       setHasError(true);
-      setErrorMessage("Échec de chargement audio");
       setIsPlaying(false);
       setIsLoading(false);
     }
@@ -297,7 +280,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         onClick={togglePlayPause}
         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 shadow-sm ${
           hasError
-            ? "bg-red-500/20 text-red-500 hover:bg-red-500/30"
+            ? "bg-rose-500/20 text-rose-500 hover:bg-rose-500/30"
             : isMe
             ? "bg-[color-mix(in_srgb,var(--app-foreground)_18%,transparent)] hover:bg-[color-mix(in_srgb,var(--app-foreground)_28%,transparent)] text-current"
             : "bg-[var(--app-accent,#25D366)] text-white hover:brightness-110"
@@ -329,6 +312,14 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
           className="h-7 flex items-center gap-[2.5px] cursor-pointer relative group py-1"
           title="Naviguer dans le vocal"
         >
+          {/* Barre de progression fluide en continu */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[color-mix(in_srgb,currentColor_15%,transparent)] overflow-hidden pointer-events-none">
+            <div
+              className="h-full bg-[var(--app-accent,#25D366)] transition-[width] duration-150 ease-linear"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
           {waveformBars.map((barHeight, idx) => {
             const barProgress = ((idx + 0.5) / waveformBars.length) * 100;
             const isPlayed = barProgress <= progressPercent;
@@ -336,7 +327,7 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
             return (
               <div
                 key={idx}
-                className="flex-1 rounded-full transition-all duration-75 min-w-[2px]"
+                className="flex-1 rounded-full transition-all duration-150 ease-linear min-w-[2px]"
                 style={{
                   height: `${barHeight}%`,
                   backgroundColor: isPlayed
