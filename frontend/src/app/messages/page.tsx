@@ -140,6 +140,40 @@ function formatLastSeen(dateStr?: string | null): string {
   }
 }
 
+// Vignette d'aperçu pour une citation/réponse : gère les 3 types de médias et retombe sur une
+// icône propre (au lieu d'une image cassée) si le chargement échoue (URL signée expirée, etc.)
+function ReplyThumbnail({ media, sizeClass = "w-9 h-9 rounded-lg" }: { media: { url: string; kind: "IMAGE" | "VIDEO" | "AUDIO" }; sizeClass?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (media.kind === "AUDIO") {
+    return (
+      <div className={`${sizeClass} overflow-hidden flex-shrink-0 bg-[var(--app-surface-soft)] flex items-center justify-center text-[var(--app-accent,#25D366)]`}>
+        <Mic className="w-4 h-4" />
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className={`${sizeClass} overflow-hidden flex-shrink-0 bg-[var(--app-surface-soft)] flex items-center justify-center text-neutral-400`}>
+        {media.kind === "VIDEO" ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${sizeClass} overflow-hidden flex-shrink-0 bg-black/20`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={toPublicUrl(media.url) ?? undefined}
+        alt={media.kind === "VIDEO" ? "Vidéo citée" : "Photo citée"}
+        className="w-full h-full object-cover"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 export default function MessagesPage() {
   const router = useRouter();
   const { token, user, ready, socket } = useAuth();
@@ -866,7 +900,8 @@ export default function MessagesPage() {
     if (sticker) return `${sticker.emoji} Sticker ${sticker.name}`;
     if (msg.text) return msg.text;
     if (msg.media && msg.media.length > 0) {
-      return msg.media[0].kind === "VIDEO" ? "🎥 Vidéo" : "📷 Photo";
+      const kind = msg.media[0].kind;
+      return kind === "VIDEO" ? "🎥 Vidéo" : kind === "AUDIO" ? "🎤 Message vocal" : "📷 Photo";
     }
     return "Message";
   };
@@ -1204,7 +1239,15 @@ export default function MessagesPage() {
                   <p className={`text-xs truncate ${conversation.unreadCount > 0 ? "font-semibold text-[var(--app-foreground)]" : "text-neutral-500"}`}>
                     {sticker
                       ? `${sticker.emoji} Sticker ${sticker.name}`
-                      : (lastMessage?.text ?? (lastMessage?.media?.length ? "📷 Photo envoyée" : "Conversation ouverte"))}
+                      : (lastMessage?.text ?? (
+                          lastMessage?.media?.length
+                            ? lastMessage.media[0].kind === "VIDEO"
+                              ? "🎥 Vidéo envoyée"
+                              : lastMessage.media[0].kind === "AUDIO"
+                              ? "🎤 Message vocal"
+                              : "📷 Photo envoyée"
+                            : "Conversation ouverte"
+                        ))}
                   </p>
                 </div>
               </div>
@@ -1393,13 +1436,7 @@ export default function MessagesPage() {
                               </p>
                             </div>
                             {message.replyTo.media?.[0] && (
-                              <div className="w-7 h-7 rounded overflow-hidden flex-shrink-0 bg-black/20">
-                                <img
-                                  src={toPublicUrl(message.replyTo.media[0].url) ?? undefined}
-                                  alt="Média cité"
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
+                              <ReplyThumbnail media={message.replyTo.media[0]} sizeClass="w-7 h-7 rounded" />
                             )}
                           </div>
                         )}
@@ -1482,13 +1519,7 @@ export default function MessagesPage() {
                             </p>
                           </div>
                           {message.replyTo.media?.[0] && (
-                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-black/20">
-                              <img
-                                src={toPublicUrl(message.replyTo.media[0].url) ?? undefined}
-                                alt="Média cité"
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
+                            <ReplyThumbnail media={message.replyTo.media[0]} sizeClass="w-8 h-8 rounded-lg" />
                           )}
                         </div>
                       )}
@@ -1620,13 +1651,7 @@ export default function MessagesPage() {
                     </p>
                   </div>
                   {replyingToMessage.media?.[0] && (
-                    <div className="w-9 h-9 rounded-lg overflow-hidden border border-[var(--app-border)] flex-shrink-0 bg-black/20">
-                      <img
-                        src={toPublicUrl(replyingToMessage.media[0].url) ?? undefined}
-                        alt="Aperçu réponse"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <ReplyThumbnail media={replyingToMessage.media[0]} sizeClass="w-9 h-9 rounded-lg border border-[var(--app-border)]" />
                   )}
                 </div>
                 <button

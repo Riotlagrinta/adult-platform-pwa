@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Bell, X, ChevronRight } from "lucide-react";
+import { MessageSquare, Bell, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { soundManager } from "@/lib/sound";
@@ -221,50 +221,44 @@ export default function FloatingNotificationManager() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-[9999] flex flex-col gap-2 pointer-events-none select-none">
+    <div className="fixed top-[calc(0.5rem+env(safe-area-inset-top))] left-3 right-3 sm:left-auto sm:right-4 sm:w-72 z-[9999] flex flex-col gap-1.5 pointer-events-none select-none">
       {toasts.map((toast) => (
         <div
           key={toast.id}
           onClick={() => handleToastClick(toast)}
-          className="pointer-events-auto flex items-start gap-3 p-3.5 rounded-2xl border border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] backdrop-blur-xl text-[var(--app-foreground)] shadow-[0_15px_35px_rgba(0,0,0,0.22)] cursor-pointer hover:bg-[var(--app-surface-soft)] transition-all duration-200 animate-slideDown group"
+          className="pointer-events-auto flex items-center gap-2.5 p-2 rounded-2xl border border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] backdrop-blur-xl text-[var(--app-foreground)] shadow-[0_10px_24px_rgba(0,0,0,0.18)] cursor-pointer hover:bg-[var(--app-surface-soft)] transition-all duration-200 animate-slideDown group"
         >
-          {/* Icône animée */}
+          {/* Icône */}
           <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+            className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
               toast.type === "message"
                 ? "bg-[var(--app-accent,#25D366)] text-white"
                 : "bg-[var(--app-foreground)] text-[var(--app-background)]"
             }`}
           >
             {toast.type === "message" ? (
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-3.5 h-3.5" />
             ) : (
-              <Bell className="w-4 h-4" />
+              <Bell className="w-3.5 h-3.5" />
             )}
           </div>
 
-          {/* Corps de la notification */}
-          <div className="flex-1 min-w-0 pr-1 space-y-0.5">
-            <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-tight text-[var(--app-foreground)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--app-accent,#25D366)] animate-pulse" />
-              <span className="truncate">{toast.title}</span>
-            </div>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-tight">
-              {toast.body}
+          {/* Corps de la notification (une seule ligne, compact) */}
+          <div className="flex-1 min-w-0 pr-0.5">
+            <p className="text-[11px] leading-tight truncate">
+              <span className="font-bold text-[var(--app-foreground)]">{toast.title}</span>
+              <span className="text-neutral-500 dark:text-neutral-400"> · {toast.body}</span>
             </p>
           </div>
 
-          {/* Bouton fermeture / flèche */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => removeToast(toast.id, e)}
-              className="p-1 rounded-full text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-raised)] transition"
-              title="Fermer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-            <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-[var(--app-accent,#25D366)] group-hover:translate-x-0.5 transition-all" />
-          </div>
+          {/* Bouton fermeture */}
+          <button
+            onClick={(e) => removeToast(toast.id, e)}
+            className="p-1 rounded-full text-neutral-400 hover:text-[var(--app-foreground)] hover:bg-[var(--app-surface-raised)] transition flex-shrink-0"
+            title="Fermer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       ))}
     </div>
