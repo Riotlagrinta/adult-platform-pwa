@@ -260,7 +260,10 @@ export default function VoicePlayer({ url, durationSeconds = 0, isMe = false }: 
         src={resolvedUrl}
         preload="metadata"
         playsInline
-        className="hidden"
+        // iOS Safari peut ne jamais réellement décoder/jouer l'audio d'une <video> mise en
+        // "display: none" (classe hidden) : l'élément doit rester "affiché" pour le moteur de
+        // rendu, juste invisible et hors du flux visuel — d'où ce style plutôt que `hidden`.
+        style={{ position: "fixed", width: 1, height: 1, opacity: 0, pointerEvents: "none", left: -9999, top: -9999 }}
         onPlay={() => {
           setIsPlaying(true);
           setIsLoading(false);

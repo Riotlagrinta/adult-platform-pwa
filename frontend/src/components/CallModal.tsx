@@ -200,7 +200,14 @@ export default function CallModal() {
       <audio ref={earpieceAudioRef} autoPlay playsInline />
 
       {/* Élément vidéo invisible forçant la sortie Haut-Parleur sur mobile en appel vocal */}
-      <video ref={speakerVideoRef} autoPlay playsInline className="hidden" />
+      {/* "display: none" (classe hidden) peut empêcher iOS Safari de réellement décoder l'audio
+          d'une <video> — on la garde donc "affichée" mais invisible et hors écran. */}
+      <video
+        ref={speakerVideoRef}
+        autoPlay
+        playsInline
+        style={{ position: "fixed", width: 1, height: 1, opacity: 0, pointerEvents: "none", left: -9999, top: -9999 }}
+      />
 
       {/* CAS 1 : Appel Entrant (Incoming) */}
       {callStatus === "incoming" && (
