@@ -17,6 +17,7 @@ import { blocksRouter } from './routes/blocks.js';
 import { storiesRouter } from './routes/stories.js';
 import { pushRouter } from './routes/push.js';
 import { groupsRouter } from './routes/groups.js';
+import { callsRouter } from './routes/calls.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 
@@ -107,6 +108,7 @@ export async function createServer() {
   app.use('/stories', storiesRouter);
   app.use('/push', pushRouter);
   app.use('/groups', groupsRouter);
+  app.use('/calls', callsRouter);
 
   app.use(errorHandler);
 

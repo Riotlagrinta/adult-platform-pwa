@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   Download,
+  Phone,
 } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -30,6 +31,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
 
   const menuItems = [
     { name: "Discussions", href: "/messages", icon: MessageSquare, match: (p: string) => p.startsWith("/messages") },
+    { name: "Appels", href: "/calls", icon: Phone, match: (p: string) => p.startsWith("/calls") },
     { name: "Actus & Stories", href: "/", icon: CircleDot, match: (p: string) => p === "/" },
     { name: "Communauté & Groupes", href: "/community", icon: Users, match: (p: string) => p.startsWith("/community") },
     { name: "Notifications", href: "/notifications", icon: Bell, match: (p: string) => p === "/notifications" },

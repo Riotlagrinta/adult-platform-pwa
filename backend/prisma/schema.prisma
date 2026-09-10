@@ -76,6 +76,8 @@ model User {
   conversationReadReceipts ConversationReadReceipt[]
   blocksMade           Block[]              @relation("Blocker")
   blocksReceived       Block[]              @relation("Blocked")
+  callsMade            CallLog[]            @relation("CallsMade")
+  callsReceived        CallLog[]            @relation("CallsReceived")
   stories              Story[]
   pushSubscriptions    PushSubscription[]
   createdGroups        Group[]              @relation("CreatedGroups")
@@ -341,6 +343,31 @@ model GroupMessage {
 
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+enum CallStatus {
+  RINGING
+  ENDED
+  MISSED
+  REJECTED
+}
+
+model CallLog {
+  id              String     @id @default(cuid())
+  callerId        String
+  calleeId        String
+  isVideo         Boolean    @default(false)
+  status          CallStatus @default(RINGING)
+  startedAt       DateTime   @default(now())
+  connectedAt     DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+
+  caller          User       @relation("CallsMade", fields: [callerId], references: [id], onDelete: Cascade)
+  callee          User       @relation("CallsReceived", fields: [calleeId], references: [id], onDelete: Cascade)
+
+  @@index([callerId])
+  @@index([calleeId])
 }
 
 

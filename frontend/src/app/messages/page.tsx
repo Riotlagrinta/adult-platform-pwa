@@ -1095,12 +1095,21 @@ export default function MessagesPage() {
             <div className="text-xs uppercase tracking-[0.25em] text-neutral-500">Messagerie</div>
             <h2 className="font-black text-xl tracking-tight">Conversations</h2>
           </div>
-          <button
-            onClick={() => setShowNewConversation((value) => !value)}
-            className="text-xs font-bold px-3 py-2 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] hover:opacity-85 transition"
-          >
-            Nouveau
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push("/calls")}
+              title="Historique des appels"
+              className="p-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-soft)] text-[var(--app-foreground)] transition"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowNewConversation((value) => !value)}
+              className="text-xs font-bold px-3 py-2 rounded-full bg-[var(--app-foreground)] text-[var(--app-background)] hover:opacity-85 transition"
+            >
+              Nouveau
+            </button>
+          </div>
         </div>
 
         {showNewConversation && (

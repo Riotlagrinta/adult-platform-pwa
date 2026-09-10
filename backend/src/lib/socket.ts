@@ -23,16 +23,53 @@ const onlineUsers = new Map<string, Set<string>>();
 const pendingCalls = new Map<string, string>();
 /** Appels acceptés : userId → userId de l'interlocuteur actuel */
 const activeCalls = new Map<string, string>();
+/** userId (appelant ou appelé) → id du CallLog courant, pour l'historique des appels */
+const callLogIds = new Map<string, string>();
 
-/** Nettoie toute trace d'un appel (sonnant ou actif) impliquant userId */
-function clearCallState(userId: string) {
+/** Calcule le/la partenaire courant(e) d'un appel (sonnant ou actif) pour userId, si il y en a un */
+function getCallPartner(userId: string): string | undefined {
+  if (activeCalls.has(userId)) return activeCalls.get(userId);
+  if (pendingCalls.has(userId)) return pendingCalls.get(userId); // userId est l'appelé
+  for (const [callee, caller] of pendingCalls) {
+    if (caller === userId) return callee; // userId est l'appelant
+  }
+  return undefined;
+}
+
+/** Enregistre le dénouement d'un appel dans l'historique (CallLog) */
+async function finalizeCallLog(logId: string | undefined, status: 'ENDED' | 'MISSED' | 'REJECTED') {
+  if (!logId) return;
+  try {
+    const log = await prisma.callLog.findUnique({ where: { id: logId } });
+    if (!log || log.status !== 'RINGING') return; // déjà finalisé, ne pas écraser
+    const endedAt = new Date();
+    const durationSeconds = log.connectedAt
+      ? Math.max(0, Math.round((endedAt.getTime() - log.connectedAt.getTime()) / 1000))
+      : null;
+    await prisma.callLog.update({ where: { id: logId }, data: { status, endedAt, durationSeconds } });
+  } catch (err) {
+    console.error('[CallLog] finalize error:', err);
+  }
+}
+
+/** Nettoie toute trace d'un appel (sonnant ou actif) impliquant userId, en finalisant son historique */
+function clearCallState(userId: string, finalStatus: 'ENDED' | 'MISSED' | 'REJECTED' = 'MISSED') {
+  const partner = getCallPartner(userId);
+  const logId = callLogIds.get(userId);
+  const wasActive = activeCalls.has(userId);
+
+  void finalizeCallLog(logId, wasActive ? 'ENDED' : finalStatus);
+
   pendingCalls.delete(userId);
+  callLogIds.delete(userId);
   for (const [callee, caller] of pendingCalls) {
     if (caller === userId) pendingCalls.delete(callee);
   }
-  const partner = activeCalls.get(userId);
   activeCalls.delete(userId);
-  if (partner) activeCalls.delete(partner);
+  if (partner) {
+    activeCalls.delete(partner);
+    callLogIds.delete(partner);
+  }
 }
 
 let io: Server | null = null;
@@ -411,6 +448,17 @@ export function initSocket(httpServer: HttpServer) {
         // Enregistrer l'appel en attente pour pouvoir valider accept/reject/end/signal ensuite
         pendingCalls.set(targetUserId, userId);
 
+        // Historique des appels : créer l'entrée dès la sonnerie (reste MISSED si rien ne se passe)
+        try {
+          const callLog = await prisma.callLog.create({
+            data: { callerId: userId, calleeId: targetUserId, isVideo: Boolean(isVideo) },
+          });
+          callLogIds.set(userId, callLog.id);
+          callLogIds.set(targetUserId, callLog.id);
+        } catch (err) {
+          console.error('[CallLog] create error:', err);
+        }
+
         // L'appel sonne normalement pour l'appelant (jamais rejeté arbitrairement)
         ack?.({ ok: true });
       } catch (err) {
@@ -426,13 +474,21 @@ export function initSocket(httpServer: HttpServer) {
         pendingCalls.delete(userId);
         activeCalls.set(userId, data.callerId);
         activeCalls.set(data.callerId, userId);
+        const logId = callLogIds.get(userId);
+        if (logId) {
+          prisma.callLog.update({ where: { id: logId }, data: { connectedAt: new Date() } }).catch((err) => {
+            console.error('[CallLog] accept update error:', err);
+          });
+        }
         emitToUser(data.callerId, 'call:accepted', { recipientId: userId });
       }
     });
 
     socket.on('call:reject', (data: { callerId: string; reason?: string }) => {
       if (data?.callerId && pendingCalls.get(userId) === data.callerId) {
+        void finalizeCallLog(callLogIds.get(userId), 'REJECTED');
         pendingCalls.delete(userId);
+        callLogIds.delete(userId);
         emitToUser(data.callerId, 'call:rejected', { recipientId: userId, reason: data.reason || 'declined' });
       }
     });
@@ -441,7 +497,7 @@ export function initSocket(httpServer: HttpServer) {
       const isPending = pendingCalls.get(data?.targetUserId) === userId || pendingCalls.get(userId) === data?.targetUserId;
       const isActive = activeCalls.get(userId) === data?.targetUserId;
       if (data?.targetUserId && (isPending || isActive)) {
-        clearCallState(userId);
+        clearCallState(userId, 'MISSED');
         emitToUser(data.targetUserId, 'call:ended', { fromUserId: userId });
       }
     });
