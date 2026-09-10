@@ -184,13 +184,10 @@ export async function signUrlIfNeeded(url: string | null | undefined): Promise<s
   const key = extractStorageKey(url);
   if (!key) return url;
 
-  // Les avatars sont publics : pas besoin de presigner (coûteux et jamais utilisé par le CDN),
-  // on peut les servir directement via le CDN Cloudflare quand il est configuré.
-  if (key.startsWith('avatars/')) {
-    const { bucketName, endpoint, cdnUrl } = getS3Config();
-    return `${cdnUrl || endpoint}/${bucketName}/${key}`;
-  }
-
+  // NOTE: on a tenté de servir les avatars sans les presigner (URL directe/CDN) en supposant le
+  // bucket B2 public en lecture — ce qui a cassé le chargement des photos de profil en production
+  // (le bucket est en réalité privé). On revient donc au comportement sûr : tout est presigné,
+  // avatars compris, quitte à ne pas bénéficier du cache CDN pour l'instant.
   try {
     // Generate secure presigned URL valid for 1 hour (3600 seconds)
     return await getPresignedUrl(key, 3600);
