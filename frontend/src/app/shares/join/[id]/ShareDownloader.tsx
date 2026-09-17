@@ -5,17 +5,13 @@ import { Download, Loader2, Users, Gauge } from "lucide-react";
 import type { FileShare } from "@/lib/api";
 import { getWebTorrentClient, getAnnounceList } from "@/lib/webtorrent-client";
 import { formatBytes, formatDuration } from "@/lib/format";
+import SpeedLimitSelector from "../../SpeedLimitSelector";
 import type { Torrent, TorrentOptions } from "webtorrent";
 
 // Repli quand le streaming direct-disque n'est pas disponible (Safari, Firefox,
 // mobile) : chaque fichier est chargé entièrement en mémoire (Blob) avant d'être
 // proposé au téléchargement — risqué au-delà de cette taille, d'où l'avertissement.
 const LARGE_FILE_WARNING_BYTES = 2 * 1024 * 1024 * 1024; // 2 Go
-
-// Limites de téléchargement proposées (Mo/s) — 0 = illimité. Symétrique au réglage
-// d'envoi côté création de partage, pour ne pas saturer sa propre connexion en
-// téléchargeant depuis quelqu'un d'autre.
-const DOWNLOAD_LIMIT_OPTIONS_MBPS = [0, 1, 2, 5, 10, 25];
 
 // `showDirectoryPicker` (File System Access API) n'a pas de type officiel stable
 // dans toutes les versions de TypeScript — accès via une interface minimale locale
@@ -159,28 +155,11 @@ export default function ShareDownloader({ share, token }: Props) {
             )
           )}
 
-          <div>
-            <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 mb-2">
-              <Gauge className="w-3.5 h-3.5" />
-              Vitesse de téléchargement maximale
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {DOWNLOAD_LIMIT_OPTIONS_MBPS.map((limit) => (
-                <button
-                  key={limit}
-                  type="button"
-                  onClick={() => setDownloadLimitMBps(limit)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
-                    downloadLimitMBps === limit
-                      ? "bg-[var(--app-accent,#25D366)] text-white border-transparent"
-                      : "border-[var(--app-border)] bg-[var(--app-surface-raised)] text-neutral-400 hover:bg-[var(--app-surface-soft)]"
-                  }`}
-                >
-                  {limit === 0 ? "Illimité" : `${limit} Mo/s`}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SpeedLimitSelector
+            label="Vitesse de téléchargement maximale"
+            valueMBps={downloadLimitMBps}
+            onChange={setDownloadLimitMBps}
+          />
 
           <button
             onClick={handleDownload}

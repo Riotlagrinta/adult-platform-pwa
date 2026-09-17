@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { FolderUp, FileUp, Loader2, Copy, Check, X, Gauge } from "lucide-react";
+import { FolderUp, FileUp, Loader2, Copy, Check, X } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { createFileShare, heartbeatFileShare, stopFileShare, type FileShare } from "@/lib/api";
 import { getWebTorrentClient, getAnnounceList, preserveFolderStructure } from "@/lib/webtorrent-client";
 import { formatBytes, formatDuration } from "@/lib/format";
+import SpeedLimitSelector from "./SpeedLimitSelector";
 import type { Torrent, TorrentOptions } from "webtorrent";
 
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
@@ -14,11 +15,6 @@ const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 // gros dossier, ça peut être des milliers d'appels par seconde. On limite les
 // rendus React à cette fréquence plutôt que de suivre chaque appel.
 const PROGRESS_UPDATE_THROTTLE_MS = 250;
-
-// Limites d'envoi proposées (en Mo/s) — 0 = illimité. `client.throttleUpload()`
-// s'applique à l'ensemble des torrents de ce client (pas seulement celui en cours
-// de création), c'est un réglage global pour cet onglet.
-const UPLOAD_LIMIT_OPTIONS_MBPS = [0, 1, 2, 5, 10, 25];
 
 type Props = {
   onShareCreated: () => void;
@@ -216,29 +212,15 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
           </p>
 
           <div className="pt-1 border-t border-[var(--app-border)]">
-            <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 mb-2">
-              <Gauge className="w-3.5 h-3.5" />
-              Vitesse d&apos;envoi maximale
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {UPLOAD_LIMIT_OPTIONS_MBPS.map((limit) => (
-                <button
-                  key={limit}
-                  type="button"
-                  onClick={() => setUploadLimitMBps(limit)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
-                    uploadLimitMBps === limit
-                      ? "bg-[var(--app-accent,#25D366)] text-white border-transparent"
-                      : "border-[var(--app-border)] bg-[var(--app-surface-raised)] text-neutral-400 hover:bg-[var(--app-surface-soft)]"
-                  }`}
-                >
-                  {limit === 0 ? "Illimité" : `${limit} Mo/s`}
-                </button>
-              ))}
-            </div>
+            <SpeedLimitSelector
+              label="Vitesse d'envoi maximale"
+              valueMBps={uploadLimitMBps}
+              onChange={setUploadLimitMBps}
+            />
             <p className="text-[11px] text-neutral-400 leading-relaxed mt-1.5">
-              Limite ce que ce partage peut utiliser de votre connexion, pour ne pas ralentir le reste de
-              votre réseau pendant que vous seedez.
+              &quot;Illimité&quot; laisse WebRTC utiliser tout ce qu&apos;il estime disponible sur votre ligne —
+              c&apos;est déjà le maximum réel, l&apos;appli ne peut pas forcer plus que ça. Tapez une valeur dans
+              &quot;Autre&quot; pour viser un pourcentage de votre débit connu (ex: 8 Mo/s sur une ligne à 100 Mo/s).
             </p>
           </div>
         </div>
