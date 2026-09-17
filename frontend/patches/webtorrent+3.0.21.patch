@@ -1,0 +1,13 @@
+diff --git a/node_modules/webtorrent/index.js b/node_modules/webtorrent/index.js
+index 8d3d156..9d6e1d7 100644
+--- a/node_modules/webtorrent/index.js
++++ b/node_modules/webtorrent/index.js
+@@ -562,7 +562,7 @@ export default class WebTorrent extends EventEmitter {
+ }
+ 
+ WebTorrent.WEBRTC_SUPPORT = Peer.WEBRTC_SUPPORT
+-WebTorrent.UTP_SUPPORT = ConnPool.UTP_SUPPORT
++WebTorrent.UTP_SUPPORT = ConnPool?.UTP_SUPPORT ?? false
+ WebTorrent.VERSION = VERSION
+ 
+ /**

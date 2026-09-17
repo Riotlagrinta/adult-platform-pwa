@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "patch-package",
     "cap:sync": "cap sync",
     "cap:android": "cap open android",
     "cap:ios": "cap open ios"
@@ -36,6 +37,7 @@
     "@types/webtorrent": "^3.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "patch-package": "^8.0.1",
     "typescript": "^5"
   }
 }
