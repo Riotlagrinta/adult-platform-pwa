@@ -53,18 +53,24 @@ const createShareSchema = z.object({
 //
 // L'infoHash dépend uniquement du contenu : rouvrir l'onglet et relancer le seed du
 // même dossier (rechargement de page, nouvel essai après une coupure...) régénère
-// exactement le même infoHash. Un simple `create()` planterait alors sur la
-// contrainte unique (ownerId, infoHash) — on fait donc un upsert qui réactive le
-// partage existant au lieu d'échouer.
+// exactement le même infoHash. `infoHash` reste unique globalement en base (pas de
+// changement de schéma) — un re-partage par le MÊME propriétaire réactive donc
+// l'enregistrement existant au lieu de planter sur la contrainte ; un partage du même
+// contenu par un propriétaire DIFFÉRENT (rare mais possible) renvoie une erreur claire
+// plutôt qu'un 500 générique.
 sharesRouter.post('/', requireAuth, requireApproved, createShareLimiter, async (req, res, next) => {
   try {
     const data = createShareSchema.parse(req.body);
     const ownerId = req.user!.id;
     const infoHash = data.infoHash.toLowerCase();
 
-    const existing = await prisma.fileShare.findUnique({
-      where: { ownerId_infoHash: { ownerId, infoHash } },
-    });
+    const existing = await prisma.fileShare.findUnique({ where: { infoHash } });
+
+    if (existing && existing.ownerId !== ownerId) {
+      return res.status(409).json({
+        error: 'Ce contenu est déjà partagé par un autre utilisateur sur la plateforme.',
+      });
+    }
 
     if (!existing) {
       const activeCount = await prisma.fileShare.count({
@@ -88,11 +94,9 @@ sharesRouter.post('/', requireAuth, requireApproved, createShareLimiter, async (
       lastSeenActiveAt: new Date(),
     };
 
-    const share = await prisma.fileShare.upsert({
-      where: { ownerId_infoHash: { ownerId, infoHash } },
-      create: { ownerId, infoHash, ...fields },
-      update: fields,
-    });
+    const share = existing
+      ? await prisma.fileShare.update({ where: { infoHash }, data: fields })
+      : await prisma.fileShare.create({ data: { ownerId, infoHash, ...fields } });
 
     res.status(existing ? 200 : 201).json({ share: serializeFileShare(share) });
   } catch (error) {
