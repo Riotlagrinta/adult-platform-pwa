@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Palette,
   Bell,
+  FolderUp,
   Download,
   HelpCircle,
   LogOut,
@@ -637,6 +638,23 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* SECTION : PARTAGE DE FICHIERS (dossiers/jeux volumineux, P2P direct) */}
+          <div
+            onClick={() => router.push("/shares")}
+            className="flex items-center justify-between p-4 hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors duration-200"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                <FolderUp className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm">Partage de fichiers</div>
+                <div className="text-[11px] text-neutral-400">Dossiers et fichiers volumineux, direct entre appareils</div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-neutral-400" />
+          </div>
 
           {/* SECTION E : APPLICATION MOBILE (MASQUÉE DANS L'APK ET PWA INSTALLÉE) */}
           {!isStandalone && (

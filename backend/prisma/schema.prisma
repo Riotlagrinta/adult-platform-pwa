@@ -83,6 +83,7 @@ model User {
   createdGroups        Group[]              @relation("CreatedGroups")
   groupMemberships     GroupMember[]
   groupMessages        GroupMessage[]
+  fileShares           FileShare[]
 }
 
 model Profile {
@@ -350,6 +351,33 @@ enum CallStatus {
   ENDED
   MISSED
   REJECTED
+}
+
+enum ShareStatus {
+  ACTIVE
+  INACTIVE
+  STOPPED
+}
+
+model FileShare {
+  id               String      @id @default(cuid())
+  ownerId          String
+  title            String
+  description      String?
+  infoHash         String      @unique
+  magnetUri        String      @db.Text
+  totalSizeBytes   BigInt
+  fileCount        Int
+  manifest         Json
+  status           ShareStatus @default(ACTIVE)
+  lastSeenActiveAt DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  owner            User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([status, lastSeenActiveAt])
 }
 
 model CallLog {
