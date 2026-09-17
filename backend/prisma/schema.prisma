@@ -364,7 +364,13 @@ model FileShare {
   ownerId          String
   title            String
   description      String?
-  infoHash         String      @unique
+  // Le hash est dérivé du contenu (deux dossiers identiques produisent le même
+  // infoHash) : NE PEUT PAS être unique globalement, sinon un simple re-partage du
+  // même contenu par son propriétaire (rechargement d'onglet, nouvel essai après une
+  // coupure) plante avec une violation de contrainte unique. Unique seulement par
+  // propriétaire — deux utilisateurs différents partageant le même contenu rejoignent
+  // naturellement le même essaim BitTorrent sans se marcher dessus en base.
+  infoHash         String
   magnetUri        String      @db.Text
   totalSizeBytes   BigInt
   fileCount        Int
@@ -376,7 +382,9 @@ model FileShare {
 
   owner            User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
+  @@unique([ownerId, infoHash])
   @@index([ownerId])
+  @@index([infoHash])
   @@index([status, lastSeenActiveAt])
 }
 

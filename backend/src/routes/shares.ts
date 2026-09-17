@@ -50,35 +50,51 @@ const createShareSchema = z.object({
 
 // Créer un partage : appelé une fois que le client a démarré le seed WebTorrent et
 // obtenu un magnetUri/infoHash. Le serveur ne voit jamais les octets du fichier.
+//
+// L'infoHash dépend uniquement du contenu : rouvrir l'onglet et relancer le seed du
+// même dossier (rechargement de page, nouvel essai après une coupure...) régénère
+// exactement le même infoHash. Un simple `create()` planterait alors sur la
+// contrainte unique (ownerId, infoHash) — on fait donc un upsert qui réactive le
+// partage existant au lieu d'échouer.
 sharesRouter.post('/', requireAuth, requireApproved, createShareLimiter, async (req, res, next) => {
   try {
     const data = createShareSchema.parse(req.body);
+    const ownerId = req.user!.id;
+    const infoHash = data.infoHash.toLowerCase();
 
-    const activeCount = await prisma.fileShare.count({
-      where: { ownerId: req.user!.id, status: 'ACTIVE' },
+    const existing = await prisma.fileShare.findUnique({
+      where: { ownerId_infoHash: { ownerId, infoHash } },
     });
-    if (activeCount >= MAX_ACTIVE_SHARES_PER_USER) {
-      return res.status(429).json({
-        error: `Limite de ${MAX_ACTIVE_SHARES_PER_USER} partages actifs simultanés atteinte. Arrêtez-en un avant d'en créer un nouveau.`,
+
+    if (!existing) {
+      const activeCount = await prisma.fileShare.count({
+        where: { ownerId, status: 'ACTIVE' },
       });
+      if (activeCount >= MAX_ACTIVE_SHARES_PER_USER) {
+        return res.status(429).json({
+          error: `Limite de ${MAX_ACTIVE_SHARES_PER_USER} partages actifs simultanés atteinte. Arrêtez-en un avant d'en créer un nouveau.`,
+        });
+      }
     }
 
-    const share = await prisma.fileShare.create({
-      data: {
-        ownerId: req.user!.id,
-        title: data.title,
-        description: data.description,
-        infoHash: data.infoHash.toLowerCase(),
-        magnetUri: data.magnetUri,
-        totalSizeBytes: BigInt(data.totalSizeBytes),
-        fileCount: data.fileCount,
-        manifest: data.manifest,
-        status: 'ACTIVE',
-        lastSeenActiveAt: new Date(),
-      },
+    const fields = {
+      title: data.title,
+      description: data.description,
+      magnetUri: data.magnetUri,
+      totalSizeBytes: BigInt(data.totalSizeBytes),
+      fileCount: data.fileCount,
+      manifest: data.manifest,
+      status: 'ACTIVE' as const,
+      lastSeenActiveAt: new Date(),
+    };
+
+    const share = await prisma.fileShare.upsert({
+      where: { ownerId_infoHash: { ownerId, infoHash } },
+      create: { ownerId, infoHash, ...fields },
+      update: fields,
     });
 
-    res.status(201).json({ share: serializeFileShare(share) });
+    res.status(existing ? 200 : 201).json({ share: serializeFileShare(share) });
   } catch (error) {
     next(error);
   }

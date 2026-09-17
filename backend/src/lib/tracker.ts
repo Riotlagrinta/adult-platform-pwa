@@ -46,12 +46,14 @@ export function attachFileShareTracker(httpServer: HttpServer): TrackerServer {
     ws: { noServer: true },
     // Seuls les info_hash correspondant à un FileShare connu et non arrêté peuvent
     // s'annoncer — empêche que ce tracker serve de mise en relation générique pour
-    // n'importe quel contenu torrent externe.
+    // n'importe quel contenu torrent externe. `infoHash` n'est plus unique globalement
+    // (deux propriétaires peuvent partager le même contenu) : on cherche s'il existe
+    // AU MOINS un partage actif pour ce hash, peu importe lequel.
     filter: (infoHash, _params, cb) => {
       prisma.fileShare
-        .findUnique({ where: { infoHash }, select: { status: true } })
+        .findFirst({ where: { infoHash, status: { not: 'STOPPED' } }, select: { id: true } })
         .then((share) => {
-          if (!share || share.status === 'STOPPED') {
+          if (!share) {
             cb(new Error('Partage inconnu ou arrêté'));
           } else {
             cb();
