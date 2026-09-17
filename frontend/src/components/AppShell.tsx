@@ -11,7 +11,7 @@ const TABS = ["/messages", "/", "/community", "/shares", "/settings"];
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, ready } = useAuth();
+  const { user } = useAuth();
   const isStaff = user?.role === "MODERATOR" || user?.role === "ADMIN";
 
   const touchStartRef = useRef<{ x: number; y: number; time: number; target: EventTarget | null } | null>(null);
@@ -86,30 +86,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           ) : (
-            <div className={`w-full h-full flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-[var(--app-border)] ${user ? "max-w-4xl pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
-              <div className="flex-1 h-full overflow-y-auto scroll-smooth min-w-0 focus:outline-none">
-                {children}
-              </div>
-              {user && (
-                <aside className="hidden lg:block w-80 p-6 space-y-6 overflow-y-auto h-full flex-shrink-0">
-                  <div className="bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl p-4 shadow-sm">
-                    <h3 className="font-bold text-lg mb-4">Compte</h3>
-                    {ready ? (
-                      <div className="space-y-2 text-sm">
-                        <div className="font-semibold">{user.displayName}</div>
-                        <div className="text-neutral-500 dark:text-neutral-400">{user.email}</div>
-                        <div className="text-xs text-neutral-400 dark:text-neutral-500">
-                          Rôle: {user.role}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-neutral-500 dark:text-neutral-400">Chargement de la session...</div>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-neutral-400 dark:text-neutral-500 px-4">© 2026 OnlyAdults</div>
-                </aside>
-              )}
+            // Un seul panneau de contenu unifié sur PC — l'ancienne colonne "Compte" à
+            // droite faisait double emploi avec la carte de profil déjà présente en bas
+            // de la Sidebar, et la ligne de séparation créait une sensation de blocs
+            // disjoints plutôt qu'un espace de travail cohérent.
+            <div
+              className={`w-full h-full overflow-y-auto scroll-smooth min-w-0 focus:outline-none ${
+                user ? "max-w-4xl pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0" : ""
+              }`}
+            >
+              {children}
             </div>
           )}
         </main>
