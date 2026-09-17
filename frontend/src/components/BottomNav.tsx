@@ -12,6 +12,7 @@ import {
   Bell,
   Settings,
   Pencil,
+  Share2,
 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { haptics } from "@/lib/haptics";
@@ -52,6 +53,12 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
       match: (p: string) => p.startsWith("/community"),
     },
     {
+      name: "Partage",
+      href: "/shares",
+      icon: Share2,
+      match: (p: string) => p.startsWith("/shares"),
+    },
+    {
       name: "Paramètres",
       href: "/settings",
       icon: Settings,
@@ -60,7 +67,7 @@ export default function BottomNav({ isAdmin = false }: BottomNavProps) {
   ];
 
   if (isAdmin) {
-    tabs.splice(3, 0, {
+    tabs.splice(4, 0, {
       name: "Admin",
       href: "/admin",
       icon: ShieldCheck,

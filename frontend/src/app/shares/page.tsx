@@ -81,85 +81,89 @@ export default function SharesPage() {
   }
 
   return (
-    <div className="bg-[var(--app-background)] min-h-screen p-4 pt-[calc(1rem+env(safe-area-inset-top))] md:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] space-y-4">
-      <div className="flex items-center justify-between border-b border-[var(--app-border)] pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-2xl bg-[var(--app-surface-raised)] border border-[var(--app-border)] text-[var(--app-foreground)] shadow-sm">
-            <Share2 className="h-5 w-5" />
+    <div className="bg-[var(--app-background)] min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--app-foreground)]">
+      {/* ─── HEADER STICKY (même traitement que la page Paramètres) ─── */}
+      <header className="sticky top-0 bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] backdrop-blur-xl border-b border-[var(--app-border)] px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[var(--app-accent,#25D366)]/15 text-[var(--app-accent,#25D366)] flex items-center justify-center">
+            <Share2 className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="font-black text-xl tracking-tight uppercase">Partage de fichiers</h2>
-            <p className="text-xs text-[var(--app-muted)]">Dossiers et fichiers volumineux, direct entre appareils.</p>
+            <h1 className="text-lg font-black tracking-tight">Partage de fichiers</h1>
+            <p className="text-[11px] text-neutral-400 -mt-0.5">Dossiers et fichiers volumineux, direct entre appareils</p>
           </div>
         </div>
         {!showCreator && (
           <button
             onClick={() => setShowCreator(true)}
-            className="p-2.5 rounded-full bg-[var(--app-accent,#25D366)] text-white shadow-sm hover:opacity-90 transition"
+            className="p-2.5 rounded-full bg-[var(--app-accent,#25D366)] text-white shadow-sm hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex-shrink-0"
             title="Nouveau partage"
           >
             <Plus className="w-4 h-4" />
           </button>
         )}
-      </div>
+      </header>
 
-      {showCreator && (
-        <ShareCreatorPanel
-          onShareCreated={() => void loadShares()}
-          onClose={() => setShowCreator(false)}
-        />
-      )}
+      {/* ─── CONTENU : colonne centrée, même largeur que Paramètres ─── */}
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+        {showCreator && (
+          <ShareCreatorPanel
+            onShareCreated={() => void loadShares()}
+            onClose={() => setShowCreator(false)}
+          />
+        )}
 
-      {shares.length === 0 && !showCreator ? (
-        <div className="text-center py-20 text-[var(--app-muted)] text-sm space-y-2">
-          <Folder className="w-8 h-8 mx-auto opacity-40" />
-          <p>Aucun partage pour le moment.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {shares.map((share, index) => {
-            const { label, color } = statusLabel(share.status, share.lastSeenActiveAt);
-            return (
-              <div
-                key={share.id}
-                className="card-3d animate-slideUp flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]"
-                style={{ animationDelay: `${Math.min(index * 40, 300)}ms` }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-sm truncate">{share.title}</div>
-                  <div className="text-xs text-neutral-400 flex items-center gap-1.5 mt-0.5">
-                    <span className={`font-bold ${color}`}>{label}</span>
-                    <span>· {formatBytes(Number(share.totalSizeBytes))}</span>
-                    <span>· {share.fileCount} fichier(s)</span>
+        {shares.length === 0 && !showCreator ? (
+          <div className="text-center py-20 text-[var(--app-muted)] text-sm space-y-2">
+            <Folder className="w-8 h-8 mx-auto opacity-40" />
+            <p>Aucun partage pour le moment.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shares.map((share, index) => {
+              const { label, color } = statusLabel(share.status, share.lastSeenActiveAt);
+              return (
+                <div
+                  key={share.id}
+                  className="card-3d animate-slideUp flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)]"
+                  style={{ animationDelay: `${Math.min(index * 40, 300)}ms` }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-sm truncate">{share.title}</div>
+                    <div className="text-xs text-neutral-400 flex items-center gap-1.5 mt-0.5">
+                      <span className={`font-bold ${color}`}>{label}</span>
+                      <span>· {formatBytes(Number(share.totalSizeBytes))}</span>
+                      <span>· {share.fileCount} fichier(s)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => handleCopy(share.id)}
+                      className="p-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                      title="Copier le lien"
+                    >
+                      {copiedId === share.id ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    {share.status !== "STOPPED" && (
+                      <button
+                        onClick={() => handleStop(share.id)}
+                        className="p-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-red-500/15 text-red-500 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                        title="Arrêter"
+                      >
+                        <Square className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => handleCopy(share.id)}
-                    className="p-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] transition-colors"
-                    title="Copier le lien"
-                  >
-                    {copiedId === share.id ? (
-                      <Check className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                  {share.status !== "STOPPED" && (
-                    <button
-                      onClick={() => handleStop(share.id)}
-                      className="p-2.5 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-red-500/15 text-red-500 transition-colors"
-                      title="Arrêter"
-                    >
-                      <Square className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

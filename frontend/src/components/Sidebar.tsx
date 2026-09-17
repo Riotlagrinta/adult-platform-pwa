@@ -14,6 +14,7 @@ import {
   Settings,
   Download,
   Phone,
+  Share2,
 } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -34,6 +35,7 @@ export default function Sidebar({ isAdmin = false }: SidebarProps) {
     { name: "Appels", href: "/calls", icon: Phone, match: (p: string) => p.startsWith("/calls") },
     { name: "Actus & Stories", href: "/", icon: CircleDot, match: (p: string) => p === "/" },
     { name: "Communauté & Groupes", href: "/community", icon: Users, match: (p: string) => p.startsWith("/community") },
+    { name: "Partage de fichiers", href: "/shares", icon: Share2, match: (p: string) => p.startsWith("/shares") },
     { name: "Notifications", href: "/notifications", icon: Bell, match: (p: string) => p === "/notifications" },
     { name: "Paramètres & Profil", href: "/settings", icon: Settings, match: (p: string) => p.startsWith("/settings") || p.startsWith("/profile") },
     ...(!isStandalone ? [{ name: "Télécharger l'APK", href: "/download", icon: Download, match: (p: string) => p === "/download" }] : []),

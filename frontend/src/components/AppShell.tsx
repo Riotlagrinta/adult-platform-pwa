@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/components/AuthProvider";
 
-const TABS = ["/messages", "/", "/community", "/settings"];
+const TABS = ["/messages", "/", "/community", "/shares", "/settings"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

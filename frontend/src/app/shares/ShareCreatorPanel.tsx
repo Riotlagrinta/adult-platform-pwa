@@ -149,9 +149,9 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
             placeholder="Titre du partage (optionnel)"
             className="w-full px-4 py-2.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-raised)] text-sm outline-none focus:border-[var(--app-accent,#25D366)]"
           />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col items-center justify-center gap-2 py-6 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors">
-              <FolderUp className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+          <div className="grid grid-cols-2 gap-3">
+            <label className="card-3d flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] hover:border-[var(--app-accent,#25D366)]/40 cursor-pointer transition-colors">
+              <FolderUp className="w-6 h-6 text-[var(--app-accent,#25D366)]" />
               <span className="text-xs font-bold">Un dossier</span>
               <input
                 type="file"
@@ -162,8 +162,8 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
                 onChange={(e) => handlePick(e.target.files)}
               />
             </label>
-            <label className="flex flex-col items-center justify-center gap-2 py-6 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] cursor-pointer transition-colors">
-              <FileUp className="w-5 h-5 text-[var(--app-accent,#25D366)]" />
+            <label className="card-3d flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface-raised)] hover:bg-[var(--app-surface-soft)] hover:border-[var(--app-accent,#25D366)]/40 cursor-pointer transition-colors">
+              <FileUp className="w-6 h-6 text-[var(--app-accent,#25D366)]" />
               <span className="text-xs font-bold">Des fichiers</span>
               <input type="file" className="hidden" multiple onChange={(e) => handlePick(e.target.files)} />
             </label>

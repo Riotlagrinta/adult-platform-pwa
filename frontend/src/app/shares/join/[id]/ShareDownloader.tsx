@@ -13,11 +13,25 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
 }
 
-// Le repli v1 charge chaque fichier entièrement en mémoire (Blob) avant de déclencher
-// son téléchargement — au-delà de cette taille, on prévient l'utilisateur plutôt que
-// de risquer un onglet qui gèle ou plante (le streaming direct-disque via File System
-// Access API est prévu en v2, cf. plan).
+// Repli quand le streaming direct-disque n'est pas disponible (Safari, Firefox,
+// mobile) : chaque fichier est chargé entièrement en mémoire (Blob) avant d'être
+// proposé au téléchargement — risqué au-delà de cette taille, d'où l'avertissement.
 const LARGE_FILE_WARNING_BYTES = 2 * 1024 * 1024 * 1024; // 2 Go
+
+// `showDirectoryPicker` (File System Access API) n'a pas de type officiel stable
+// dans toutes les versions de TypeScript — accès via une interface minimale locale
+// plutôt qu'un `any` généralisé.
+interface FileSystemAccessWindow extends Window {
+  showDirectoryPicker?: (opts?: { mode?: "read" | "readwrite" }) => Promise<FileSystemDirectoryHandle>;
+}
+
+function supportsStreamingToDisk(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof (window as FileSystemAccessWindow).showDirectoryPicker === "function" &&
+    !!navigator.storage?.getDirectory
+  );
+}
 
 type Props = {
   share: FileShare;
@@ -30,7 +44,9 @@ export default function ShareDownloader({ share, token }: Props) {
   const [peers, setPeers] = useState(0);
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState(false);
   const torrentRef = useRef<Torrent | null>(null);
+  const canStream = supportsStreamingToDisk();
 
   useEffect(() => {
     return () => {
@@ -41,14 +57,33 @@ export default function ShareDownloader({ share, token }: Props) {
   const totalBytes = Number(share.totalSizeBytes);
 
   const handleDownload = async () => {
-    setStatus("connecting");
     setError(null);
+
+    // Le choix du dossier doit se faire ICI, en tout premier, dans le prolongement
+    // direct du clic — sollicité plus tard (ex: à la fin du téléchargement), le
+    // navigateur refuse l'appel car l'activation utilisateur n'est plus valide.
+    let rootDir: FileSystemDirectoryHandle | undefined;
+    if (canStream) {
+      try {
+        rootDir = await (window as FileSystemAccessWindow).showDirectoryPicker!({ mode: "readwrite" });
+        setStreaming(true);
+      } catch (err) {
+        // Annulé par l'utilisateur (ou refusé) : on retombe sur le repli Blob plutôt
+        // que de bloquer le téléchargement.
+        if (err instanceof Error && err.name !== "AbortError") {
+          console.error("Sélecteur de dossier indisponible:", err);
+        }
+      }
+    }
+
+    setStatus("connecting");
 
     try {
       const client = await getWebTorrentClient(token);
       const announce = getAnnounceList(token);
+      const opts: TorrentOptions = rootDir ? ({ announce, rootDir } as TorrentOptions) : ({ announce } as TorrentOptions);
 
-      client.add(share.magnetUri, { announce } as TorrentOptions, (torrent: Torrent) => {
+      client.add(share.magnetUri, opts, (torrent: Torrent) => {
         torrentRef.current = torrent;
         setStatus("downloading");
 
@@ -63,6 +98,12 @@ export default function ShareDownloader({ share, token }: Props) {
         torrent.on("done", async () => {
           setProgress(1);
           setStatus("done");
+
+          // Avec `rootDir`, WebTorrent écrit déjà les pièces directement sur le
+          // disque au fur et à mesure (fsa-chunk-store) : les fichiers sont
+          // complets dans le dossier choisi, rien de plus à faire ici.
+          if (rootDir) return;
+
           for (const file of torrent.files) {
             try {
               const blob = await file.blob();
@@ -95,15 +136,23 @@ export default function ShareDownloader({ share, token }: Props) {
     <div className="space-y-3">
       {status === "idle" && (
         <>
-          {totalBytes > LARGE_FILE_WARNING_BYTES && (
-            <div className="text-[11px] text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2.5">
-              Ce partage est volumineux ({formatBytes(totalBytes)}). Préférez un navigateur de bureau
-              (Chrome/Edge) et une connexion stable pour éviter tout ralentissement.
+          {canStream ? (
+            <div className="text-[11px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-2.5">
+              Écriture directe sur le disque disponible sur ce navigateur : on te demandera de choisir un
+              dossier de destination, sans limite de mémoire liée à la taille du fichier.
             </div>
+          ) : (
+            totalBytes > LARGE_FILE_WARNING_BYTES && (
+              <div className="text-[11px] text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2.5">
+                Ce partage est volumineux ({formatBytes(totalBytes)}) et ce navigateur ne permet pas
+                l&apos;écriture directe sur le disque. Préférez Chrome ou Edge sur ordinateur pour éviter tout
+                ralentissement.
+              </div>
+            )
           )}
           <button
             onClick={handleDownload}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[var(--app-accent,#25D366)] text-white font-bold text-sm hover:opacity-90 transition"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[var(--app-accent,#25D366)] text-white font-bold text-sm hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
           >
             <Download className="w-4 h-4" />
             Télécharger
@@ -126,7 +175,7 @@ export default function ShareDownloader({ share, token }: Props) {
                   <Loader2 className="w-3 h-3 animate-spin" /> Connexion au partage...
                 </>
               ) : (
-                `${Math.round(progress * 100)}%`
+                `${Math.round(progress * 100)}%${streaming ? " · écriture disque directe" : ""}`
               )}
             </span>
             <span className="flex items-center gap-3">
@@ -143,7 +192,9 @@ export default function ShareDownloader({ share, token }: Props) {
 
       {status === "done" && (
         <div className="text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3 font-bold text-center">
-          Téléchargement terminé — vérifiez vos fichiers téléchargés.
+          {streaming
+            ? "Téléchargement terminé — les fichiers ont été enregistrés dans le dossier choisi."
+            : "Téléchargement terminé — vérifiez vos fichiers téléchargés."}
         </div>
       )}
 
