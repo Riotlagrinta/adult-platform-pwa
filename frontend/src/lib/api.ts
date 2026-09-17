@@ -105,3 +105,67 @@ export async function registerRequest(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+// ── Partage de fichiers (P2P / WebTorrent) ──────────────────────────────────
+
+export type ShareStatus = "ACTIVE" | "INACTIVE" | "STOPPED";
+
+export type FileShareManifestEntry = { path: string; size: number };
+
+export type FileShare = {
+  id: string;
+  ownerId: string;
+  title: string;
+  description?: string | null;
+  infoHash: string;
+  magnetUri: string;
+  totalSizeBytes: string;
+  fileCount: number;
+  manifest: FileShareManifestEntry[];
+  status: ShareStatus;
+  lastSeenActiveAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  owner?: { id: string; displayName: string; avatarUrl?: string | null };
+};
+
+export async function createFileShare(
+  payload: {
+    title: string;
+    description?: string;
+    infoHash: string;
+    magnetUri: string;
+    totalSizeBytes: string;
+    fileCount: number;
+    manifest: FileShareManifestEntry[];
+  },
+  token: string
+) {
+  return apiRequest<{ share: FileShare }>("/shares", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listMyFileShares(token: string) {
+  return apiRequest<{ shares: FileShare[] }>("/shares/mine", { token });
+}
+
+export async function getFileShare(id: string, token: string) {
+  return apiRequest<{ share: FileShare }>(`/shares/${id}`, { token });
+}
+
+export async function heartbeatFileShare(id: string, token: string) {
+  return apiRequest<{ share: FileShare }>(`/shares/${id}/heartbeat`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function stopFileShare(id: string, token: string) {
+  return apiRequest<{ share: FileShare }>(`/shares/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}

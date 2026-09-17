@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createServer as createHttpServer } from 'http';
 import { createServer } from './app.js';
 import { initSocket } from './lib/socket.js';
+import { attachFileShareTracker } from './lib/tracker.js';
 import { startCleanupJobs } from './jobs/cleanup.js';
 import { isS3Enabled } from './lib/storage-online.js';
 
@@ -15,6 +16,9 @@ createServer()
 
     // Initialise Socket.io on the same port
     initSocket(httpServer);
+
+    // Tracker BitTorrent WebSocket (partage de fichiers P2P) sur le même http.Server
+    attachFileShareTracker(httpServer);
 
     startCleanupJobs();
 
