@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createFileShare, heartbeatFileShare, stopFileShare, type FileShare } from "@/lib/api";
 import { getWebTorrentClient, getAnnounceList, preserveFolderStructure } from "@/lib/webtorrent-client";
 import { formatBytes, formatDuration } from "@/lib/format";
+import { FileBlobStore } from "@/lib/file-blob-store";
 import SpeedLimitSelector from "./SpeedLimitSelector";
 import type { Torrent, TorrentOptions } from "webtorrent";
 
@@ -24,7 +25,7 @@ type Props = {
 export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
   const { token } = useAuth();
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<"idle" | "seeding" | "registering" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "seeding" | "loading" | "registering" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [share, setShare] = useState<FileShare | null>(null);
   const [peers, setPeers] = useState(0);
@@ -36,11 +37,13 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
   const [analyzeEtaSeconds, setAnalyzeEtaSeconds] = useState<number | null>(null);
   const [analyzeSpeedBps, setAnalyzeSpeedBps] = useState(0);
   const [uploadLimitMBps, setUploadLimitMBps] = useState(0);
+  const [loadProgress, setLoadProgress] = useState(0);
 
   const torrentRef = useRef<Torrent | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const analyzeStartRef = useRef(0);
   const lastProgressUpdateRef = useRef(0);
+  const lastLoadUpdateRef = useRef(0);
 
   const stopSeeding = React.useCallback(() => {
     if (heartbeatRef.current) {
@@ -110,7 +113,43 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
         }
       };
 
-      client.seed(list, { name: defaultTitle, announce, onProgress } as TorrentOptions, async (torrent: Torrent) => {
+      lastLoadUpdateRef.current = 0;
+      setLoadProgress(0);
+
+      const onPut = (chunkIndex: number, totalChunks: number) => {
+        // `put()` n'est appelé qu'après la fin du hashage : c'est le signal fiable
+        // du passage à l'étape suivante ("chargement"), pas de status "loading"
+        // explicite exposé par WebTorrent lui-même.
+        setStatus((current) => (current === "seeding" ? "loading" : current));
+        const now = Date.now();
+        if (now - lastLoadUpdateRef.current < PROGRESS_UPDATE_THROTTLE_MS && chunkIndex < totalChunks) return;
+        lastLoadUpdateRef.current = now;
+        setLoadProgress(totalChunks > 0 ? chunkIndex / totalChunks : 0);
+      };
+
+      const seedOptions = {
+        name: defaultTitle,
+        announce,
+        onProgress,
+        // Sert les pièces directement depuis les `File` d'origine plutôt que de les
+        // recopier dans le store par défaut du navigateur (voir file-blob-store.ts) —
+        // sans ça, un partage de plusieurs dizaines de Go se retrouve à recopier
+        // silencieusement tout son contenu dans le stockage caché du navigateur
+        // juste après la fin de l'analyse, sans aucune progression affichée.
+        //
+        // WebTorrent instancie ce store lui-même via `new this._store(chunkLength,
+        // storeOpts)` — il lui faut donc une vraie classe (constructible par `new`),
+        // pas une fonction fléchée qui retournerait `new FileBlobStore(...)` (ça
+        // plante avec "X is not a constructor"). Cette sous-classe capture `list` et
+        // `onPut` par fermeture pour ce seed précis.
+        store: class extends FileBlobStore {
+          constructor(chunkLength: number, storeOpts: { length?: number; files?: { path: string; length: number; offset: number }[] }) {
+            super(chunkLength, storeOpts, list, onPut);
+          }
+        },
+      };
+
+      client.seed(list, seedOptions as unknown as TorrentOptions, async (torrent: Torrent) => {
         torrentRef.current = torrent;
 
         torrent.on("upload", () => {
@@ -252,6 +291,22 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
             Cette étape lit une fois l&apos;intégralité du contenu pour vérifier son intégrité — sa durée dépend
             de la taille totale. Elle ne se reproduit pas pour les personnes qui téléchargent ensuite.
           </p>
+        </div>
+      )}
+
+      {status === "loading" && (
+        <div className="space-y-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Loader2 className="w-4 h-4 animate-spin text-[var(--app-accent,#25D366)] flex-shrink-0" />
+            <span>Préparation finale du partage...</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-[var(--app-surface-raised)] border border-[var(--app-border)] overflow-hidden">
+            <div
+              className="h-full bg-[var(--app-accent,#25D366)] transition-all duration-200"
+              style={{ width: `${Math.round(loadProgress * 100)}%` }}
+            />
+          </div>
+          <div className="text-[11px] text-neutral-400 text-right">{Math.round(loadProgress * 100)}%</div>
         </div>
       )}
 
