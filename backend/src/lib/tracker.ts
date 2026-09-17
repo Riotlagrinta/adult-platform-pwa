@@ -12,6 +12,21 @@ export const TRACKER_PATH = '/wt-tracker';
 let trackerServer: TrackerServer | null = null;
 
 /**
+ * Refuse une requête d'upgrade avec une vraie réponse HTTP avant de fermer le socket.
+ * `socket.destroy()` seul fonctionne en local (connexion TCP directe) mais, derrière
+ * le reverse proxy de Render, une fermeture brutale sans réponse HTTP fait remonter
+ * un 502 au client au lieu du refus propre attendu (constaté en production).
+ */
+function rejectUpgrade(socket: Socket, statusCode: number, statusMessage: string) {
+  try {
+    socket.write(`HTTP/1.1 ${statusCode} ${statusMessage}\r\nConnection: close\r\n\r\n`);
+  } catch {
+    // Le socket peut déjà être fermé côté client — sans conséquence.
+  }
+  socket.destroy();
+}
+
+/**
  * Démarre un tracker BitTorrent WebSocket auto-hébergé, attaché au même http.Server
  * qu'Express/Socket.io (pas de second service Render). Gated par le JWT existant :
  * seul un utilisateur authentifié peut établir la connexion WebSocket d'annonce.
@@ -66,20 +81,20 @@ export function attachFileShareTracker(httpServer: HttpServer): TrackerServer {
 
     const token = new URL(req.url ?? '', 'http://internal').searchParams.get('token');
     if (!token) {
-      socket.destroy();
+      rejectUpgrade(socket, 401, 'Unauthorized');
       return;
     }
 
     try {
       verifyToken(token);
     } catch {
-      socket.destroy();
+      rejectUpgrade(socket, 401, 'Unauthorized');
       return;
     }
 
     const ws = trackerServer!.ws;
     if (!ws) {
-      socket.destroy();
+      rejectUpgrade(socket, 503, 'Service Unavailable');
       return;
     }
     ws.handleUpgrade(req, socket, head, (client) => {
