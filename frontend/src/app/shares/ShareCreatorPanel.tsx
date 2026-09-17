@@ -1,20 +1,24 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { FolderUp, FileUp, Loader2, Copy, Check, X } from "lucide-react";
+import { FolderUp, FileUp, Loader2, Copy, Check, X, Gauge } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { createFileShare, heartbeatFileShare, stopFileShare, type FileShare } from "@/lib/api";
 import { getWebTorrentClient, getAnnounceList, preserveFolderStructure } from "@/lib/webtorrent-client";
+import { formatBytes, formatDuration } from "@/lib/format";
 import type { Torrent, TorrentOptions } from "webtorrent";
 
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
-function formatBytes(bytes: number): string {
-  if (!bytes) return "0 o";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
-  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
-}
+// L'analyse (hashage des pièces) appelle `onProgress` une fois par pièce — pour un
+// gros dossier, ça peut être des milliers d'appels par seconde. On limite les
+// rendus React à cette fréquence plutôt que de suivre chaque appel.
+const PROGRESS_UPDATE_THROTTLE_MS = 250;
+
+// Limites d'envoi proposées (en Mo/s) — 0 = illimité. `client.throttleUpload()`
+// s'applique à l'ensemble des torrents de ce client (pas seulement celui en cours
+// de création), c'est un réglage global pour cet onglet.
+const UPLOAD_LIMIT_OPTIONS_MBPS = [0, 1, 2, 5, 10, 25];
 
 type Props = {
   onShareCreated: () => void;
@@ -29,10 +33,18 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
   const [share, setShare] = useState<FileShare | null>(null);
   const [peers, setPeers] = useState(0);
   const [uploaded, setUploaded] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  const [analyzeBytes, setAnalyzeBytes] = useState({ hashed: 0, total: 0 });
+  const [analyzeEtaSeconds, setAnalyzeEtaSeconds] = useState<number | null>(null);
+  const [analyzeSpeedBps, setAnalyzeSpeedBps] = useState(0);
+  const [uploadLimitMBps, setUploadLimitMBps] = useState(0);
 
   const torrentRef = useRef<Torrent | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyzeStartRef = useRef(0);
+  const lastProgressUpdateRef = useRef(0);
 
   const stopSeeding = React.useCallback(() => {
     if (heartbeatRef.current) {
@@ -75,10 +87,40 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
       const client = await getWebTorrentClient(token);
       const announce = getAnnounceList(token);
 
-      client.seed(list, { name: defaultTitle, announce } as TorrentOptions, async (torrent: Torrent) => {
+      // Limite globale d'envoi pour ce client (partagée avec les autres torrents de
+      // cet onglet) — -1 désactive la limite chez WebTorrent.
+      client.throttleUpload(uploadLimitMBps > 0 ? uploadLimitMBps * 1024 * 1024 : -1);
+
+      analyzeStartRef.current = Date.now();
+      lastProgressUpdateRef.current = 0;
+      setAnalyzeProgress(0);
+      setAnalyzeEtaSeconds(null);
+      setAnalyzeSpeedBps(0);
+
+      const onProgress = (hashedLength: number, estimatedTorrentLength: number) => {
+        const now = Date.now();
+        if (now - lastProgressUpdateRef.current < PROGRESS_UPDATE_THROTTLE_MS) return;
+        lastProgressUpdateRef.current = now;
+
+        setAnalyzeBytes({ hashed: hashedLength, total: estimatedTorrentLength });
+        setAnalyzeProgress(estimatedTorrentLength > 0 ? hashedLength / estimatedTorrentLength : 0);
+
+        const elapsedSeconds = (now - analyzeStartRef.current) / 1000;
+        if (elapsedSeconds > 1 && hashedLength > 0) {
+          const bytesPerSecond = hashedLength / elapsedSeconds;
+          const remainingBytes = estimatedTorrentLength - hashedLength;
+          setAnalyzeSpeedBps(bytesPerSecond);
+          setAnalyzeEtaSeconds(bytesPerSecond > 0 ? remainingBytes / bytesPerSecond : null);
+        }
+      };
+
+      client.seed(list, { name: defaultTitle, announce, onProgress } as TorrentOptions, async (torrent: Torrent) => {
         torrentRef.current = torrent;
 
-        torrent.on("upload", () => setUploaded(torrent.uploaded));
+        torrent.on("upload", () => {
+          setUploaded(torrent.uploaded);
+          setUploadSpeed(torrent.uploadSpeed);
+        });
         torrent.on("wire", () => setPeers(torrent.numPeers));
 
         setStatus("registering");
@@ -172,13 +214,69 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
             Le fichier reste sur votre appareil : il n&apos;est envoyé sur aucun serveur. Gardez cet onglet
             ouvert tant que vous voulez que d&apos;autres puissent le télécharger.
           </p>
+
+          <div className="pt-1 border-t border-[var(--app-border)]">
+            <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 mb-2">
+              <Gauge className="w-3.5 h-3.5" />
+              Vitesse d&apos;envoi maximale
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {UPLOAD_LIMIT_OPTIONS_MBPS.map((limit) => (
+                <button
+                  key={limit}
+                  type="button"
+                  onClick={() => setUploadLimitMBps(limit)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
+                    uploadLimitMBps === limit
+                      ? "bg-[var(--app-accent,#25D366)] text-white border-transparent"
+                      : "border-[var(--app-border)] bg-[var(--app-surface-raised)] text-neutral-400 hover:bg-[var(--app-surface-soft)]"
+                  }`}
+                >
+                  {limit === 0 ? "Illimité" : `${limit} Mo/s`}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed mt-1.5">
+              Limite ce que ce partage peut utiliser de votre connexion, pour ne pas ralentir le reste de
+              votre réseau pendant que vous seedez.
+            </p>
+          </div>
         </div>
       )}
 
-      {(status === "seeding" || status === "registering") && (
+      {status === "seeding" && (
+        <div className="space-y-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Loader2 className="w-4 h-4 animate-spin text-[var(--app-accent,#25D366)] flex-shrink-0" />
+            <span>Analyse du contenu en cours (calcul des empreintes)...</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-[var(--app-surface-raised)] border border-[var(--app-border)] overflow-hidden">
+            <div
+              className="h-full bg-[var(--app-accent,#25D366)] transition-all duration-200"
+              style={{ width: `${Math.round(analyzeProgress * 100)}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-neutral-400">
+            <span>
+              {Math.round(analyzeProgress * 100)}%
+              {analyzeBytes.total > 0 && ` · ${formatBytes(analyzeBytes.hashed)} / ${formatBytes(analyzeBytes.total)}`}
+            </span>
+            <span className="flex items-center gap-2">
+              {analyzeSpeedBps > 0 && <span>{formatBytes(analyzeSpeedBps)}/s</span>}
+              <span>{analyzeEtaSeconds !== null ? `~${formatDuration(analyzeEtaSeconds)} restantes` : "Calcul en cours..."}</span>
+            </span>
+          </div>
+          <p className="text-[11px] text-neutral-400 leading-relaxed">
+            Cette étape lit une fois l&apos;intégralité du contenu pour vérifier son intégrité — sa durée dépend
+            de la taille totale. Elle ne se reproduit pas pour les personnes qui téléchargent ensuite.
+          </p>
+        </div>
+      )}
+
+      {status === "registering" && (
         <div className="flex items-center gap-3 py-6 justify-center text-sm text-neutral-500">
           <Loader2 className="w-5 h-5 animate-spin text-[var(--app-accent,#25D366)]" />
-          <span>{status === "seeding" ? "Préparation du partage..." : "Enregistrement..."}</span>
+          <span>Enregistrement...</span>
         </div>
       )}
 
@@ -207,7 +305,10 @@ export default function ShareCreatorPanel({ onShareCreated, onClose }: Props) {
           </div>
           <div className="flex items-center justify-between text-[11px] text-neutral-400">
             <span>{peers} pair(s) connecté(s)</span>
-            <span>{formatBytes(uploaded)} envoyés</span>
+            <span>
+              {formatBytes(uploaded)} envoyés
+              {uploadSpeed > 0 && ` · ${formatBytes(uploadSpeed)}/s`}
+            </span>
           </div>
           <div className="text-[11px] text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2.5">
             Gardez cet onglet ouvert : fermer la page arrête immédiatement le partage.

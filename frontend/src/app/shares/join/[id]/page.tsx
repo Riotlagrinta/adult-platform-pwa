@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getFileShare, toPublicUrl, type FileShare } from "@/lib/api";
+import { formatBytes } from "@/lib/format";
 import AuthPanel from "@/components/AuthPanel";
 
 // Voir `shares/page.tsx` : tout ce qui touche à `webtorrent` doit rester hors de la
@@ -18,13 +19,6 @@ const ShareDownloader = dynamic(() => import("./ShareDownloader"), {
     </div>
   ),
 });
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return "0 o";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
-  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
-}
 
 interface PageProps {
   params: Promise<{ id: string }>;

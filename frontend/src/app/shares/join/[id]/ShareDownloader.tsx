@@ -4,19 +4,18 @@ import React, { useEffect, useRef, useState } from "react";
 import { Download, Loader2, Users, Gauge } from "lucide-react";
 import type { FileShare } from "@/lib/api";
 import { getWebTorrentClient, getAnnounceList } from "@/lib/webtorrent-client";
+import { formatBytes, formatDuration } from "@/lib/format";
 import type { Torrent, TorrentOptions } from "webtorrent";
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return "0 o";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
-  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
-}
 
 // Repli quand le streaming direct-disque n'est pas disponible (Safari, Firefox,
 // mobile) : chaque fichier est chargé entièrement en mémoire (Blob) avant d'être
 // proposé au téléchargement — risqué au-delà de cette taille, d'où l'avertissement.
 const LARGE_FILE_WARNING_BYTES = 2 * 1024 * 1024 * 1024; // 2 Go
+
+// Limites de téléchargement proposées (Mo/s) — 0 = illimité. Symétrique au réglage
+// d'envoi côté création de partage, pour ne pas saturer sa propre connexion en
+// téléchargeant depuis quelqu'un d'autre.
+const DOWNLOAD_LIMIT_OPTIONS_MBPS = [0, 1, 2, 5, 10, 25];
 
 // `showDirectoryPicker` (File System Access API) n'a pas de type officiel stable
 // dans toutes les versions de TypeScript — accès via une interface minimale locale
@@ -43,8 +42,10 @@ export default function ShareDownloader({ share, token }: Props) {
   const [progress, setProgress] = useState(0);
   const [peers, setPeers] = useState(0);
   const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
+  const [downloadLimitMBps, setDownloadLimitMBps] = useState(0);
   const torrentRef = useRef<Torrent | null>(null);
   const canStream = supportsStreamingToDisk();
 
@@ -81,6 +82,10 @@ export default function ShareDownloader({ share, token }: Props) {
     try {
       const client = await getWebTorrentClient(token);
       const announce = getAnnounceList(token);
+
+      // Limite globale de téléchargement pour ce client (-1 = illimité chez WebTorrent).
+      client.throttleDownload(downloadLimitMBps > 0 ? downloadLimitMBps * 1024 * 1024 : -1);
+
       const opts: TorrentOptions = rootDir ? ({ announce, rootDir } as TorrentOptions) : ({ announce } as TorrentOptions);
 
       client.add(share.magnetUri, opts, (torrent: Torrent) => {
@@ -91,12 +96,15 @@ export default function ShareDownloader({ share, token }: Props) {
           setProgress(torrent.progress);
           setPeers(torrent.numPeers);
           setDownloadSpeed(torrent.downloadSpeed);
+          const remaining = torrent.timeRemaining;
+          setEtaSeconds(Number.isFinite(remaining) ? remaining / 1000 : null);
         };
         torrent.on("download", onProgress);
         torrent.on("wire", onProgress);
 
         torrent.on("done", async () => {
           setProgress(1);
+          setEtaSeconds(0);
           setStatus("done");
 
           // Avec `rootDir`, WebTorrent écrit déjà les pièces directement sur le
@@ -150,6 +158,30 @@ export default function ShareDownloader({ share, token }: Props) {
               </div>
             )
           )}
+
+          <div>
+            <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 mb-2">
+              <Gauge className="w-3.5 h-3.5" />
+              Vitesse de téléchargement maximale
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {DOWNLOAD_LIMIT_OPTIONS_MBPS.map((limit) => (
+                <button
+                  key={limit}
+                  type="button"
+                  onClick={() => setDownloadLimitMBps(limit)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
+                    downloadLimitMBps === limit
+                      ? "bg-[var(--app-accent,#25D366)] text-white border-transparent"
+                      : "border-[var(--app-border)] bg-[var(--app-surface-raised)] text-neutral-400 hover:bg-[var(--app-surface-soft)]"
+                  }`}
+                >
+                  {limit === 0 ? "Illimité" : `${limit} Mo/s`}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             onClick={handleDownload}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[var(--app-accent,#25D366)] text-white font-bold text-sm hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
@@ -187,6 +219,11 @@ export default function ShareDownloader({ share, token }: Props) {
               </span>
             </span>
           </div>
+          {status === "downloading" && (
+            <div className="text-[11px] text-neutral-400 text-right">
+              {etaSeconds !== null ? `~${formatDuration(etaSeconds)} restantes` : "Estimation en cours..."}
+            </div>
+          )}
         </div>
       )}
 

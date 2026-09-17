@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Share2, Plus, Copy, Check, Square, Loader2, Folder } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { listMyFileShares, stopFileShare, type FileShare } from "@/lib/api";
+import { formatBytes } from "@/lib/format";
 
 // `ShareCreatorPanel` importe (indirectement, via `webtorrent-client.ts`) le paquet
 // `webtorrent`, qui dépend de WebRTC et casse la compilation s'il est atteignable
@@ -17,13 +18,6 @@ const ShareCreatorPanel = dynamic(() => import("./ShareCreatorPanel"), {
     </div>
   ),
 });
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return "0 o";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
-  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** exp).toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
-}
 
 function statusLabel(status: FileShare["status"], lastSeenActiveAt: string | null): { label: string; color: string } {
   if (status === "STOPPED") return { label: "Arrêté", color: "text-neutral-400" };
